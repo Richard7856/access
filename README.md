@@ -38,13 +38,20 @@ python3 -m http.server 8090 --directory web
 
 ## Publicar en Vercel
 
-Al importar este repo en **vercel.com/new**, cambia una sola cosa:
+El repo guarda el fuente (`build.py`, `src/`, el HTML original) además del sitio,
+así que Vercel debe servir **solo `web/`**. De eso se encarga `vercel.json`:
 
-> **Root Directory** → `web`
+```json
+{ "outputDirectory": "web" }
+```
 
-Es lo único: el repo guarda también el fuente (`build.py`, `src/`, el HTML
-original), y Vercel solo debe servir `web/`. Framework Preset queda en *Other*,
-sin build command. De ahí en adelante, cada push redespliega solo.
+No hay build command ni framework: es un sitio estático. Cada push redespliega
+solo.
+
+> **No pongas además _Root Directory_ = `web` en el panel de Vercel.** Si lo
+> haces, Vercel buscaría `vercel.json` dentro de `web/`, no lo encontraría y
+> además interpretaría la ruta como `web/web`. Es una cosa **o** la otra;
+> con este archivo, *Root Directory* se queda en `./`.
 
 ## Dónde viven los datos
 
