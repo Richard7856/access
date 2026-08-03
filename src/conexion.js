@@ -9,8 +9,8 @@
      despacho_publicaciones → una fila por cada "Publicar" (historial)
    ═══════════════════════════════════════════════════════════════ */
 window.DESPACHO_CFG = {
-  url: 'https://yilqentsmibgnzphztxc.supabase.co',
-  key: 'sb_publishable_wor2_sfD-Lmw3b6WUNXGSw_oT2SAoXe',
+  url: '__SUPABASE_URL__',
+  key: '__SUPABASE_KEY__',
 };
 
 (function () {

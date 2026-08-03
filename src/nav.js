@@ -9,6 +9,7 @@
     { url: '/despacho/',     nombre: 'Despacho',     icono: '🚚' },
     { url: '/torre/',        nombre: 'Torre',        icono: '📊' },
     { url: '/clasificador/', nombre: 'Clasificador', icono: '🗂' },
+    { url: '/expedientes/',  nombre: 'Expedientes',  icono: '📁' },
     { url: '/analizador/',   nombre: 'Analizador',   icono: '📈' },
   ];
 

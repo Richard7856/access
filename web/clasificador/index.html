@@ -493,6 +493,8 @@
     </div>
     <div class="toolsel" id="toolSel">
       <button data-tool="rendimiento" class="active">📊 Rendimiento</button>
+      <button data-tool="asignacion">🎯 Asignación de leads</button>
+      <button data-tool="semanal" title="Requiere contraseña">📈 Reporte semanal 🔒</button>
     </div>
     <div class="spacer"></div>
     <button class="ghost" id="btnSaved" title="Los datos se guardan solos en este navegador">Guardado local</button>
@@ -503,8 +505,14 @@
   <!-- ============ TABS ============ -->
   <div class="tabs" id="tabs">
     <button data-tab="import" class="active">Importar <span class="b" id="tabCountImport">0</span></button>
+    <button data-tab="board">Tablero <span class="b" id="tabCountBoard">0</span></button>
+    <button data-tab="seguimiento" class="tool-rend-only">Seguimiento <span class="b" id="tabCountSeg">0</span></button>
+    <button data-tab="estatus" class="tool-rend-only">Estatus <span class="b" id="tabCountEst">0</span></button>
     <button data-tab="activos" class="tool-rend-only">Activos <span class="b" id="tabCountAct">0</span></button>
+    <button data-tab="reassign" class="tool-asig-only">Reasignar</button>
     <button data-tab="report" class="tool-rend-only">Reporte</button>
+    <button data-tab="valida" class="tool-rend-only">Validación <span class="b" id="tabCountValida">0</span></button>
+    <button data-tab="weekly" class="tool-sem-only">Reporte semanal</button>
   </div>
 
   <!-- ================= VISTA: IMPORTAR ================= -->
@@ -1970,7 +1978,7 @@ function load(){
     state.estatus = d.estatus||[]; state.estatusSync = d.estatusSync||0;
     state.altasFilter = d.altasFilter||{mode:'all', weeks:[], from:'', to:'', month:'', days:[]};
     state.baseEmpleados = d.baseEmpleados||[]; state.baseEmpleadosSync = d.baseEmpleadosSync||0; state.bajas = d.bajas||{};
-    state.urgFuzzy = d.urgFuzzy!==false; state.tool = 'rendimiento'; state.fuente = d.fuente||'';
+    state.urgFuzzy = d.urgFuzzy!==false; state.tool = d.tool||'rendimiento'; state.fuente = d.fuente||'';
     syncPool();
     idSeq = d.idSeq || ((state.pools.rendimiento.length+state.pools.asignacion.length)+2);
   }catch(e){}
@@ -3054,7 +3062,6 @@ function renderReport(){
    Al agregar un movimiento nuevo: súmalo al inicio de APP_MOVIMIENTOS.
    ========================================================================== */
 var APP_MOVIMIENTOS=[
-  {v:34, fecha:'31/07/2026', que:'Se ocultaron las secciones Asignación de leads, Reporte semanal, Tablero, Seguimiento, Estatus y Validación; quedan Importar, Activos y Reporte'},
   {v:33, fecha:'31/07/2026', que:'El reporte ejecutivo incluye anexo de detalle: cada alta una por una (fecha, día, reclutador, candidato, campaña) agrupada por semana'},
   {v:32, fecha:'31/07/2026', que:'El reporte ejecutivo PPTX respeta el filtro del reporte (mes/semanas/rango/días): la presentación es exactamente de las altas que estás viendo, con el periodo real'},
   {v:31, fecha:'29/07/2026', que:'Reporte ejecutivo de altas (PPTX) para dirección: 11 diapositivas con resumen ejecutivo, tendencia semanal, quincenas, ranking, campañas, tiendas, matriz reclutador×campaña, días y conclusiones'},
@@ -5018,7 +5025,7 @@ function switchTab(tab){
 }
 
 /* Pestañas que pertenecen a cada herramienta. */
-var TOOL_TABS={ rendimiento:['import','activos','report'], asignacion:['import'], semanal:['report'] };
+var TOOL_TABS={ rendimiento:['import','board','seguimiento','estatus','activos','report','valida'], asignacion:['import','board','reassign'], semanal:['weekly'] };
 /* Texto del paso 1 según la herramienta (Rendimiento = carrito por reclutador; Asignación = base única). */
 function updateImportCopy(){
   var t=document.getElementById('impTitle'), l=document.getElementById('impLead');
@@ -5409,6 +5416,7 @@ document.getElementById('aiKey').value = ai.key;
 setAiStatus(ai.key?('✓ Lectura por imagen lista · '+ai.model):'Falta la API key — pégala aquí o en el código (AI_KEY_HARDCODED)', ai.key?'ok':'err');
 applyTool();
 </script>
+<script src="/sync-clasificador.js"></script>
 <script src="/nav.js"></script>
 </body>
 </html>

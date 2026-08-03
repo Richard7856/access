@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor de Expedientes e Ingreso de Candidatos</title>
+
+<!-- Tipografías -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Tailwind CSS (CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#12141A',
+          surface: '#181B22',
+          surface2: '#1F2330',
+          border: '#2A2E3A',
+          dim: '#9CA0AC',
+          accent: '#E8B23D',
+          teal: '#4FD1C5',
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+
+<!-- pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- JSZip -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  body {
+    background-color: #12141A;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0);
+    background-size: 28px 28px;
+  }
+  ::selection { background: rgba(232,178,61,0.35); }
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 999px;
+    background: #2A2E3A;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #E8B23D;
+    cursor: pointer;
+    border: 2px solid #12141A;
+    box-shadow: 0 0 0 1px rgba(232,178,61,0.4);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #E8B23D;
+    cursor: pointer;
+    border: 2px solid #12141A;
+  }
+  .focus-ring:focus-visible { outline: 2px solid #E8B23D; outline-offset: 2px; }
+  .spin-slow { animation: spin 1.1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fade-in { animation: fadeIn 0.3s ease both; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+  #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 70; display:flex; flex-direction:column; gap:8px; }
+  .tab-pill { scroll-snap-align: start; }
+  .tabs-scroll::-webkit-scrollbar { height: 6px; }
+  .tabs-scroll::-webkit-scrollbar-thumb { background: #2A2E3A; border-radius: 999px; }
+  .checker-bg {
+    background-image: linear-gradient(45deg, #0e1015 25%, transparent 25%), linear-gradient(-45deg, #0e1015 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #0e1015 75%), linear-gradient(-45deg, transparent 75%, #0e1015 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color: #060708;
+  }
+  textarea::-webkit-scrollbar { width: 6px; }
+  textarea::-webkit-scrollbar-thumb { background: #2A2E3A; border-radius: 999px; }
+</style>
+</head>
+
+<body class="bg-ink text-[#EDEDEF] font-sans min-h-screen">
+
+<!-- ===================== HEADER ===================== -->
+<header class="border-b border-white/5 sticky top-0 z-30 bg-ink/85 backdrop-blur">
+  <div class="max-w-[1400px] mx-auto px-5 sm:px-8 py-4 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" class="text-accent shrink-0">
+        <rect x="6" y="4" width="18" height="24" rx="2" stroke="currentColor" stroke-width="2"/>
+        <path d="M11 11h8M11 15.5h8M11 20h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="24" cy="24" r="5.5" fill="#12141A" stroke="currentColor" stroke-width="2"/>
+        <path d="M22.3 24l1.3 1.3 2.3-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="min-w-0">
+        <h1 class="font-display text-base sm:text-lg font-semibold tracking-tight leading-none truncate">Gestor de Expedientes</h1>
+        <p class="text-[11px] font-mono text-dim mt-1">Ingreso y verificación de candidatos</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" class="hidden">
+      <button id="load-excel-btn" class="text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-accent/60 hover:text-accent transition-colors focus-ring flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 4v12M12 16l-4-4M12 16l4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 18v1a2 2 0 002 2h12a2 2 0 002-2v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span class="hidden sm:inline">Cargar Excel</span>
+      </button>
+      <button id="add-candidate-btn-header" class="text-xs font-mono px-3 py-2 rounded-md bg-accent text-ink font-semibold hover:brightness-110 transition focus-ring flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <span class="hidden sm:inline">Agregar Candidato</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== BARRA DE PESTAÑAS ===================== -->
+<div id="tabs-bar" class="hidden border-b border-white/5 bg-ink/60 sticky top-[65px] z-20">
+  <div class="max-w-[1400px] mx-auto px-5 sm:px-8 py-2 flex items-center gap-2">
+    <div id="tabs-list" class="tabs-scroll flex items-center gap-2 overflow-x-auto scroll-smooth py-1" style="scroll-snap-type:x proximity;"></div>
+    <button id="add-candidate-btn-tab" title="Agregar candidato" class="shrink-0 w-8 h-8 rounded-lg border border-dashed border-white/15 hover:border-accent/60 hover:text-accent text-dim transition-colors flex items-center justify-center focus-ring">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ===================== ESTADO VACÍO ===================== -->
+<section id="empty-state" class="max-w-2xl mx-auto px-5 sm:px-8 py-20 sm:py-28 text-center">
+  <div class="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mx-auto mb-5">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="text-accent"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+  </div>
+  <h2 class="font-display text-2xl sm:text-3xl font-semibold tracking-tight">Aún no hay candidatos</h2>
+  <p class="mt-3 text-dim">Importa un reporte de Excel para crear pestañas automáticamente, o agrega un candidato de forma manual.</p>
+  <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+    <button class="load-excel-trigger bg-accent text-ink font-semibold text-sm rounded-lg px-5 py-2.5 hover:brightness-110 transition focus-ring">Cargar Excel (.xlsx / .csv)</button>
+    <button class="add-candidate-trigger border border-white/15 text-sm rounded-lg px-5 py-2.5 hover:border-accent/60 hover:text-accent transition focus-ring">+ Agregar Candidato</button>
+  </div>
+</section>
+
+<!-- ===================== OVERLAY DE PROGRESO ===================== -->
+<div id="progress-overlay" class="hidden fixed inset-0 z-[80] bg-ink/92 backdrop-blur-sm flex items-center justify-center px-6">
+  <div class="text-center w-full max-w-xs">
+    <svg class="spin-slow mx-auto text-accent" width="34" height="34" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <p id="progress-label" class="mt-4 font-mono text-sm text-dim">Procesando…</p>
+    <div class="mt-3 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+      <div id="progress-bar" class="h-full bg-accent transition-all duration-200" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ESPACIO DE TRABAJO DEL CANDIDATO ===================== -->
+<main id="candidate-workspace" class="hidden max-w-[1400px] mx-auto px-5 sm:px-8 py-8 space-y-8">
+
+  <!-- DATOS PERSONALES -->
+  <section class="rounded-xl border border-white/10 bg-surface p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display text-sm font-semibold flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent"></span> Datos personales
+      </h3>
+      <button id="remove-candidate-btn" class="text-[11px] font-mono text-dim hover:text-red-400 transition-colors flex items-center gap-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Eliminar candidato
+      </button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Nombre</label>
+        <input id="f-nombre" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring" placeholder="Nombre completo">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Proyecto</label>
+        <input id="f-proyecto" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring" placeholder="Proyecto asignado">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">CURP</label>
+        <input id="f-curp" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm font-mono focus-ring" placeholder="CURP">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">NSS</label>
+        <input id="f-nss" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm font-mono focus-ring" placeholder="Número de Seguro Social">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Número / Teléfono</label>
+        <input id="f-numero" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm font-mono focus-ring" placeholder="10 dígitos">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Correo</label>
+        <input id="f-correo" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring" placeholder="correo@ejemplo.com">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Vehículo</label>
+        <input id="f-vehiculo" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring" placeholder="Tipo / modelo">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Placas</label>
+        <input id="f-placas" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm font-mono focus-ring" placeholder="Placas">
+      </div>
+      <div>
+        <label class="text-[11px] font-mono text-dim block mb-1">Dirección</label>
+        <input id="f-direccion" type="text" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring" placeholder="Domicilio completo">
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCUMENTOS -->
+  <section class="rounded-xl border border-white/10 bg-surface p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h3 class="font-display text-sm font-semibold flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-teal"></span> Documentos del expediente
+        <span id="doc-progress-label" class="text-dim font-mono text-xs font-normal">0 / 14</span>
+      </h3>
+      <button id="download-expediente-btn" class="text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-teal/60 hover:text-teal transition-colors focus-ring flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Descargar expediente (.zip)
+      </button>
+    </div>
+
+    <!-- Ajustes de calidad por defecto para nuevas cargas -->
+    <div class="rounded-lg border border-white/10 bg-surface2 p-4 mb-5">
+      <p class="text-[11px] font-mono text-dim mb-3">Ajustes por defecto para nuevas cargas · cada documento puede ajustarse individualmente después</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <div class="flex justify-between text-[11px] font-mono mb-1"><span>Brillo</span><span id="g-brightness-val" class="text-accent">0</span></div>
+          <input type="range" id="g-brightness" min="-100" max="100" value="0" class="w-full focus-ring">
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] font-mono mb-1"><span>Contraste</span><span id="g-contrast-val" class="text-accent">0</span></div>
+          <input type="range" id="g-contrast" min="-100" max="100" value="0" class="w-full focus-ring">
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] font-mono mb-1"><span>Nitidez</span><span id="g-sharpness-val" class="text-accent">25</span></div>
+          <input type="range" id="g-sharpness" min="0" max="100" value="25" class="w-full focus-ring">
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] font-mono mb-1"><span>Escala</span><span id="g-scale-val" class="text-accent">3.0x</span></div>
+          <input type="range" id="g-scale" min="1.5" max="5" step="0.5" value="3" class="w-full focus-ring">
+        </div>
+      </div>
+    </div>
+
+    <div id="documents-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+  </section>
+
+  <!-- SPEECHES -->
+  <section class="rounded-xl border border-white/10 bg-surface p-5">
+    <h3 class="font-display text-sm font-semibold flex items-center gap-2 mb-4">
+      <span class="w-1.5 h-1.5 rounded-full bg-accent"></span> Speeches de envío
+    </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="rounded-lg border border-white/10 bg-surface2 p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-medium text-dim font-mono">Speech 1 · Revisión y firma</p>
+        </div>
+        <textarea id="speech1-text" readonly rows="7" class="w-full bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm font-mono resize-none focus-ring"></textarea>
+        <div class="flex gap-2 mt-3">
+          <button id="speech1-copy" class="flex-1 text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-accent/60 hover:text-accent transition-colors focus-ring">Copiar al portapapeles</button>
+          <button id="speech1-download" class="flex-1 text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-teal/60 hover:text-teal transition-colors focus-ring">Descargar .txt</button>
+        </div>
+      </div>
+      <div class="rounded-lg border border-white/10 bg-surface2 p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-medium text-dim font-mono">Speech 2 · Onboarding</p>
+        </div>
+        <textarea id="speech2-text" readonly rows="7" class="w-full bg-black/30 border border-white/10 rounded-md px-3 py-2 text-sm font-mono resize-none focus-ring"></textarea>
+        <div class="flex gap-2 mt-3">
+          <button id="speech2-copy" class="flex-1 text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-accent/60 hover:text-accent transition-colors focus-ring">Copiar al portapapeles</button>
+          <button id="speech2-download" class="flex-1 text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-teal/60 hover:text-teal transition-colors focus-ring">Descargar .txt</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== MODAL VISOR / EDITOR DE DOCUMENTO ===================== -->
+<div id="doc-modal" class="hidden fixed inset-0 z-[75] bg-ink/90 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-surface border border-white/10 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto fade-in">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-surface z-10">
+      <div class="min-w-0">
+        <h4 id="doc-modal-title" class="font-display text-sm font-semibold truncate">Documento</h4>
+        <p id="doc-modal-filename" class="text-[11px] font-mono text-dim truncate"></p>
+      </div>
+      <button id="doc-modal-close" class="w-8 h-8 rounded-md border border-white/10 hover:border-accent/60 hover:text-accent transition-colors flex items-center justify-center focus-ring shrink-0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-0">
+      <div class="checker-bg flex items-center justify-center p-5 min-h-[320px]">
+        <canvas id="doc-modal-preview" class="max-w-full max-h-[55vh] object-contain rounded-md shadow-lg"></canvas>
+      </div>
+
+      <div class="p-5 space-y-5 border-t md:border-t-0 md:border-l border-white/10">
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1.5"><span>Brillo</span><span id="m-brightness-val" class="text-accent">0</span></div>
+            <input type="range" id="m-brightness" min="-100" max="100" value="0" class="w-full focus-ring">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1.5"><span>Contraste</span><span id="m-contrast-val" class="text-accent">0</span></div>
+            <input type="range" id="m-contrast" min="-100" max="100" value="0" class="w-full focus-ring">
+          </div>
+          <div>
+            <div class="flex justify-between text-xs font-mono mb-1.5"><span>Nitidez</span><span id="m-sharpness-val" class="text-accent">25</span></div>
+            <input type="range" id="m-sharpness" min="0" max="100" value="25" class="w-full focus-ring">
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-white/10">
+          <label class="text-[11px] font-mono text-dim block">Formato de descarga</label>
+          <select id="m-format" class="w-full bg-surface2 border border-white/10 rounded-md px-3 py-2 text-sm focus-ring">
+            <option value="png" selected>PNG (sin pérdida)</option>
+            <option value="jpeg">JPG (comprimido)</option>
+          </select>
+          <div id="m-jpg-quality-wrap" class="hidden">
+            <div class="flex justify-between text-xs font-mono mb-1.5 mt-2"><span>Calidad JPG</span><span id="m-jpg-quality-val" class="text-accent">92%</span></div>
+            <input type="range" id="m-jpg-quality" min="50" max="100" value="92" class="w-full focus-ring">
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2 border-t border-white/10">
+          <input type="file" id="m-replace-input" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
+          <button id="m-replace-btn" class="w-full text-xs font-mono px-3 py-2 rounded-md border border-white/10 hover:border-accent/60 hover:text-accent transition-colors focus-ring">Reemplazar archivo</button>
+          <button id="m-download-btn" class="w-full bg-accent text-ink font-semibold text-sm rounded-md py-2.5 hover:brightness-110 transition focus-ring">Descargar</button>
+          <button id="m-remove-btn" class="w-full text-xs font-mono px-3 py-2 rounded-md border border-white/10 text-dim hover:border-red-400/50 hover:text-red-400 transition-colors focus-ring">Quitar documento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<footer class="max-w-[1400px] mx-auto px-5 sm:px-8 py-10 mt-6 border-t border-white/5">
+  <p class="text-[11px] font-mono text-dim/70 text-center">
+    Procesamiento local en el navegador · pdf.js + SheetJS + Canvas API · sin subida de archivos a servidores
+  </p>
+</footer>
+
+<script>
+// =====================================================================
+// CONFIGURACIÓN DE pdf.js
+// =====================================================================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// =====================================================================
+// CATEGORÍAS DE DOCUMENTOS (14 EXACTAS)
+// =====================================================================
+const DOCUMENT_CATEGORIES = [
+  { key: 'selfie', label: 'Selfie / Foto' },
+  { key: 'ine_frente', label: 'INE Frente' },
+  { key: 'ine_reverso', label: 'INE Reverso' },
+  { key: 'licencia_frente', label: 'Licencia Frente' },
+  { key: 'licencia_reverso', label: 'Licencia Reverso' },
+  { key: 'tarjeta_circulacion_frente', label: 'Tarjeta Circulación Frente' },
+  { key: 'tarjeta_circulacion_reverso', label: 'Tarjeta Circulación Reverso' },
+  { key: 'poliza_seguro', label: 'Póliza de Seguro' },
+  { key: 'comprobante_domicilio', label: 'Comprobante de Domicilio' },
+  { key: 'acta_nacimiento', label: 'Acta de Nacimiento' },
+  { key: 'nss_doc', label: 'NSS' },
+  { key: 'curp_doc', label: 'CURP' },
+  { key: 'constancia_fiscal', label: 'Constancia Situación Fiscal' },
+  { key: 'estado_cuenta', label: 'Estado de Cuenta Bancario' },
+];
+
+// =====================================================================
+// MAPEO FLEXIBLE DE ENCABEZADOS DE EXCEL
+// =====================================================================
+const FIELD_SYNONYMS = {
+  nombre:    ['nombre', 'nombrecompleto', 'candidato', 'nombrecandidato', 'nombredelcandidato'],
+  proyecto:  ['proyecto', 'proyectoasignado', 'campana', 'campania', 'campaign'],
+  curp:      ['curp'],
+  nss:       ['nss', 'numeroseguridadsocial', 'numeroseguresocial', 'seguridadsocial', 'numeroseguro'],
+  numero:    ['numero', 'telefono', 'celular', 'numerotelefono', 'numerocelular', 'tel', 'movil'],
+  correo:    ['correo', 'email', 'correoelectronico', 'mail', 'correoe'],
+  vehiculo:  ['vehiculo', 'tipovehiculo', 'tipodevehiculo', 'automovil'],
+  placas:    ['placas', 'placa', 'numeroplacas', 'numplacas'],
+  direccion: ['direccion', 'domicilio', 'direcciondomicilio', 'domicilioparticular'],
+};
+
+function normalizeHeader(str) {
+  return String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function mapRowToCandidateData(row) {
+  const normalizedRow = {};
+  Object.keys(row).forEach(k => { normalizedRow[normalizeHeader(k)] = row[k]; });
+  const data = {};
+  for (const field in FIELD_SYNONYMS) {
+    for (const syn of FIELD_SYNONYMS[field]) {
+      if (normalizedRow[syn] !== undefined && String(normalizedRow[syn]).trim() !== '') {
+        data[field] = String(normalizedRow[syn]).trim();
+        break;
+      }
+    }
+  }
+  return data;
+}
+
+// =====================================================================
+// FÁBRICA DE CANDIDATOS
+// =====================================================================
+function createCandidate(overrides = {}) {
+  const documentos = {};
+  DOCUMENT_CATEGORIES.forEach(cat => {
+    documentos[cat.key] = {
+      status: 'pendiente',
+      fileName: null,
+      sourceType: null,
+      originalData: null,
+      canvas: null,
+      width: 0,
+      height: 0,
+      settings: { brightness: 0, contrast: 0, sharpness: 25 },
+    };
+  });
+  return Object.assign({
+    id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    nombre: '', proyecto: '', curp: '', nss: '', numero: '', correo: '', vehiculo: '', placas: '', direccion: '',
+    documentos,
+  }, overrides);
+}
+
+// =====================================================================
+// ESTADO GLOBAL
+// =====================================================================
+const state = {
+  candidates: [],
+  activeCandidateId: null,
+  globalSettings: { brightness: 0, contrast: 0, sharpness: 25, scale: 3 },
+  modalContext: null, // { candidateId, categoryKey }
+};
+
+// =====================================================================
+// REFERENCIAS DOM
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+const emptyState = $('empty-state');
+const tabsBar = $('tabs-bar');
+const tabsList = $('tabs-list');
+const workspace = $('candidate-workspace');
+const documentsGrid = $('documents-grid');
+const progressOverlay = $('progress-overlay');
+const progressBar = $('progress-bar');
+const progressLabel = $('progress-label');
+
+// =====================================================================
+// TOASTS
+// =====================================================================
+function showToast(message, type = 'info') {
+  const colors = { info: 'border-white/15', error: 'border-red-400/50 text-red-300', success: 'border-teal/50 text-teal' };
+  const el = document.createElement('div');
+  el.className = `fade-in bg-surface2 border ${colors[type] || colors.info} rounded-lg px-4 py-3 text-sm font-mono shadow-lg max-w-xs`;
+  el.textContent = message;
+  $('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 4000);
+}
+
+function showProgress(visible, label = '', pct = 0) {
+  progressOverlay.classList.toggle('hidden', !visible);
+  if (visible) { progressLabel.textContent = label; progressBar.style.width = pct + '%'; }
+}
+
+function slugify(str) {
+  return String(str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'sin-nombre';
+}
+
+function getActiveCandidate() {
+  return state.candidates.find(c => c.id === state.activeCandidateId) || null;
+}
+
+// =====================================================================
+// PROCESAMIENTO DE IMAGEN: BRILLO / CONTRASTE / NITIDEZ (UNSHARP MASK)
+// =====================================================================
+function clampByte(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+function applyBrightnessContrast(data, brightness, contrast) {
+  const b = brightness * 2.55;
+  const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+  for (let i = 0; i < data.length; i += 4) {
+    data[i]     = clampByte(factor * (data[i]     + b - 128) + 128);
+    data[i + 1] = clampByte(factor * (data[i + 1] + b - 128) + 128);
+    data[i + 2] = clampByte(factor * (data[i + 2] + b - 128) + 128);
+  }
+}
+
+function sharpenImageData(imageData, amount0to100) {
+  if (amount0to100 <= 0) return imageData;
+  const k = amount0to100 / 100;
+  const w = imageData.width, h = imageData.height;
+  const src = imageData.data;
+  const out = new Uint8ClampedArray(src.length);
+  const stride = w * 4;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * stride + x * 4;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+        out[i] = src[i]; out[i+1] = src[i+1]; out[i+2] = src[i+2]; out[i+3] = src[i+3];
+        continue;
+      }
+      const iUp = i - stride, iDown = i + stride, iLeft = i - 4, iRight = i + 4;
+      for (let ch = 0; ch < 3; ch++) {
+        const val = src[i+ch] * (1 + 4*k) - k * (src[iUp+ch] + src[iDown+ch] + src[iLeft+ch] + src[iRight+ch]);
+        out[i+ch] = clampByte(val);
+      }
+      out[i+3] = src[i+3];
+    }
+  }
+  return new ImageData(out, w, h);
+}
+
+function reprocessDocument(doc) {
+  if (!doc.originalData) return;
+  const clone = new Uint8ClampedArray(doc.originalData.data);
+  applyBrightnessContrast(clone, doc.settings.brightness, doc.settings.contrast);
+  let imgData = new ImageData(clone, doc.width, doc.height);
+  imgData = sharpenImageData(imgData, doc.settings.sharpness);
+  if (!doc.canvas) { doc.canvas = document.createElement('canvas'); doc.canvas.width = doc.width; doc.canvas.height = doc.height; }
+  doc.canvas.getContext('2d').putImageData(imgData, 0, 0);
+}
+
+// Limita la dimensión máxima resultante para evitar canvases gigantes que
+// puedan agotar la memoria del navegador (fotos de celular ya son grandes).
+function computeSafeScale(baseW, baseH, desiredScale) {
+  const MAX_DIM = 6000;
+  let scale = desiredScale;
+  if (Math.max(baseW, baseH) * scale > MAX_DIM) {
+    scale = MAX_DIM / Math.max(baseW, baseH);
+  }
+  return Math.max(scale, 0.1);
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+}
+
+// =====================================================================
+// CARGA DE UN DOCUMENTO (PDF o IMAGEN) A UNA CATEGORÍA DE UN CANDIDATO
+// =====================================================================
+async function loadFileIntoDocument(candidate, categoryKey, file) {
+  const doc = candidate.documentos[categoryKey];
+  showProgress(true, 'Renderizando documento en alta resolución…', 20);
+  try {
+    let originalData, width, height, sourceType;
+
+    if (isPdfFile(file)) {
+      sourceType = 'pdf';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = computeSafeScale(baseViewport.width, baseViewport.height, state.globalSettings.scale);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      originalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      width = canvas.width; height = canvas.height;
+    } else {
+      sourceType = 'image';
+      const img = await loadImageFromFile(file);
+      const scale = computeSafeScale(img.naturalWidth, img.naturalHeight, state.globalSettings.scale);
+      width = Math.round(img.naturalWidth * scale);
+      height = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+      originalData = ctx.getImageData(0, 0, width, height);
+    }
+
+    doc.originalData = originalData;
+    doc.width = width;
+    doc.height = height;
+    doc.fileName = file.name;
+    doc.sourceType = sourceType;
+    doc.status = 'cargado';
+    doc.settings = {
+      brightness: state.globalSettings.brightness,
+      contrast: state.globalSettings.contrast,
+      sharpness: state.globalSettings.sharpness,
+    };
+    doc.canvas = document.createElement('canvas');
+    doc.canvas.width = width; doc.canvas.height = height;
+    reprocessDocument(doc);
+
+    showProgress(false);
+    renderDocumentsGrid(candidate);
+    openDocModal(candidate.id, categoryKey);
+  } catch (err) {
+    console.error(err);
+    showProgress(false);
+    showToast('No se pudo procesar el archivo. Verifica que sea un PDF o imagen válida.', 'error');
+  }
+}
+
+// =====================================================================
+// RENDER: BARRA DE PESTAÑAS
+// =====================================================================
+function renderTabs() {
+  const hasCandidates = state.candidates.length > 0;
+  tabsBar.classList.toggle('hidden', !hasCandidates);
+  emptyState.classList.toggle('hidden', hasCandidates);
+  workspace.classList.toggle('hidden', !hasCandidates || !state.activeCandidateId);
+
+  tabsList.innerHTML = '';
+  state.candidates.forEach(c => {
+    const isActive = c.id === state.activeCandidateId;
+    const pill = document.createElement('div');
+    pill.className = `tab-pill shrink-0 flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg border cursor-pointer transition-colors ${isActive ? 'border-accent/60 bg-accent/10 text-accent' : 'border-white/10 hover:border-white/25 text-dim hover:text-[#EDEDEF]'}`;
+    pill.innerHTML = `
+      <span class="text-xs font-medium max-w-[140px] truncate">${escapeHtml(c.nombre || 'Sin nombre')}</span>
+      <button class="tab-close-btn w-4 h-4 rounded-full hover:bg-white/10 flex items-center justify-center text-[10px] shrink-0" title="Eliminar candidato">✕</button>
+    `;
+    pill.addEventListener('click', (e) => {
+      if (e.target.closest('.tab-close-btn')) return;
+      setActiveCandidate(c.id);
+    });
+    pill.querySelector('.tab-close-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeCandidate(c.id);
+    });
+    tabsList.appendChild(pill);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// =====================================================================
+// GESTIÓN DE CANDIDATOS
+// =====================================================================
+function addCandidate(overrides = {}) {
+  const candidate = createCandidate(overrides);
+  state.candidates.push(candidate);
+  state.activeCandidateId = candidate.id;
+  renderTabs();
+  renderCandidateWorkspace();
+  return candidate;
+}
+
+function removeCandidate(id) {
+  const candidate = state.candidates.find(c => c.id === id);
+  if (!candidate) return;
+  const ok = confirm(`¿Eliminar al candidato "${candidate.nombre || 'Sin nombre'}"? Esta acción no se puede deshacer.`);
+  if (!ok) return;
+  state.candidates = state.candidates.filter(c => c.id !== id);
+  if (state.activeCandidateId === id) {
+    state.activeCandidateId = state.candidates.length ? state.candidates[0].id : null;
+  }
+  renderTabs();
+  renderCandidateWorkspace();
+}
+
+function setActiveCandidate(id) {
+  state.activeCandidateId = id;
+  renderTabs();
+  renderCandidateWorkspace();
+}
+
+// =====================================================================
+// RENDER: PANEL DEL CANDIDATO ACTIVO (DATOS + DOCUMENTOS + SPEECHES)
+// =====================================================================
+const personalFieldIds = ['nombre', 'proyecto', 'curp', 'nss', 'numero', 'correo', 'vehiculo', 'placas', 'direccion'];
+
+function renderCandidateWorkspace() {
+  const candidate = getActiveCandidate();
+  workspace.classList.toggle('hidden', !candidate);
+  if (!candidate) return;
+
+  personalFieldIds.forEach(field => {
+    const input = $('f-' + field);
+    input.value = candidate[field] || '';
+  });
+
+  renderDocumentsGrid(candidate);
+  updateSpeeches();
+}
+
+personalFieldIds.forEach(field => {
+  $('f-' + field).addEventListener('input', (e) => {
+    const candidate = getActiveCandidate();
+    if (!candidate) return;
+    candidate[field] = e.target.value;
+    if (field === 'nombre') renderTabs();
+    updateSpeeches();
+  });
+});
+
+$('remove-candidate-btn').addEventListener('click', () => {
+  const candidate = getActiveCandidate();
+  if (candidate) removeCandidate(candidate.id);
+});
+
+// =====================================================================
+// RENDER: GRID DE 14 DOCUMENTOS
+// =====================================================================
+function renderDocumentsGrid(candidate) {
+  documentsGrid.innerHTML = '';
+  let loadedCount = 0;
+
+  DOCUMENT_CATEGORIES.forEach(cat => {
+    const doc = candidate.documentos[cat.key];
+    if (doc.status === 'cargado') loadedCount++;
+
+    const card = document.createElement('div');
+    card.className = 'rounded-lg border border-white/10 bg-surface2 p-3 flex flex-col gap-2 fade-in';
+
+    const badgeClasses = doc.status === 'cargado'
+      ? 'border-teal/50 text-teal'
+      : 'border-white/15 text-dim';
+    const badgeText = doc.status === 'cargado' ? 'Cargado' : 'Pendiente';
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-[11px] font-medium leading-tight">${cat.label}</p>
+        <span class="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded-full border ${badgeClasses}">${badgeText}</span>
+      </div>
+      <div class="doc-thumb aspect-[4/3] rounded-md bg-black/30 border border-white/5 flex items-center justify-center overflow-hidden cursor-pointer">
+        ${doc.status === 'cargado' ? '<canvas class="thumb-canvas max-w-full max-h-full"></canvas>' : `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="text-white/15"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`}
+      </div>
+      <button class="doc-action-btn w-full text-[11px] font-mono px-2 py-1.5 rounded-md border ${doc.status === 'cargado' ? 'border-white/10 hover:border-teal/60 hover:text-teal' : 'border-white/10 hover:border-accent/60 hover:text-accent'} transition-colors">
+        ${doc.status === 'cargado' ? 'Ver / Editar' : 'Subir'}
+      </button>
+      <input type="file" class="doc-file-input hidden" accept=".pdf,.png,.jpg,.jpeg">
+    `;
+
+    const thumb = card.querySelector('.doc-thumb');
+    const actionBtn = card.querySelector('.doc-action-btn');
+    const fileInput = card.querySelector('.doc-file-input');
+
+    if (doc.status === 'cargado') {
+      const thumbCanvas = card.querySelector('.thumb-canvas');
+      const thumbW = 260;
+      const thumbH = Math.round(thumbW * (doc.height / doc.width));
+      thumbCanvas.width = thumbW; thumbCanvas.height = thumbH;
+      thumbCanvas.getContext('2d').drawImage(doc.canvas, 0, 0, thumbW, thumbH);
+    }
+
+    const openHandler = () => {
+      if (doc.status === 'cargado') {
+        openDocModal(candidate.id, cat.key);
+      } else {
+        fileInput.click();
+      }
+    };
+    thumb.addEventListener('click', openHandler);
+    actionBtn.addEventListener('click', openHandler);
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) loadFileIntoDocument(candidate, cat.key, file);
+      fileInput.value = '';
+    });
+
+    documentsGrid.appendChild(card);
+  });
+
+  $('doc-progress-label').textContent = `${loadedCount} / ${DOCUMENT_CATEGORIES.length}`;
+}
+
+// =====================================================================
+// AJUSTES POR DEFECTO (GLOBALES PARA NUEVAS CARGAS)
+// =====================================================================
+$('g-brightness').addEventListener('input', (e) => { state.globalSettings.brightness = parseInt(e.target.value); $('g-brightness-val').textContent = e.target.value; });
+$('g-contrast').addEventListener('input', (e) => { state.globalSettings.contrast = parseInt(e.target.value); $('g-contrast-val').textContent = e.target.value; });
+$('g-sharpness').addEventListener('input', (e) => { state.globalSettings.sharpness = parseInt(e.target.value); $('g-sharpness-val').textContent = e.target.value; });
+$('g-scale').addEventListener('input', (e) => { state.globalSettings.scale = parseFloat(e.target.value); $('g-scale-val').textContent = parseFloat(e.target.value).toFixed(1) + 'x'; });
+
+// =====================================================================
+// MODAL VISOR / EDITOR DE DOCUMENTO
+// =====================================================================
+const docModal = $('doc-modal');
+const docModalPreview = $('doc-modal-preview');
+let modalDebounce = null;
+
+function getModalDoc() {
+  if (!state.modalContext) return null;
+  const candidate = state.candidates.find(c => c.id === state.modalContext.candidateId);
+  if (!candidate) return null;
+  return { candidate, doc: candidate.documentos[state.modalContext.categoryKey], category: DOCUMENT_CATEGORIES.find(c => c.key === state.modalContext.categoryKey) };
+}
+
+function openDocModal(candidateId, categoryKey) {
+  state.modalContext = { candidateId, categoryKey };
+  const ctx = getModalDoc();
+  if (!ctx || !ctx.doc.canvas) return;
+
+  $('doc-modal-title').textContent = ctx.category.label;
+  $('doc-modal-filename').textContent = ctx.doc.fileName ? `${ctx.doc.fileName} · ${ctx.doc.width}×${ctx.doc.height}px` : '';
+
+  $('m-brightness').value = ctx.doc.settings.brightness; $('m-brightness-val').textContent = ctx.doc.settings.brightness;
+  $('m-contrast').value = ctx.doc.settings.contrast; $('m-contrast-val').textContent = ctx.doc.settings.contrast;
+  $('m-sharpness').value = ctx.doc.settings.sharpness; $('m-sharpness-val').textContent = ctx.doc.settings.sharpness;
+
+  drawModalPreview(ctx.doc);
+  docModal.classList.remove('hidden');
+}
+
+function drawModalPreview(doc) {
+  const maxW = 760;
+  const scale = Math.min(1, maxW / doc.width);
+  docModalPreview.width = Math.round(doc.width * scale);
+  docModalPreview.height = Math.round(doc.height * scale);
+  docModalPreview.getContext('2d').drawImage(doc.canvas, 0, 0, docModalPreview.width, docModalPreview.height);
+}
+
+function closeDocModal() {
+  docModal.classList.add('hidden');
+  const ctx = getModalDoc();
+  if (ctx) renderDocumentsGrid(ctx.candidate);
+  state.modalContext = null;
+}
+
+$('doc-modal-close').addEventListener('click', closeDocModal);
+docModal.addEventListener('click', (e) => { if (e.target === docModal) closeDocModal(); });
+
+function scheduleModalReprocess() {
+  clearTimeout(modalDebounce);
+  modalDebounce = setTimeout(() => {
+    const ctx = getModalDoc();
+    if (!ctx) return;
+    reprocessDocument(ctx.doc);
+    drawModalPreview(ctx.doc);
+  }, 200);
+}
+
+$('m-brightness').addEventListener('input', (e) => {
+  const ctx = getModalDoc(); if (!ctx) return;
+  ctx.doc.settings.brightness = parseInt(e.target.value); $('m-brightness-val').textContent = e.target.value;
+  scheduleModalReprocess();
+});
+$('m-contrast').addEventListener('input', (e) => {
+  const ctx = getModalDoc(); if (!ctx) return;
+  ctx.doc.settings.contrast = parseInt(e.target.value); $('m-contrast-val').textContent = e.target.value;
+  scheduleModalReprocess();
+});
+$('m-sharpness').addEventListener('input', (e) => {
+  const ctx = getModalDoc(); if (!ctx) return;
+  ctx.doc.settings.sharpness = parseInt(e.target.value); $('m-sharpness-val').textContent = e.target.value;
+  scheduleModalReprocess();
+});
+
+$('m-format').addEventListener('change', (e) => {
+  $('m-jpg-quality-wrap').classList.toggle('hidden', e.target.value !== 'jpeg');
+});
+$('m-jpg-quality').addEventListener('input', (e) => {
+  $('m-jpg-quality-val').textContent = e.target.value + '%';
+});
+
+$('m-replace-btn').addEventListener('click', () => $('m-replace-input').click());
+$('m-replace-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const ctx = getModalDoc();
+  if (file && ctx) loadFileIntoDocument(ctx.candidate, state.modalContext.categoryKey, file);
+  e.target.value = '';
+});
+
+$('m-remove-btn').addEventListener('click', () => {
+  const ctx = getModalDoc();
+  if (!ctx) return;
+  const ok = confirm('¿Quitar este documento? Deberás volver a subirlo.');
+  if (!ok) return;
+  const cat = ctx.category;
+  ctx.candidate.documentos[cat.key] = {
+    status: 'pendiente', fileName: null, sourceType: null, originalData: null, canvas: null,
+    width: 0, height: 0, settings: { brightness: 0, contrast: 0, sharpness: 25 },
+  };
+  closeDocModal();
+});
+
+function canvasToBlob(canvas, format, quality) {
+  return new Promise((resolve) => {
+    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    canvas.toBlob((blob) => resolve(blob), mime, format === 'jpeg' ? quality : undefined);
+  });
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+$('m-download-btn').addEventListener('click', async () => {
+  const ctx = getModalDoc();
+  if (!ctx) return;
+  const format = $('m-format').value;
+  const quality = parseInt($('m-jpg-quality').value) / 100;
+  const blob = await canvasToBlob(ctx.doc.canvas, format, quality);
+  const ext = format === 'jpeg' ? 'jpg' : 'png';
+  const filename = `${slugify(ctx.candidate.nombre)}-${slugify(ctx.category.label)}.${ext}`;
+  triggerDownload(blob, filename);
+});
+
+// =====================================================================
+// DESCARGA DE EXPEDIENTE COMPLETO (.ZIP)
+// =====================================================================
+$('download-expediente-btn').addEventListener('click', async () => {
+  const candidate = getActiveCandidate();
+  if (!candidate) return;
+  const loadedDocs = DOCUMENT_CATEGORIES.filter(cat => candidate.documentos[cat.key].status === 'cargado');
+  if (loadedDocs.length === 0) {
+    showToast('Este candidato aún no tiene documentos cargados.', 'error');
+    return;
+  }
+  showProgress(true, 'Generando expediente en ZIP…', 0);
+  try {
+    const zip = new JSZip();
+    for (let i = 0; i < loadedDocs.length; i++) {
+      const cat = loadedDocs[i];
+      const doc = candidate.documentos[cat.key];
+      progressLabel.textContent = `Comprimiendo ${cat.label}…`;
+      progressBar.style.width = `${Math.round((i / loadedDocs.length) * 100)}%`;
+      const blob = await canvasToBlob(doc.canvas, 'png');
+      zip.file(`${slugify(cat.label)}.png`, blob);
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }, (metadata) => {
+      progressBar.style.width = `${Math.round(metadata.percent)}%`;
+    });
+    triggerDownload(zipBlob, `expediente-${slugify(candidate.nombre)}.zip`);
+    showProgress(false);
+    showToast('Expediente descargado correctamente.', 'success');
+  } catch (err) {
+    console.error(err);
+    showProgress(false);
+    showToast('Ocurrió un error al generar el ZIP.', 'error');
+  }
+});
+
+// =====================================================================
+// SPEECHES DE ENVÍO (AUTO-COMPLETADO EN TIEMPO REAL)
+// =====================================================================
+function buildSpeech1(c) {
+  return `@Rh Jaky Access⁩⁩ Me apoyas con revisión de documento, firma de contrato y credencial porfi🙏 
+NOMBRE: ${c.nombre || ''}
+PROYECTO: ${c.proyecto || ''}
+CURP: ${c.curp || ''}
+NSS: ${c.nss || ''}`;
+}
+
+function buildSpeech2(c) {
+  return `Hola me apoyas con onboarding
+NOMBRE: ${c.nombre || ''}
+NÚMERO: ${c.numero || ''}
+CORREO: ${c.correo || ''}
+PROYECTO: ${c.proyecto || ''}
+VEHÍCULO: ${c.vehiculo || ''}
+PLACAS: ${c.placas || ''}
+DIRECCIÓN: ${c.direccion || ''}
+NSS: ${c.nss || ''}`;
+}
+
+function updateSpeeches() {
+  const candidate = getActiveCandidate();
+  if (!candidate) return;
+  $('speech1-text').value = buildSpeech1(candidate);
+  $('speech2-text').value = buildSpeech2(candidate);
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Speech copiado al portapapeles.', 'success');
+  } catch (err) {
+    showToast('No se pudo copiar automáticamente. Selecciona el texto manualmente.', 'error');
+  }
+}
+
+function downloadTextFile(text, filename) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  triggerDownload(blob, filename);
+}
+
+$('speech1-copy').addEventListener('click', () => copyToClipboard($('speech1-text').value));
+$('speech2-copy').addEventListener('click', () => copyToClipboard($('speech2-text').value));
+$('speech1-download').addEventListener('click', () => {
+  const candidate = getActiveCandidate();
+  downloadTextFile($('speech1-text').value, `speech1-${slugify(candidate ? candidate.nombre : 'candidato')}.txt`);
+});
+$('speech2-download').addEventListener('click', () => {
+  const candidate = getActiveCandidate();
+  downloadTextFile($('speech2-text').value, `speech2-${slugify(candidate ? candidate.nombre : 'candidato')}.txt`);
+});
+
+// =====================================================================
+// IMPORTACIÓN DE EXCEL (.xlsx / .xls / .csv) — ACUMULATIVA, NUNCA REEMPLAZA
+// =====================================================================
+async function importExcelFile(file) {
+  showProgress(true, 'Leyendo archivo de Excel…', 20);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+    const firstSheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[firstSheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    let imported = 0;
+    let skipped = 0;
+    let firstNewCandidate = null;
+
+    rows.forEach(row => {
+      const mapped = mapRowToCandidateData(row);
+      if (!mapped.nombre) { skipped++; return; }
+      const candidate = createCandidate(mapped);
+      state.candidates.push(candidate);
+      if (!firstNewCandidate) firstNewCandidate = candidate;
+      imported++;
+    });
+
+    showProgress(false);
+
+    if (imported === 0) {
+      showToast('No se encontraron filas con un nombre reconocible en el Excel.', 'error');
+      return;
+    }
+
+    if (firstNewCandidate) state.activeCandidateId = firstNewCandidate.id;
+    renderTabs();
+    renderCandidateWorkspace();
+
+    const skippedMsg = skipped > 0 ? ` (${skipped} fila(s) omitida(s) sin nombre)` : '';
+    showToast(`${imported} candidato(s) importado(s) correctamente${skippedMsg}.`, 'success');
+  } catch (err) {
+    console.error(err);
+    showProgress(false);
+    showToast('No se pudo leer el archivo. Verifica que sea un Excel o CSV válido.', 'error');
+  }
+}
+
+// =====================================================================
+// LISTENERS GLOBALES: CARGA DE EXCEL Y ALTA MANUAL DE CANDIDATOS
+// =====================================================================
+const excelInput = $('excel-input');
+function triggerExcelInput() { excelInput.click(); }
+
+$('load-excel-btn').addEventListener('click', triggerExcelInput);
+document.querySelectorAll('.load-excel-trigger').forEach(btn => btn.addEventListener('click', triggerExcelInput));
+
+excelInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) importExcelFile(file);
+  e.target.value = '';
+});
+
+function handleAddCandidateManually() {
+  addCandidate();
+  showToast('Candidato agregado. Completa sus datos personales.', 'success');
+}
+$('add-candidate-btn-header').addEventListener('click', handleAddCandidateManually);
+$('add-candidate-btn-tab').addEventListener('click', handleAddCandidateManually);
+document.querySelectorAll('.add-candidate-trigger').forEach(btn => btn.addEventListener('click', handleAddCandidateManually));
+
+// =====================================================================
+// ESTADO INICIAL
+// =====================================================================
+renderTabs();
+</script>
+</body>
+</html>

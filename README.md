@@ -9,12 +9,38 @@ sin PHP, sin instalación.
 | `/despacho` | tiendas del día, cercanía y speech de cierre | **compartidos** (Supabase) |
 | `/despacho/actualizar` | subir el Excel del día · **con clave** | escribe los compartidos |
 | `/torre` | leads por día/semana/mes, embudo, estatus | tu archivo, en tu navegador |
-| `/clasificador` | reportes del equipo, pipeline, altas | tu navegador (localStorage) |
+| `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
+| `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
 
-**Solo el despacho es compartido.** Las otras tres trabajan con el archivo que
-sube cada quien y no se sincronizan entre personas: si dos las abren, ven cosas
-distintas. Es como venían; hacerlas compartidas sería otro trabajo.
+**Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
+solo él. Ahí puede tener sentido — son herramientas de análisis personal.
+
+**El Gestor de Expedientes no guarda nada**, ni siquiera en el navegador: no usa
+localStorage ni IndexedDB, todo vive en memoria (`const state = {}`). Si recargas
+o cierras la pestaña a media captura, se pierde el trabajo y los documentos
+adjuntos. Hacerlo persistente es más caro que el resto porque además de datos
+maneja **archivos** (PDF e imágenes), que irían a Supabase Storage.
+
+## Cómo se comparte el Clasificador
+
+La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
+`load()` + `refreshAll()`. `sync-clasificador.js` se engancha ahí **sin tocar su
+lógica**:
+
+- **al abrir** → baja el estado del equipo y lo carga
+- **al guardar** → lo publica 1.5 s después (para no mandar uno por tecla)
+- **cada 20 s** → si alguien más guardó, lo trae y repinta
+
+Si no hay internet sigue funcionando en local y avisa. La clave de IA
+(`clasificador_ai`) **no se comparte**: es de cada quien.
+
+> **Aviso de choque:** si dos personas editan a la vez, antes de publicar se
+> comprueba si el otro ya guardó. Si sí, **no se pisa**: sale un aviso rojo
+> pidiendo recargar. Es una protección, no una fusión — el estado se guarda
+> entero, así que dos personas trabajando al mismo tiempo se estorban. Para
+> turnarse va bien; para edición simultánea de verdad haría falta partir el
+> estado por reclutador.
 
 ## Estructura
 

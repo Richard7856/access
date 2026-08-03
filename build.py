@@ -31,10 +31,25 @@ WEB = RAIZ / "web"
 # barra de navegación. Se buscan por prefijo para que el número de versión
 # del archivo no importe.
 OTRAS = [
-    ("dashboard",        "torre",        "Torre de Reclutamiento"),
-    ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento"),
-    ("Analizador_Leads", "analizador",   "Analizador de Leads"),
+    # (prefijo del archivo, carpeta destino, nombre, scripts extra)
+    ("dashboard",          "torre",        "Torre de Reclutamiento",       []),
+    ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento",
+     ["/sync-clasificador.js"]),
+    ("index",              "expedientes",  "Gestor de Expedientes",        []),
+    ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
 ]
+
+# Proyecto de Supabase (mascotas). La clave es la publicable: es normal que
+# sea visible, lo que protege son las políticas RLS. Se inyecta en los JS
+# que la necesitan para no tenerla escrita en dos lados.
+SUPABASE = {
+    "url": "https://yilqentsmibgnzphztxc.supabase.co",
+    "key": "sb_publishable_wor2_sfD-Lmw3b6WUNXGSw_oT2SAoXe",
+}
+
+
+def con_supabase(texto):
+    return texto.replace("__SUPABASE_URL__", SUPABASE["url"]).replace("__SUPABASE_KEY__", SUPABASE["key"])
 
 # Las infografías y los videos ya no viajan dentro del HTML: viven en el
 # bucket público de Supabase (ver recursos/ y el README). Eso baja la
@@ -88,10 +103,29 @@ CREDENCIALES = re.compile(
 )
 
 
-def sin_credenciales(texto, etiqueta):
-    """Vacía claves escritas en el código y aborta si queda alguna."""
-    limpio = re.sub(r"'" + CREDENCIALES.pattern + r"'", "''", texto)
-    limpio = re.sub(r'"' + CREDENCIALES.pattern + r'"', '""', limpio)
+def sin_credenciales(texto, etiqueta, archivo=None):
+    """Vacía claves escritas en el código y aborta si queda alguna.
+
+    Si se pasa `archivo`, también lo limpia en disco. Hace falta: dejar la
+    clave en sitios/ bloquea cada push (GitHub la detecta) y la regala a
+    quien reciba el archivo. La app no la necesita — cada quien pone la
+    suya en su navegador.
+    """
+    hallazgos = {m.group(0)[:16] for m in CREDENCIALES.finditer(texto)}
+    # El (?:…) es imprescindible: el patrón lleva alternancias con |, y sin
+    # agrupar, la comilla de apertura se pega solo a la primera alternativa y
+    # la de cierre solo a la última. El resultado era 'clave' → ''' — un error
+    # de sintaxis que tumbaba el script entero de la app.
+    limpio = re.sub(r"'(?:" + CREDENCIALES.pattern + r")'", "''", texto)
+    limpio = re.sub(r'"(?:' + CREDENCIALES.pattern + r')"', '""', limpio)
+    if hallazgos:
+        print(f"\n  ⚠  {etiqueta} TRAÍA UNA CREDENCIAL ESCRITA EN EL CÓDIGO")
+        for h in sorted(hallazgos):
+            print(f"     {h}…")
+        if archivo is not None:
+            archivo.write_text(limpio, encoding="utf-8")
+            print(f"     Se quitó del archivo original ({archivo.name}) y de lo publicado.")
+        print("     REVÓCALA: estuvo en un archivo que pudo compartirse.\n")
     resto = CREDENCIALES.search(limpio)
     if resto:
         morir(f"«{etiqueta}» todavía tiene algo que parece una credencial "
@@ -100,13 +134,17 @@ def sin_credenciales(texto, etiqueta):
     return limpio
 
 
-def con_barra(texto, etiqueta):
-    """Inyecta la barra de navegación compartida antes de </body>."""
-    if "/nav.js" in texto:
-        return texto
+def con_scripts(texto, etiqueta, rutas):
+    """Inyecta scripts antes de </body>, después del código de la app."""
     if texto.count("</body>") != 1:
         morir(f"«{etiqueta}»: esperaba un solo </body> y encontré {texto.count('</body>')}")
-    return texto.replace("</body>", '<script src="/nav.js"></script>\n</body>')
+    tags = "".join(f'<script src="{r}"></script>\n' for r in rutas if r not in texto)
+    return texto.replace("</body>", tags + "</body>") if tags else texto
+
+
+def con_barra(texto, etiqueta, extra=()):
+    """La barra de navegación, más lo que necesite cada herramienta."""
+    return con_scripts(texto, etiqueta, list(extra) + ["/nav.js"])
 
 # ══════════════════════════════════════════════════════════════════
 # 1 · despacho-datos.js — lógica compartida con /actualizar
@@ -352,7 +390,8 @@ html = html[:i] + (
 # ══════════════════════════════════════════════════════════════════
 # 3 · Archivos escritos a mano
 # ══════════════════════════════════════════════════════════════════
-shutil.copy(SRC / "conexion.js", DESPACHO / "conexion.js")
+(DESPACHO / "conexion.js").write_text(
+    con_supabase((SRC / "conexion.js").read_text(encoding="utf-8")), encoding="utf-8")
 (DESPACHO / "actualizar" / "index.html").write_text(
     con_barra((SRC / "actualizar.html").read_text(encoding="utf-8"), "actualizar"), encoding="utf-8")
 
@@ -360,6 +399,8 @@ shutil.copy(SRC / "conexion.js", DESPACHO / "conexion.js")
 (WEB / "index.html").write_text(
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
+(WEB / "sync-clasificador.js").write_text(
+    con_supabase((SRC / "sync-clasificador.js").read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
 print(f"✔ web/despacho/index.html             {len(html)/1024:.0f} KB")
@@ -370,7 +411,7 @@ print("✔ web/despacho/actualizar/index.html")
 # ══════════════════════════════════════════════════════════════════
 # 4 · Las otras tres herramientas (sitios/) — se copian con la barra
 # ══════════════════════════════════════════════════════════════════
-for prefijo, destino, nombre in OTRAS:
+for prefijo, destino, nombre, extra in OTRAS:
     encontrados = sorted(SITIOS.glob(f"{prefijo}*.html")) if SITIOS.is_dir() else []
     if not encontrados:
         morir(f"No encontré ningún archivo «{prefijo}*.html» en sitios/ para «{nombre}»")
@@ -380,7 +421,7 @@ for prefijo, destino, nombre in OTRAS:
               + ". Deja solo la que quieras publicar.")
     fuente = encontrados[0]
     (WEB / destino).mkdir(parents=True, exist_ok=True)
-    contenido = sin_credenciales(fuente.read_text(encoding="utf-8"), fuente.name)
-    contenido = con_barra(contenido, fuente.name)
+    contenido = sin_credenciales(fuente.read_text(encoding="utf-8"), fuente.name, fuente)
+    contenido = con_barra(contenido, fuente.name, extra)
     (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")
     print(f"✔ web/{destino}/index.html".ljust(38) + f"{len(contenido)/1024:.0f} KB  ← {fuente.name}")
