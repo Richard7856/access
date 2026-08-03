@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Genera la carpeta web/ que se sube a Vercel, a partir del HTML original
-que produce Claude (despacho_choferes_con_cierre_6.html) y de src/.
+Genera la carpeta web/ que se sube a Vercel.
+
+Entradas:
+  despacho_choferes_con_cierre_6.html   la app de despacho (se transforma)
+  sitios/*.html                          las otras tres herramientas (se copian)
+  src/                                   lo que se escribe a mano
 
     python3 build.py
 
-Si algún día vuelves a exportar el HTML desde Claude, reemplaza el archivo
-original y vuelve a ejecutar esto. Si el HTML cambió tanto que ya no
-encuentro alguna parte, el script se detiene y te dice cuál, en lugar de
-generar algo roto.
+Las de sitios/ se toman por prefijo de nombre, así que puedes dejar caer
+"dashboard_4_6.html" encima de "dashboard_4_5.html" y sigue funcionando.
+Si el HTML del despacho cambió tanto que ya no encuentro alguna parte, el
+script se detiene y te dice cuál, en lugar de generar algo roto.
 """
 import json
 import re
@@ -20,7 +24,17 @@ from pathlib import Path
 RAIZ = Path(__file__).parent
 ORIGEN = RAIZ / "despacho_choferes_con_cierre_6.html"
 SRC = RAIZ / "src"
+SITIOS = RAIZ / "sitios"
 WEB = RAIZ / "web"
+
+# Las otras tres herramientas: se copian tal cual, solo se les inyecta la
+# barra de navegación. Se buscan por prefijo para que el número de versión
+# del archivo no importe.
+OTRAS = [
+    ("dashboard",        "torre",        "Torre de Reclutamiento"),
+    ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento"),
+    ("Analizador_Leads", "analizador",   "Analizador de Leads"),
+]
 
 # Las infografías y los videos ya no viajan dentro del HTML: viven en el
 # bucket público de Supabase (ver recursos/ y el README). Eso baja la
@@ -58,7 +72,41 @@ if not ORIGEN.exists():
 html = ORIGEN.read_text(encoding="utf-8")
 if WEB.exists():
     shutil.rmtree(WEB)
-(WEB / "actualizar").mkdir(parents=True)
+DESPACHO = WEB / "despacho"
+(DESPACHO / "actualizar").mkdir(parents=True)
+
+
+# Cualquier cosa con esta pinta NO puede acabar en un sitio público: quien
+# abra el código fuente se la lleva. El Clasificador traía una clave de
+# Anthropic escrita en el HTML (var AI_KEY_HARDCODED).
+CREDENCIALES = re.compile(
+    r"sk-ant-[A-Za-z0-9_-]{20,}"          # Anthropic
+    r"|sk-[A-Za-z0-9]{32,}"               # OpenAI y parecidas
+    r"|ghp_[A-Za-z0-9]{30,}"              # GitHub
+    r"|AIza[A-Za-z0-9_-]{30,}"            # Google
+    r"|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{40,}"  # JWT (service_role de Supabase)
+)
+
+
+def sin_credenciales(texto, etiqueta):
+    """Vacía claves escritas en el código y aborta si queda alguna."""
+    limpio = re.sub(r"'" + CREDENCIALES.pattern + r"'", "''", texto)
+    limpio = re.sub(r'"' + CREDENCIALES.pattern + r'"', '""', limpio)
+    resto = CREDENCIALES.search(limpio)
+    if resto:
+        morir(f"«{etiqueta}» todavía tiene algo que parece una credencial "
+              f"({resto.group(0)[:12]}…) y este sitio es público. "
+              f"Quítala del archivo antes de publicar.")
+    return limpio
+
+
+def con_barra(texto, etiqueta):
+    """Inyecta la barra de navegación compartida antes de </body>."""
+    if "/nav.js" in texto:
+        return texto
+    if texto.count("</body>") != 1:
+        morir(f"«{etiqueta}»: esperaba un solo </body> y encontré {texto.count('</body>')}")
+    return texto.replace("</body>", '<script src="/nav.js"></script>\n</body>')
 
 # ══════════════════════════════════════════════════════════════════
 # 1 · despacho-datos.js — lógica compartida con /actualizar
@@ -145,7 +193,7 @@ async function ubicarPendientes(tiendas, avisar){{
   }};
 }}
 """
-(WEB / "despacho-datos.js").write_text(datos_js, encoding="utf-8")
+(DESPACHO / "despacho-datos.js").write_text(datos_js, encoding="utf-8")
 
 # ══════════════════════════════════════════════════════════════════
 # 2 · index.html — la app que ve el equipo
@@ -299,15 +347,40 @@ html = html[:i] + (
     'esas mismas tiendas alimentan el <b>speech de cierre de contratación</b> (sección 2).</p>'
 ) + html[j:]
 
-(WEB / "index.html").write_text(html, encoding="utf-8")
+(DESPACHO / "index.html").write_text(con_barra(html, "despacho"), encoding="utf-8")
 
 # ══════════════════════════════════════════════════════════════════
 # 3 · Archivos escritos a mano
 # ══════════════════════════════════════════════════════════════════
-shutil.copy(SRC / "conexion.js", WEB / "conexion.js")
-shutil.copy(SRC / "actualizar.html", WEB / "actualizar" / "index.html")
+shutil.copy(SRC / "conexion.js", DESPACHO / "conexion.js")
+(DESPACHO / "actualizar" / "index.html").write_text(
+    con_barra((SRC / "actualizar.html").read_text(encoding="utf-8"), "actualizar"), encoding="utf-8")
 
-print(f"✔ web/index.html            {len(html)/1048576:.2f} MB")
-print(f"✔ web/despacho-datos.js     {len(datos_js)/1024:.1f} KB")
-print("✔ web/conexion.js")
-print("✔ web/actualizar/index.html")
+# Portada y barra compartida
+(WEB / "index.html").write_text(
+    con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
+shutil.copy(SRC / "nav.js", WEB / "nav.js")
+
+print(f"✔ web/index.html                      portada")
+print(f"✔ web/despacho/index.html             {len(html)/1024:.0f} KB")
+print(f"✔ web/despacho/despacho-datos.js      {len(datos_js)/1024:.1f} KB")
+print("✔ web/despacho/conexion.js")
+print("✔ web/despacho/actualizar/index.html")
+
+# ══════════════════════════════════════════════════════════════════
+# 4 · Las otras tres herramientas (sitios/) — se copian con la barra
+# ══════════════════════════════════════════════════════════════════
+for prefijo, destino, nombre in OTRAS:
+    encontrados = sorted(SITIOS.glob(f"{prefijo}*.html")) if SITIOS.is_dir() else []
+    if not encontrados:
+        morir(f"No encontré ningún archivo «{prefijo}*.html» en sitios/ para «{nombre}»")
+    if len(encontrados) > 1:
+        morir(f"Hay {len(encontrados)} versiones de «{nombre}» en sitios/: "
+              + ", ".join(f.name for f in encontrados)
+              + ". Deja solo la que quieras publicar.")
+    fuente = encontrados[0]
+    (WEB / destino).mkdir(parents=True, exist_ok=True)
+    contenido = sin_credenciales(fuente.read_text(encoding="utf-8"), fuente.name)
+    contenido = con_barra(contenido, fuente.name)
+    (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")
+    print(f"✔ web/{destino}/index.html".ljust(38) + f"{len(contenido)/1024:.0f} KB  ← {fuente.name}")

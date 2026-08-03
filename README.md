@@ -1,28 +1,48 @@
-# Despacho de Choferes
+# Herramientas de reclutamiento · AccessPack
 
-Sitio estático + Supabase. Sin servidor propio, sin PHP, sin instalación.
+Cuatro herramientas en un solo sitio. Estático + Supabase: sin servidor propio,
+sin PHP, sin instalación.
 
-| Dirección | Para quién | Qué hace |
+| Dirección | Qué hace | Datos |
 |---|---|---|
-| `/` | todo el equipo, sin clave | consulta el despacho del día |
-| `/actualizar` | tú, con clave | subes el Excel y se actualiza para todos |
+| `/` | portada con las cuatro | — |
+| `/despacho` | tiendas del día, cercanía y speech de cierre | **compartidos** (Supabase) |
+| `/despacho/actualizar` | subir el Excel del día · **con clave** | escribe los compartidos |
+| `/torre` | leads por día/semana/mes, embudo, estatus | tu archivo, en tu navegador |
+| `/clasificador` | reportes del equipo, pipeline, altas | tu navegador (localStorage) |
+| `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
+
+**Solo el despacho es compartido.** Las otras tres trabajan con el archivo que
+sube cada quien y no se sincronizan entre personas: si dos las abren, ven cosas
+distintas. Es como venían; hacerlas compartidas sería otro trabajo.
 
 ## Estructura
 
 ```
-web/                      ← esto es lo que se sube a Vercel (156 KB)
-├── index.html            la app que ve el equipo
-├── conexion.js           habla con Supabase
-├── despacho-datos.js     lee el Excel y ubica las tiendas
-└── actualizar/index.html la página con clave
+web/                            ← esto es lo que sirve Vercel
+├── index.html                  portada
+├── nav.js                      barra de navegación compartida
+├── despacho/
+│   ├── index.html              la app que ve el equipo
+│   ├── conexion.js             habla con Supabase
+│   ├── despacho-datos.js       lee el Excel y ubica las tiendas
+│   └── actualizar/index.html   la página con clave
+├── torre/index.html
+├── clasificador/index.html
+└── analizador/index.html
 
-src/                      ← lo que edito a mano
-├── conexion.js
-└── actualizar.html
-
-build.py                  genera web/ desde el HTML original + src/
+sitios/                   ← las otras tres, tal como salen de Claude
+src/                      ← lo que edito a mano (nav, portada, conexión…)
+build.py                  genera web/ desde el HTML original + sitios/ + src/
 recursos/                 las 16 infografías y 2 videos ya subidos a Supabase
 ```
+
+`sitios/` se lee **por prefijo de nombre**: puedes dejar caer
+`dashboard_4_6.html` junto al `_4_5` y el build te avisa que hay dos versiones,
+en lugar de elegir una en silencio. Borra la vieja y listo.
+
+La barra de navegación se inyecta sola en las cinco páginas (`nav.js`), así que
+no hay que tocar el HTML de cada herramienta cuando cambie.
 
 Para regenerar `web/`:
 
