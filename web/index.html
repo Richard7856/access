@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Despacho de Choferes · Tiendas del día + Cierre de Contratación</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#131B26; --ink-2:#4A5568; --paper:#ECEFF3; --card:#FFFFFF;
+  --line:#D4DAE2; --ruta:#1D5BD6; --ruta-osc:#123F9C;
+  --alta:#D6402E; --media:#E39B0D; --baja:#2F8F5B;
+  --ok:#1F7A4D; --ok-bg:#E7F4EC; --no:#B3261E; --no-bg:#FBEAE8;
+  --mono:'IBM Plex Mono',monospace; --disp:'Barlow Condensed',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:0 14px 60px}
+
+/* ── Tablón de salidas (header) ── */
+header{background:var(--ink);color:#fff;padding:18px 0 16px;border-bottom:4px solid var(--ruta)}
+header .wrap{padding-bottom:0}
+.hd-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,5vw,40px);letter-spacing:.5px;text-transform:uppercase}
+.hd-date{font-family:var(--mono);font-size:13px;color:#AEB9C9}
+.tarifa-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{font-family:var(--mono);font-size:12.5px;padding:5px 10px;border-radius:4px;background:#1F2A3A;border:1px solid #33415A;color:#DDE5F0}
+.chip b{color:#fff}
+.chip.hoy{background:var(--ruta);border-color:var(--ruta);color:#fff}
+
+/* ── Secciones ── */
+section{margin-top:26px}
+.sec-tt{font-family:var(--disp);font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sec-tt::after{content:"";flex:1;height:2px;background:var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+.hint{font-size:13px;color:var(--ink-2)}
+
+/* ── Botones ── */
+.btn{font-family:'Inter';font-weight:600;font-size:14px;border:none;border-radius:6px;padding:9px 14px;cursor:pointer;background:var(--ruta);color:#fff;transition:background .15s}
+.btn:hover{background:var(--ruta-osc)}
+.btn:focus-visible{outline:3px solid #9db9f5;outline-offset:1px}
+.btn.sec{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.sec:hover{background:#F0F2F5}
+.btn.mini{padding:4px 9px;font-size:12.5px}
+.btn.rojo{background:var(--no)}
+.btn.rojo:hover{background:#8f1d17}
+input[type=file]{display:none}
+
+/* ── Buscador ── */
+.buscador{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.buscador input{flex:1;min-width:220px;padding:10px 12px;border:1.5px solid var(--line);border-radius:6px;font-size:15px;font-family:'Inter'}
+.buscador input:focus{outline:2px solid var(--ruta);border-color:var(--ruta)}
+#msgBusqueda{margin-top:8px;font-size:13.5px}
+#msgBusqueda.err{color:var(--no)}
+#msgBusqueda.ok{color:var(--ok)}
+
+/* ── Mapa ── */
+#map{height:440px;border-radius:8px;border:1px solid var(--line);margin-top:12px;z-index:0}
+.leaflet-popup-content{font-family:'Inter';font-size:13.5px;line-height:1.45}
+.pop-tt{font-family:var(--disp);font-size:17px;font-weight:700;text-transform:uppercase}
+.pop-esq{font-family:var(--mono);font-size:12px}
+
+/* ── Resultados ── */
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:760px){.res-grid{grid-template-columns:1fr}}
+.res-col h3{font-family:var(--disp);font-size:18px;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-radius:6px 6px 0 0}
+.res-col.si h3{background:var(--ok-bg);color:var(--ok);border:1px solid #BFDECC;border-bottom:none}
+.res-col.no h3{background:var(--no-bg);color:var(--no);border:1px solid #EBC2BE;border-bottom:none}
+.res-list{border:1px solid var(--line);border-radius:0 0 6px 6px;background:#fff}
+.res-item{padding:10px 12px;border-bottom:1px solid #EDF0F4;display:flex;flex-direction:column;gap:2px}
+.res-item:last-child{border-bottom:none}
+.res-item .nm{font-weight:600}
+.res-item .dt{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.res-item .rz{font-size:12.5px}
+.res-col.si .rz{color:var(--ok)}
+.res-col.no .rz{color:var(--no)}
+.rank{display:inline-block;font-family:var(--mono);font-size:11px;background:var(--ink);color:#fff;border-radius:3px;padding:1px 6px;margin-right:6px}
+
+/* ── Banderines de urgencia ── */
+.flag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 8px 2px 6px;color:#fff;clip-path:polygon(0 0,100% 0,calc(100% - 7px) 50%,100% 100%,0 100%);border-radius:2px 0 0 2px}
+.flag.Alta{background:var(--alta)} .flag.Media{background:var(--media)} .flag.Baja{background:var(--baja)}
+
+/* ── Tabla / manifiesto ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:820px}
+th{font-family:var(--disp);font-size:15px;letter-spacing:.5px;text-transform:uppercase;text-align:left;background:var(--ink);color:#fff;padding:9px 10px}
+td{padding:7px 10px;border-bottom:1px solid #EDF0F4;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+td input,td select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:13.5px;font-family:'Inter';background:#fff}
+td input:focus,td select:focus{outline:2px solid var(--ruta)}
+td.num input{font-family:var(--mono);width:64px;text-align:center}
+td .coords{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap}
+td .coords.falta{color:var(--no)}
+.pago-lbl{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap}
+.tbl-acciones{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+#modoUbicar{display:none;margin-top:10px;padding:10px 12px;border-radius:6px;background:#FFF6DE;border:1px solid #EAD08A;font-size:13.5px}
+
+/* ── Esquemas ── */
+.esq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.esq-grid{grid-template-columns:1fr}}
+.esq-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}
+.esq-card h4{font-family:var(--disp);font-size:18px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;border-bottom:2px solid var(--ruta);display:inline-block;padding-bottom:2px}
+.esq-card table{min-width:0;border:none}
+.esq-card th{font-size:13px;padding:6px 8px}
+.esq-card td{font-size:13.5px;padding:6px 8px}
+.esq-card .mono{font-family:var(--mono);white-space:nowrap}
+.nota{font-size:12.5px;color:var(--ink-2);margin-top:8px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ── Unicornio de agradecimiento 🦄🌈 ── */
+.unicornio-vuelo{position:fixed;left:-260px;bottom:34%;z-index:99999;pointer-events:none;
+  display:flex;align-items:center;animation:uniVolar 5.5s linear forwards;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+/* estela de arcoíris: solo se ve mientras entra y cuando se va */
+.uni-arcoiris{height:16px;width:170px;margin-right:-30px;border-radius:12px;opacity:0;
+  background:linear-gradient(180deg,#ff5252 0 16%,#ffb142 16% 33%,#ffe14d 33% 50%,#4cd137 50% 67%,#3498db 67% 84%,#8e44ad 84% 100%);
+  animation:uniEstela 5.5s linear forwards}
+.uni-svg{animation:uniGalope .4s ease-in-out infinite alternate}
+.uni-svg .pata{transform-origin:top center}
+.uni-svg .p1,.uni-svg .p2{animation:uniPata .4s ease-in-out infinite alternate}
+.uni-svg .p3,.uni-svg .p4{animation:uniPata .4s ease-in-out infinite alternate-reverse}
+.uni-svg .uni-colapelo{transform-origin:70px 140px;animation:uniColita .6s ease-in-out infinite alternate}
+.uni-gracias{position:absolute;top:-52px;right:-40px;background:#fff;border:2px solid #8e44ad;color:#4a3566;
+  font-weight:700;font-size:15px;padding:6px 14px;border-radius:16px;white-space:nowrap;opacity:0;
+  animation:uniGraciasPop 5.5s linear forwards;box-shadow:0 4px 10px rgba(0,0,0,.15)}
+.uni-gracias::after{content:'';position:absolute;bottom:-9px;right:60px;border:9px solid transparent;border-top-color:#8e44ad}
+/* 0-22%: entra hasta el centro · 22-62%: se detiene 2s a saludar · 62-100%: se va volando */
+@keyframes uniVolar{
+  0%{left:-260px;bottom:34%}
+  22%{left:calc(50% - 110px);bottom:36%}
+  62%{left:calc(50% - 110px);bottom:36%}
+  100%{left:112%;bottom:62%}}
+@keyframes uniEstela{0%{opacity:.95}22%{opacity:.95}30%{opacity:0}60%{opacity:0}68%{opacity:.95}100%{opacity:.95}}
+@keyframes uniGraciasPop{0%{opacity:0;transform:scale(.4)}22%{opacity:0;transform:scale(.4)}27%{opacity:1;transform:scale(1)}60%{opacity:1;transform:scale(1)}66%{opacity:0;transform:scale(.6)}100%{opacity:0}}
+@keyframes uniGalope{from{transform:translateY(0) rotate(-1.5deg)}to{transform:translateY(-8px) rotate(1.5deg)}}
+@keyframes uniPata{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+@keyframes uniColita{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="hd-top">
+      <h1>Despacho de choferes</h1>
+      <span class="hd-date" id="hoyTxt"></span>
+      <span class="hd-date" id="actTxt"></span>
+      <a class="hd-date" id="linkActualizar" href="actualizar/">🔒 Actualizar datos</a>
+    </div>
+    <div class="tarifa-chips" id="tarifaChips"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 1 · MAPA + BUSCADOR -->
+  <section>
+    <div class="sec-tt">1 · Mapa y asignación por cercanía</div>
+    <div class="card">
+      <div class="buscador">
+        <input id="inpUbicacion" placeholder="Alcaldía, municipio, colonia o dirección… (ej. Tláhuac, Naucalpan, Del Valle)">
+        <button class="btn" id="btnBuscar">Buscar cercanas</button>
+        <span id="contadorBusquedas" title="Búsquedas realizadas por todo el equipo" style="align-self:center;background:#eef;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-weight:700;white-space:nowrap">🔍 0 búsquedas</span>
+        <button class="btn sec" id="btnMarcar">📍 Marcar en el mapa</button>
+      </div>
+      <div id="msgBusqueda"></div>
+      <div id="map"></div>
+      <div class="res-grid" id="resultados" style="display:none">
+        <div class="res-col si">
+          <h3>✔ Asignar primero (cerca y rentable)</h3>
+          <div class="res-list" id="listaSi"></div>
+        </div>
+        <div class="res-col no">
+          <h3>✖ No asignar</h3>
+          <div class="res-list" id="listaNo"></div>
+        </div>
+      </div>
+
+      <div class="card" id="cercanasCard" style="display:none;margin-top:14px;background:#F8F9FB">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px">
+          <div style="flex:1;min-width:220px">
+            <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cercanasSel">Tiendas cercanas</label>
+            <select id="cercanasSel" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter';background:#fff"></select>
+          </div>
+          <div style="min-width:150px">
+            <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cercanasVeh">Vehículo</label>
+            <select id="cercanasVeh" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter';background:#fff">
+              <option>Sedán</option><option>Hatchback</option><option>SUV</option><option>Van de carga</option>
+            </select>
+          </div>
+          <div id="cercanasZonaWrap" style="min-width:220px;display:none">
+            <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cercanasZona">Zona Liverpool Tiendas</label>
+            <select id="cercanasZona" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter';background:#fff"></select>
+          </div>
+        </div>
+        <div id="cercanasInfo" class="hint" style="margin-bottom:10px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <b style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;font-size:16px">Speech de contratación</b>
+          <button class="btn sec mini" id="btnCopiarCercanas">Copiar</button>
+        </div>
+        <div id="cercanasSpeech" style="white-space:pre-wrap;font-size:13.8px;line-height:1.55;background:#fff;border:1px solid var(--line);border-radius:6px;padding:14px;max-height:420px;overflow-y:auto"></div>
+        <div id="cercanasInfograf" style="display:none;margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+            <b style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;font-size:16px">Infografía para el candidato</b>
+            <a id="cercanasInfografDl" class="btn mini" download style="text-decoration:none">⬇ Descargar imagen</a>
+          </div>
+          <img id="cercanasInfografImg" alt="Infografía" style="display:block;max-width:360px;width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08)">
+          <p id="cercanasInfografLabel" class="hint" style="margin-top:6px"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · CIERRE DE CONTRATACIÓN -->
+  <section>
+    <div class="sec-tt">2 · Cierre de contratación</div>
+    <div class="card">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px">
+        <div style="flex:1;min-width:220px">
+          <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cierreTienda">Tienda del día</label>
+          <select id="cierreTienda" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter'"></select>
+        </div>
+        <div style="min-width:150px">
+          <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cierreVeh">Vehículo</label>
+          <select id="cierreVeh" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter'">
+            <option>Sedán</option><option>Hatchback</option><option>SUV</option><option>Van de carga</option>
+          </select>
+        </div>
+        <div id="cierreZonaWrap" style="min-width:220px;display:none">
+          <label style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px" for="cierreZona">Zona Liverpool Tiendas</label>
+          <select id="cierreZona" style="width:100%;padding:9px 10px;border:1.5px solid var(--line);border-radius:6px;font-size:14px;font-family:'Inter'"></select>
+        </div>
+      </div>
+      <div id="cierreInfo" class="hint" style="margin-bottom:10px"></div>
+      <div id="mapCierreWrap" style="margin-bottom:14px">
+        <div id="mapCierre" style="height:260px;border-radius:8px;border:1px solid var(--line)"></div>
+        <div id="mapCierreMsg" class="hint" style="margin-top:6px"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <b style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;font-size:16px">Speech de contratación</b>
+        <button class="btn sec mini" id="btnCopiarCierre">Copiar</button>
+      </div>
+      <div id="cierreSpeech" style="white-space:pre-wrap;font-size:13.8px;line-height:1.55;background:#F8F9FB;border:1px solid var(--line);border-radius:6px;padding:14px;max-height:480px;overflow-y:auto"></div>
+      <div id="cierreInfograf" style="display:none;margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <b style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;font-size:16px">Infografía para el candidato</b>
+          <a id="cierreInfografDl" class="btn mini" download style="text-decoration:none">⬇ Descargar imagen</a>
+        </div>
+        <img id="cierreInfografImg" alt="Infografía" style="display:block;max-width:360px;width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08)">
+        <p id="cierreInfografLabel" class="hint" style="margin-top:6px"></p>
+      </div>
+      <p class="nota">El speech se genera automáticamente según el <b>esquema</b>, las <b>vacantes</b> y la <b>urgencia</b> que le asignaste a la tienda en la sección 3. Cambia esos datos ahí y vuelve a seleccionar la tienda aquí para actualizar el texto.</p>
+    </div>
+  </section>
+
+  <!-- 3 · MANIFIESTO EDITABLE -->
+  <section>
+    <div class="sec-tt">3 · Editar tiendas</div>
+    <div class="tbl-acciones">
+      <button class="btn solo-admin" id="btnAgregar">＋ Agregar tienda</button>
+    </div>
+    <div id="modoUbicar"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Sucursal</th><th>Vac.</th><th>Urgencia</th><th>Esquema</th><th>Pago de hoy</th><th>Ubicación</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 4 · ESQUEMAS -->
+  <section>
+    <div class="sec-tt">4 · Esquemas de pago</div>
+    <div class="esq-grid">
+      <div class="esq-card">
+        <h4>Por despensa · La Comer / Fresko / City Market / Sumesa</h4>
+        <table>
+          <thead><tr><th>Tienda</th><th>Días</th><th>En tiempo</th><th>Fuera de tiempo</th></tr></thead>
+          <tbody>
+            <tr><td>Alta demanda</td><td>Lun – Mié</td><td class="mono">$60</td><td class="mono">$50</td></tr>
+            <tr><td>Alta demanda</td><td>Jue – Dom</td><td class="mono">$50</td><td class="mono">$47</td></tr>
+            <tr><td>Baja demanda</td><td>Lun – Dom</td><td class="mono">$50</td><td class="mono">$47</td></tr>
+          </tbody>
+        </table>
+        <p class="nota">Pago por despensa entregada. Solo aplica a La Comer, Fresko, City Market y Sumesa. Amazon y Liverpool manejan esquema propio.</p>
+      </div>
+      <div class="esq-card">
+        <h4>Por chofer / pago fijo</h4>
+        <table>
+          <thead><tr><th>Tipo</th><th>Descripción</th><th>Pago</th></tr></thead>
+          <tbody>
+            <tr><td><b>SWAT</b></td><td>Operadores en tienda</td><td class="mono">$800 / día</td></tr>
+            <tr><td><b>FIJO</b> (Sumesa)</td><td>Operadores en tienda</td><td class="mono">$700 / día</td></tr>
+            <tr><td><b>EXTRA</b></td><td>Se pide ingresar con pago fijo</td><td class="mono">$600 / día</td></tr>
+            <tr><td><b>ONDEMAND</b></td><td>Solo en horario disponible</td><td class="mono">Variable</td></tr>
+            <tr><td><b>P × P</b></td><td>Pago por paquete (alta y baja demanda)</td><td class="mono">Por paquete</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · CARGA -->
+  <section>
+    <div class="sec-tt">5 · Tiendas del día (Excel)</div>
+    <div class="card">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <a class="btn solo-admin" href="actualizar/">⬆ Publicar la lista del día</a>
+        <input type="file" id="fileXlsx" accept=".xlsx,.xls,.csv">
+        <!-- "Subir foto del día" retirado: necesita una credencial de IA del lado del servidor -->
+        <input type="file" id="fileFoto" accept="image/*">
+        <button class="btn sec" id="btnExportar">⬇ Descargar Excel actual</button>
+        <button class="btn sec solo-admin" id="btnDemo">Cargar ejemplo</button>
+        <button class="btn rojo mini solo-admin" id="btnLimpiar">Vaciar lista</button>
+      </div>
+      <p class="hint" style="margin-top:8px">La lista del día se publica desde <a href="actualizar/"><b>/actualizar</b></a> (con clave): ahí subes el <b>Excel</b> en formato clásico (Sucursal · Vacantes · Urgencia · Esquema · Dirección) o el <b>Reporte de urgencias</b> (Sucursal · Cliente · Estatus · Ubicación · Prioridad · Vacantes — URGENTE se convierte en urgencia Alta y las tiendas sin prioridad quedan en Baja). Cuando publicas, <b>todo el equipo ve la misma lista</b> al abrir o recargar esta página, y esas mismas tiendas alimentan el <b>speech de cierre de contratación</b> (sección 2).</p>
+      <p class="hint" id="msgCarga"></p>
+    </div>
+  </section>
+
+  <!-- 6 · CONFIGURACIÓN DE SPEECHS -->
+  <section>
+    <div class="sec-tt">6 · Configuración de Speechs (editable)</div>
+    <div class="card">
+      <p class="hint">Edita aquí los montos, horarios y textos que arman los speechs de cierre. Los cambios se guardan para <b>todo el equipo</b> al presionar "Guardar cambios".</p>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">Liverpool Tiendas (paquete a paquete, por zona)</h3>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%;font-size:12.5px;min-width:900px">
+          <thead>
+            <tr style="text-align:left;color:var(--ink-2)">
+              <th style="padding:4px 6px">Zona</th>
+              <th style="padding:4px 6px">Estándar $</th>
+              <th style="padding:4px 6px">Flash $</th>
+              <th style="padding:4px 6px">Bono $</th>
+              <th style="padding:4px 6px">Meta bono</th>
+              <th style="padding:4px 6px">Horario recolección</th>
+              <th style="padding:4px 6px">Semana Baja (25/día)</th>
+              <th style="padding:4px 6px">Semana Alta (50/día)</th>
+              <th style="padding:4px 6px">Semana Expertos (80/día)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cuerpoLvp"></tbody>
+        </table>
+      </div>
+      <button class="btn sec mini solo-admin" id="btnAddZona" style="margin-top:8px">+ Agregar zona</button>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">Liverpool CEDIS</h3>
+      <div class="cfg-grid" id="cfgCedis"></div>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">Amazon</h3>
+      <div class="cfg-grid" id="cfgAmazon"></div>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">La Comer — Alta Demanda</h3>
+      <div class="cfg-grid" id="cfgLcAlta"></div>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">La Comer — Baja Demanda</h3>
+      <div class="cfg-grid" id="cfgLcBaja"></div>
+
+      <h3 style="font-family:var(--disp);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 8px">La Comer — Pago Fijo / Extra / Swat</h3>
+      <div class="cfg-grid" id="cfgFijoExtraSwat"></div>
+
+      <div style="display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap">
+        <button class="btn solo-admin" id="btnGuardarConfig">💾 Guardar cambios</button>
+        <button class="btn sec solo-admin" id="btnResetConfig">Restaurar valores originales</button>
+        <span id="cfgMsg" class="hint"></span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<style>
+.ganancia-real{display:inline-block;color:#C1121F;background:#FFF3B0;border:2px solid #E5383B;border-radius:8px;padding:8px 12px;font-weight:800;font-size:14px;margin:2px 0;box-shadow:0 2px 6px rgba(229,56,59,.18)}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:6px}
+.cfg-grid label{display:block;font-size:11.5px;color:var(--ink-2);margin-bottom:4px}
+.cfg-grid input{width:100%;padding:7px 8px;border:1.5px solid var(--line);border-radius:6px;font-size:13px;font-family:'Inter'}
+#cuerpoLvp input{width:100%;padding:6px 6px;border:1.5px solid var(--line);border-radius:5px;font-size:12.5px;font-family:'Inter'}
+#cuerpoLvp td{padding:3px 4px}
+
+/* ── El diseño es claro: que el navegador no lo invierta solo ── */
+:root{color-scheme:light}
+
+/* ── Modo solo lectura para quien no publica ── */
+body:not(.es-admin) .solo-admin{display:none!important}
+body:not(.es-admin) #tbody input,
+body:not(.es-admin) #tbody select,
+body:not(.es-admin) .cfg-grid input,
+body:not(.es-admin) #cuerpoLvp input{pointer-events:none;background:#F2F4F7;border-color:#E4E8EE;color:var(--ink-2)}
+body:not(.es-admin) #tbody button,
+body:not(.es-admin) #modoUbicar{display:none}
+#linkActualizar{color:#AEB9C9;text-decoration:underline;cursor:pointer}
+#linkActualizar:hover{color:#fff}
+</style>
+
+<script id="infografiasData">
+const INFOGRAFIAS={"lvp_saltillo": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_saltillo.png", "lvp_monterrey": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_monterrey.png", "lc_general": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lc_general.png", "lvp_queretaro": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_queretaro.png", "lvp_irapuato": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_irapuato.png", "lvp_gdl_centro": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_gdl_centro.png", "lvp_gdl": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_gdl.png", "lvp_tampico": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_tampico.png", "lvp_juarez": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_juarez.png", "amazon_4h": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/amazon_4h.png", "lvp_puebla": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_puebla.png", "lvp_cdmx": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_cdmx.png", "lc_alta": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lc_alta.png", "lc_puebla": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lc_puebla.png", "lvp_toluca": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lvp_toluca.png", "lc_queretaro": "https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/lc_queretaro.png"};
+const INFOGRAFIAS_LABELS={"lvp_saltillo": "Liverpool Tiendas Saltillo", "lvp_monterrey": "Liverpool Tiendas Monterrey", "lc_general": "La Comer (CDMX / General)", "lvp_queretaro": "Liverpool Tiendas Querétaro", "lvp_irapuato": "Liverpool Tiendas Irapuato", "lvp_gdl_centro": "Liverpool Tiendas Guadalajara Centro", "lvp_gdl": "Liverpool Tiendas Guadalajara", "lvp_tampico": "Liverpool Tiendas Tampico", "lvp_juarez": "Liverpool Tiendas Ciudad Juárez", "amazon_4h": "Amazon — Esquema de pago 4 horas", "lvp_puebla": "Liverpool Tiendas Puebla", "lvp_cdmx": "Liverpool Tiendas CDMX", "lc_alta": "La Comer — Alta Demanda", "lc_puebla": "La Comer — Puebla", "lvp_toluca": "Liverpool Tiendas Toluca / Metepec", "lc_queretaro": "La Comer — Querétaro"};
+</script>
+
+<script src="conexion.js"></script>
+<script>
+/* ═══════════ DATOS BASE ═══════════ */
+const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const HOY=new Date();
+const esLunMie=[1,2,3].includes(HOY.getDay());
+
+// Coordenadas aproximadas de tiendas conocidas (editables desde la tabla)
+const CONOCIDAS=[
+ ['LA COMER COYOACAN',19.3492,-99.1625],
+ ['CITY MARKET PILARES',19.3689,-99.1663],
+ ['CITY MARKET SAN JERONIMO',19.3252,-99.2115],
+ ['CITY SAN JERONIMO',19.3252,-99.2115],
+ ['FRESKO TECAMACHALCO',19.4162,-99.2270],
+ ['LA COMER BOSQUE REAL',19.4046,-99.2843],
+ ['LA COMER LOMAS ANAHUAC',19.4098,-99.2666],
+ ['LA COMER MANZANILLO',19.1090,-104.3190],
+ ['LA COMER INSURGENTES',19.3745,-99.1780],
+ ['FRESKO VALLARTA',20.6739,-103.4370],
+ ['LA COMER DEL VALLE',19.3868,-99.1717],
+ ['LA COMER LAGO ALBERTO',19.4396,-99.1815],
+ ['FRESKO CUMBRES',25.7198,-100.3789],
+ ['LA COMER VILLA COAPA',19.2946,-99.1266],
+ ['LA COMER OLIVAR',19.3457,-99.2237],
+ ['LA COMER INSURGENTES',19.3745,-99.1780],
+ ['FRESKO PABELLON',19.3980,-99.2610],
+ ['FRESKO MITDOWN GDL',20.6997,-103.3740],
+ ['FRESKO MIDTOWN GDL',20.6997,-103.3740],
+ ['CITY PLAZA PATRIA GDL',20.7060,-103.3910],
+ ['AMAZON ATLAMPA',19.4571,-99.1662],
+ ['LA COMER PUEBLA (ANGELOPOLIS)',19.0300,-98.2340],
+ ['LA COMER PUEBLA ANGELOPOLIS',19.0300,-98.2340],
+ ['LIVERPOOL ANDARES GUADALAJARA',20.7086,-103.4118],
+ ['LIVERPOOL CENTRO DE GUADALAJARA',20.6767,-103.3475],
+ // ── Sucursales agregadas del directorio (coordenadas aproximadas, ajustables con "Corregir") ──
+ ['LA COMER TLALPAN',19.2892,-99.1679],
+ ['LA COMER LOS CABOS',23.0545,-109.7010],
+ ['LA COMER CABO SAN LUCAS',22.8983,-109.9180],
+ ['LA COMER SAN MIGUEL DE ALLENDE',20.9066,-100.7460],
+ ['LA COMER PUEBLA',19.0300,-98.2340],
+ ['LA COMER SANTA MARIA LA RIBERA',19.4419,-99.1558],
+ ['LA COMER GUADALUPE INN',19.3564,-99.1873],
+ ['FRESKO JESUS DEL MONTE',19.3745,-99.2865],
+ ['FRESKO JESUS MONTE',19.3745,-99.2865],
+ ['FRESKO LA RIOJA',19.2989,-99.1252],
+ ['FRESKO BUGAMBILIA',20.6070,-103.4160],
+ ['FRESKO BUGAMBILIAS',20.6070,-103.4160],
+ ['FRESKO PALMILLA',23.0100,-109.7150],
+ ['FRESKO PABELLON BOSQUES',19.3965,-99.2620],
+ ['FRESKO MIDTOWN',20.6997,-103.3740],
+ ['CITY MARKET LOMAS',19.4300,-99.2070],
+ ['CITY MARKET SANTA FE',19.3660,-99.2740],
+ ['CITY MARKET PLAZA CARSO',19.4400,-99.2035],
+ ['CITY MARKET PATRIA',20.7060,-103.3910],
+];
+const ESQUEMAS=['Alta','Baja','Fijo $700','Extra $600','Swat $800','OnDemand','PxP','No aplica'];
+
+function norm(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();}
+function coordConocida(nombre){
+  const n=norm(nombre);
+  let best=null,bestLen=0;
+  for(const [k,la,lo] of CONOCIDAS){
+    const nk=norm(k);
+    if(n===nk) return [la,lo];
+    if((n.includes(nk)||nk.includes(n)) && nk.length>bestLen){best=[la,lo];bestLen=nk.length;}
+  }
+  if(best) return best;
+  // coincidencia por palabras clave (ej. "COYOACAN" + "COMER")
+  for(const [k,la,lo] of CONOCIDAS){
+    const palabras=norm(k).split(' ').filter(w=>w.length>3);
+    if(palabras.length&&palabras.every(w=>n.includes(w))) return [la,lo];
+  }
+  return null;
+}
+function normEsquema(e){
+  const n=norm(e);
+  if(!n) return '';
+  if(n.startsWith('ALTA')) return 'Alta';
+  if(n.startsWith('BAJA')) return 'Baja';
+  if(n.includes('SWAT')) return 'Swat $800';
+  if(n.includes('EXTRA')) return 'Extra $600';
+  if(n.includes('FIJO')||n.includes('SUMESA')||n.includes('700')) return 'Fijo $700';
+  if(n.includes('DEMAND')) return 'OnDemand';
+  if(n.includes('PXP')||n.includes('P X P')||n.includes('PAQUETE')) return 'PxP';
+  if(n.includes('NO APLICA')) return 'No aplica';
+  return e;
+}
+function fmt(n){return Math.round(n).toLocaleString('es-MX');}
+function esquemaDefault(nombre){
+  const n=norm(nombre);
+  if(n.includes('AMAZON')||n.includes('LIVERPOOL')) return 'No aplica';
+  return 'Alta';
+}
+function pagoHoy(esq){
+  switch(esq){
+    case 'Alta': return esLunMie?'$60 en tiempo / $50 fuera':'$50 en tiempo / $47 fuera';
+    case 'Baja': return '$50 en tiempo / $47 fuera';
+    case 'Fijo $700': return '$700 fijo/día';
+    case 'Extra $600': return '$600 fijo/día';
+    case 'Swat $800': return '$800 fijo/día';
+    case 'OnDemand': return 'Horario disponible';
+    case 'PxP': return 'Pago por paquete';
+    case 'No aplica': return 'Esquema propio';
+    default: return '—';
+  }
+}
+// nivel de paga para rankear rentabilidad (estimado diario)
+function nivelPago(esq){
+  switch(esq){
+    case 'Swat $800': return 800;
+    case 'Fijo $700': return 700;
+    case 'Alta': return esLunMie?680:580;
+    case 'Extra $600': return 600;
+    case 'Baja': return 520;
+    case 'PxP': return 480;
+    case 'No aplica': return 520;
+    case 'OnDemand': return 420;
+    default: return 450;
+  }
+}
+
+/* ═══════════ ESTADO + PERSISTENCIA ═══════════ */
+let tiendas=[]; // {id, nombre, vacantes, urgencia, esquema, lat, lng}
+let nextId=1;
+const KEY='despacho:tiendas';
+// shared:true => los datos son COMPARTIDOS: cuando tú subes el Excel del día,
+// todo tu equipo ve la misma lista al abrir o recargar la página.
+async function guardar(){
+  try{ if(window.storage) await window.storage.set(KEY, JSON.stringify(tiendas), true); }catch(e){}
+}
+async function cargarGuardado(){
+  try{
+    if(!window.storage) return false;
+    const r=await window.storage.get(KEY, true);
+    if(r&&r.value){ tiendas=JSON.parse(r.value); nextId=Math.max(0,...tiendas.map(t=>t.id))+1; return tiendas.length>0; }
+  }catch(e){}
+  return false;
+}
+
+/* ═══════════ HEADER ═══════════ */
+document.getElementById('hoyTxt').textContent=
+  DIAS[HOY.getDay()]+' '+HOY.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+document.getElementById('tarifaChips').innerHTML=
+  `<span class="chip ${esLunMie?'hoy':''}">Alta L–Mié · <b>$60</b> / $50</span>
+   <span class="chip ${!esLunMie?'hoy':''}">Alta J–Dom · <b>$50</b> / $47</span>
+   <span class="chip">Baja · <b>$50</b> / $47</span>
+   <span class="chip">Swat <b>$800</b> · Fijo <b>$700</b> · Extra <b>$600</b></span>`;
+
+/* ═══════════ MAPA ═══════════ */
+const map=L.map('map').setView([19.39,-99.17],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let capaMarkers=L.layerGroup().addTo(map);
+let markerUsuario=null, modo=null, tiendaUbicando=null;
+let markerPreview=null;
+function ponerPreview(lat,lng,tienda,trEd){
+  quitarPreview();
+  markerPreview=L.marker([lat,lng],{draggable:true,zIndexOffset:1000}).addTo(map)
+    .bindPopup('✎ '+(tienda.nombre||'Tienda')+'<br><small>Arrastra para ajustar</small>').openPopup();
+  markerPreview.on('dragend',()=>{
+    const p=markerPreview.getLatLng();
+    if(trEd){
+      trEd.querySelector('[data-e="lat"]').value=p.lat.toFixed(5);
+      trEd.querySelector('[data-e="lng"]').value=p.lng.toFixed(5);
+    }
+  });
+  map.setView([lat,lng],14);
+  document.getElementById('map').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function quitarPreview(){ if(markerPreview){map.removeLayer(markerPreview);markerPreview=null;} }
+const colorUrg={Alta:'#D6402E',Media:'#E39B0D',Baja:'#2F8F5B'};
+
+function pintarMapa(){
+  capaMarkers.clearLayers();
+  const conCoords=tiendas.filter(t=>t.lat!=null&&t.lng!=null);
+  conCoords.forEach(t=>{
+    const m=L.circleMarker([t.lat,t.lng],{radius:9,color:'#fff',weight:2,fillColor:colorUrg[t.urgencia]||'#1D5BD6',fillOpacity:.95});
+    m.bindPopup(`<div class="pop-tt">${t.nombre}</div>
+      <span class="flag ${t.urgencia}">${(t.urgencia||'').toUpperCase()}</span> · ${t.vacantes} vacante(s)<br>
+      <span class="pop-esq"><b>${t.esquema}</b> · ${pagoHoy(t.esquema)}</span>
+      ${t.direccion?`<br><small>${t.direccion}</small>`:''}`);
+    capaMarkers.addLayer(m);
+  });
+  if(conCoords.length&&!markerUsuario){
+    const b=L.latLngBounds(conCoords.map(t=>[t.lat,t.lng]));
+    map.fitBounds(b.pad(0.15));
+  }
+}
+map.on('click',async e=>{
+  if(modo==='usuario'){
+    setUsuario(e.latlng.lat,e.latlng.lng,'Punto marcado en el mapa');
+    modo=null; document.getElementById('btnMarcar').textContent='📍 Marcar en el mapa';
+  }else if(modo==='tienda'&&tiendaUbicando!=null){
+    const t=tiendas.find(x=>x.id===tiendaUbicando);
+    if(t){ t.lat=+e.latlng.lat.toFixed(5); t.lng=+e.latlng.lng.toFixed(5); t.aprox=false; await guardar(); render(); }
+    modo=null; tiendaUbicando=null;
+    document.getElementById('modoUbicar').style.display='none';
+  }
+});
+
+/* ═══════════ DISTANCIAS Y RANKING ═══════════ */
+function haversine(a,b,c,d){
+  const R=6371,r=x=>x*Math.PI/180;
+  const dLat=r(c-a),dLng=r(d-b);
+  const h=Math.sin(dLat/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function setUsuario(lat,lng,etiqueta){
+  if(markerUsuario) map.removeLayer(markerUsuario);
+  markerUsuario=L.marker([lat,lng]).addTo(map).bindPopup('📍 '+etiqueta).openPopup();
+  map.setView([lat,lng],12);
+  mostrarRanking(lat,lng);
+}
+function mostrarRanking(lat,lng){
+  const res=document.getElementById('resultados');
+  const si=document.getElementById('listaSi'), no=document.getElementById('listaNo');
+  const evaluadas=tiendas.filter(t=>t.lat!=null&&t.lng!=null).map(t=>{
+    const km=haversine(lat,lng,t.lat,t.lng)*1.35;           // factor de vialidad
+    const min=Math.round(km/28*60+5);                        // ~28 km/h en ciudad
+    const pago=nivelPago(t.esquema);
+    const urgB=t.urgencia==='Alta'?150:(t.urgencia==='Media'?60:0);
+    const score=pago+urgB-km*14;
+    return {...t,km:+km.toFixed(1),min,pago,score};
+  });
+  const sinCoords=tiendas.filter(t=>t.lat==null||t.lng==null);
+  const noAsignar=[],asignar=[];
+  evaluadas.forEach(t=>{
+    if(!t.vacantes||t.vacantes<=0) noAsignar.push({...t,razon:'Sin vacantes disponibles'});
+    else if(t.km>80) noAsignar.push({...t,razon:`Otra ciudad — ${t.km} km en carro, no es viable en el día`});
+    else if(t.km>40) noAsignar.push({...t,razon:`Demasiado lejos en carro (${t.km} km ≈ ${t.min} min)`});
+    else if(t.km>25 && t.urgencia==='Baja' && t.pago<600) noAsignar.push({...t,razon:`Lejos (${t.km} km) con urgencia baja y paga baja: no es rentable el traslado`});
+    else asignar.push(t);
+  });
+  asignar.sort((a,b)=>b.score-a.score);
+  noAsignar.sort((a,b)=>a.km-b.km);
+  si.innerHTML=asignar.length?asignar.slice(0,8).map((t,i)=>`
+    <div class="res-item">
+      <div class="nm"><span class="rank">#${i+1}</span>${t.nombre} <span class="flag ${t.urgencia}">${(t.urgencia||'').toUpperCase()}</span></div>
+      <div class="dt">${t.km} km ≈ ${t.min} min en carro · ${t.vacantes} vacante(s)</div>
+      <div class="rz">Asignar con esquema <b>${t.esquema}</b> · ${pagoHoy(t.esquema)}</div>
+    </div>`).join(''):'<div class="res-item"><div class="rz" style="color:var(--ink-2)">Ninguna tienda cercana cumple los criterios.</div></div>';
+  no.innerHTML=(noAsignar.length||sinCoords.length)?
+    noAsignar.map(t=>`
+    <div class="res-item">
+      <div class="nm">${t.nombre}</div>
+      <div class="rz">${t.razon}</div>
+    </div>`).join('')+
+    sinCoords.map(t=>`<div class="res-item"><div class="nm">${t.nombre}</div><div class="rz">Sin ubicación en el mapa — usa “Ubicar” en la tabla</div></div>`).join('')
+    :'<div class="res-item"><div class="rz" style="color:var(--ink-2)">Todas las tiendas son viables.</div></div>';
+  res.style.display='grid';
+  res.scrollIntoView({behavior:'smooth',block:'nearest'});
+  poblarCercanas(asignar);
+}
+
+/* ═══════════ BUSCADOR ═══════════ */
+// Gazetteer local: alcaldías CDMX, municipios y colonias comunes (funciona sin internet externo)
+const LUGARES=[
+ // ── Alcaldías CDMX ──
+ ['ALVARO OBREGON, CDMX',19.3587,-99.2036],['AZCAPOTZALCO, CDMX',19.4869,-99.1866],
+ ['BENITO JUAREZ, CDMX',19.3819,-99.1671],['COYOACAN, CDMX',19.3467,-99.1617],
+ ['CUAJIMALPA, CDMX',19.3573,-99.2917],['CUAUHTEMOC, CDMX',19.4326,-99.1531],
+ ['GUSTAVO A MADERO, CDMX',19.4933,-99.1183],['IZTACALCO, CDMX',19.3953,-99.0973],
+ ['IZTAPALAPA, CDMX',19.3574,-99.0671],['MAGDALENA CONTRERAS, CDMX',19.3120,-99.2419],
+ ['MIGUEL HIDALGO, CDMX',19.4340,-99.2007],['MILPA ALTA, CDMX',19.1924,-99.0231],
+ ['TLAHUAC, CDMX',19.2869,-99.0046],['TLALPAN, CDMX',19.2879,-99.1679],
+ ['VENUSTIANO CARRANZA, CDMX',19.4283,-99.0977],['XOCHIMILCO, CDMX',19.2543,-99.1035],
+ // ── Municipios Edomex ──
+ ['NAUCALPAN, EDOMEX',19.4785,-99.2396],['HUIXQUILUCAN, EDOMEX',19.3611,-99.3508],
+ ['TLALNEPANTLA, EDOMEX',19.5398,-99.1954],['ECATEPEC, EDOMEX',19.6097,-99.0600],
+ ['NEZAHUALCOYOTL, EDOMEX',19.4006,-99.0148],['ATIZAPAN, EDOMEX',19.5560,-99.2647],
+ ['CUAUTITLAN IZCALLI, EDOMEX',19.6467,-99.2126],['COACALCO, EDOMEX',19.6333,-99.0931],
+ ['CHIMALHUACAN, EDOMEX',19.4216,-98.9536],['IXTAPALUCA, EDOMEX',19.3184,-98.8823],
+ ['CHALCO, EDOMEX',19.2647,-98.8977],['VALLE DE CHALCO, EDOMEX',19.2937,-98.9448],
+ ['TULTITLAN, EDOMEX',19.6450,-99.1690],['TECAMAC, EDOMEX',19.7128,-98.9686],
+ ['LA PAZ, EDOMEX',19.3596,-98.9861],['NICOLAS ROMERO, EDOMEX',19.6217,-99.3131],
+ ['TOLUCA, EDOMEX',19.2926,-99.6568],['METEPEC, EDOMEX',19.2528,-99.6067],
+ // ── Colonias / zonas CDMX ──
+ ['POLANCO',19.4326,-99.1934],['CONDESA',19.4122,-99.1735],['ROMA NORTE',19.4180,-99.1626],
+ ['ROMA SUR',19.4066,-99.1616],['DEL VALLE',19.3856,-99.1667],['NARVARTE',19.3963,-99.1517],
+ ['NAPOLES',19.3931,-99.1758],['SANTA FE',19.3597,-99.2740],['SAN ANGEL',19.3454,-99.1898],
+ ['PEDREGAL',19.3143,-99.2043],['COAPA',19.2965,-99.1258],['VILLA COAPA',19.2946,-99.1266],
+ ['TEPEPAN',19.2696,-99.1275],['CENTRO HISTORICO',19.4326,-99.1332],['DOCTORES',19.4204,-99.1441],
+ ['LINDAVISTA',19.4884,-99.1290],['ARAGON',19.4667,-99.0770],['TACUBAYA',19.4023,-99.1874],
+ ['TACUBA',19.4592,-99.1875],['OBSERVATORIO',19.3984,-99.2004],['MIXCOAC',19.3757,-99.1874],
+ ['PORTALES',19.3714,-99.1500],['CULHUACAN',19.3312,-99.1092],['TAXQUEÑA',19.3437,-99.1409],
+ ['UNIVERSIDAD, CU',19.3322,-99.1870],['SAN JERONIMO',19.3252,-99.2115],
+ ['TECAMACHALCO',19.4162,-99.2270],['INTERLOMAS',19.3939,-99.2812],['SATELITE',19.5092,-99.2337],
+ ['LOMAS DE CHAPULTEPEC',19.4260,-99.2098],['LOMAS VERDES',19.4972,-99.2555],
+ ['BOSQUES DE LAS LOMAS',19.3965,-99.2620],['XICO',19.2699,-98.9364],
+ ['IZTAPALAPA CENTRO',19.3556,-99.0910],['SANTA MARTHA ACATITLA',19.3672,-99.0116],
+ ['PANTITLAN',19.4157,-99.0721],['AGRICOLA ORIENTAL',19.3968,-99.0754],
+ ['TEPITO',19.4436,-99.1276],['ATLAMPA',19.4571,-99.1662],['VALLEJO',19.4855,-99.1553],
+ ['AZCAPOTZALCO CENTRO',19.4838,-99.1844],['CLAVERIA',19.4653,-99.1786],
+ // ── Guadalajara metro ──
+ ['GUADALAJARA, JAL',20.6767,-103.3475],['ZAPOPAN, JAL',20.7214,-103.3918],
+ ['TLAQUEPAQUE, JAL',20.6409,-103.2938],['TONALA, JAL',20.6244,-103.2333],
+ ['TLAJOMULCO, JAL',20.4736,-103.4430],['ANDARES, ZAPOPAN',20.7086,-103.4118],
+ ['PROVIDENCIA, GDL',20.7009,-103.3780],['CHAPALITA, GDL',20.6660,-103.4045],
+ // ── Puebla / otros ──
+ ['PUEBLA, PUE',19.0414,-98.2063],['ANGELOPOLIS, PUEBLA',19.0300,-98.2340],
+ ['CHOLULA, PUE',19.0633,-98.3064],['MANZANILLO, COL',19.1138,-104.3430],
+ ['CUERNAVACA, MOR',18.9242,-99.2216],['QUERETARO, QRO',20.5888,-100.3899],
+];
+function buscarLocal(q){
+  const n=norm(q).replace(/^(ALCALDIA|MUNICIPIO|DELEGACION|COL|COLONIA)\s+/,'');
+  if(!n) return null;
+  let best=null,bestScore=0;
+  for(const [nombre,la,lo] of LUGARES){
+    const nn=norm(nombre);
+    let s=0;
+    if(nn===n) s=100;
+    else if(nn.startsWith(n)||n.startsWith(nn.split(',')[0])) s=80;
+    else if(nn.includes(n)) s=60;
+    else{
+      const palabras=n.split(' ').filter(w=>w.length>2);
+      if(palabras.length&&palabras.every(w=>nn.includes(w))) s=50+palabras.length;
+    }
+    if(s>bestScore){bestScore=s;best={nombre,lat:la,lng:lo};}
+  }
+  return bestScore>=50?best:null;
+}
+/* ═══════════ CONTADOR DE BÚSQUEDAS + UNICORNIO 🦄🌈 ═══════════ */
+const KEY_BUSQ='despacho:busquedas';
+let totalBusquedas=0;
+function pintarContador(){
+  const el=document.getElementById('contadorBusquedas');
+  if(el) el.textContent='🔍 '+totalBusquedas+(totalBusquedas===1?' búsqueda':' búsquedas');
+}
+async function cargarContador(){
+  try{ if(window.storage){ const r=await window.storage.get(KEY_BUSQ,true); if(r&&r.value) totalBusquedas=parseInt(r.value)||0; } }catch(e){}
+  pintarContador();
+}
+const VIDEOS_CONSULTA=[
+  'https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/unicornio1.mp4',
+  'https://yilqentsmibgnzphztxc.supabase.co/storage/v1/object/public/despacho/unicornio2.mp4',
+];
+let vidTimer=null;
+function lanzarVideos(){
+  const ov=document.getElementById('vidOverlay'), v=document.getElementById('vidConsulta');
+  if(!ov||!v) return;
+  clearTimeout(vidTimer);
+  let i=0;
+  const pon=()=>{
+    if(i>=VIDEOS_CONSULTA.length){ ov.style.display='none'; v.pause(); v.removeAttribute('src'); return; }
+    ov.style.display='block';
+    v.src=VIDEOS_CONSULTA[i]; v.currentTime=0; v.loop=true;
+    v.play().catch(()=>{});
+    i++;
+    vidTimer=setTimeout(pon,5000); // 5 segundos cada video
+  };
+  pon();
+}
+async function registrarBusqueda(){
+  totalBusquedas++; pintarContador(); lanzarUnicornio(); lanzarVideos();
+  try{ if(window.storage) await window.storage.set(KEY_BUSQ,String(totalBusquedas),true); }catch(e){}
+}
+function lanzarUnicornio(){
+  const u=document.createElement('div');
+  u.className='unicornio-vuelo';
+  u.innerHTML=`
+  <span class="uni-gracias">El jefe <b>Yimi</b> agradece que uses su archivo 🙏</span>
+  <span class="uni-arcoiris"></span>
+  <svg class="uni-svg" viewBox="-10 -30 330 260" width="200" height="158" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="uniCrin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5fa2"/><stop offset=".5" stop-color="#a55eea"/><stop offset="1" stop-color="#45aaf2"/>
+    </linearGradient>
+    <linearGradient id="uniCuerno" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffa751"/><stop offset="1" stop-color="#ffe259"/>
+    </linearGradient>
+    <linearGradient id="uniCola" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5252"/><stop offset=".3" stop-color="#ffb142"/><stop offset=".55" stop-color="#4cd137"/><stop offset=".8" stop-color="#3498db"/><stop offset="1" stop-color="#8e44ad"/>
+    </linearGradient>
+  </defs>
+  <!-- cola arcoíris -->
+  <path class="uni-colapelo" d="M62 104 C30 92 12 108 18 132 C2 136 4 162 24 164 C12 178 30 196 48 186 C42 198 62 206 72 192 C80 168 72 128 84 112 Z" fill="url(#uniCola)"/>
+  <!-- patas traseras (lado lejano más oscuro) -->
+  <g class="pata p1"><path d="M92 152 C86 168 80 182 78 196 L92 198 C96 184 100 168 104 156 Z" fill="#e3dcee"/><rect x="75" y="192" width="19" height="10" rx="4" fill="#b08bd6"/></g>
+  <g class="pata p2"><path d="M190 152 C186 168 182 184 180 197 L194 198 C198 184 202 168 205 154 Z" fill="#e3dcee"/><rect x="177" y="193" width="19" height="10" rx="4" fill="#b08bd6"/></g>
+  <!-- cuerpo -->
+  <ellipse cx="145" cy="126" rx="84" ry="45" fill="#ffffff" stroke="#d9cfe8" stroke-width="3"/>
+  <!-- patas cercanas -->
+  <g class="pata p3"><path d="M112 156 C110 172 108 186 108 199 L122 199 C124 185 126 170 128 158 Z" fill="#ffffff" stroke="#d9cfe8" stroke-width="2.5"/><rect x="105" y="194" width="20" height="10" rx="4" fill="#b08bd6"/></g>
+  <g class="pata p4"><path d="M212 150 C214 166 216 182 217 196 L231 195 C230 181 228 164 226 150 Z" fill="#ffffff" stroke="#d9cfe8" stroke-width="2.5"/><rect x="211" y="190" width="20" height="10" rx="4" fill="#b08bd6"/></g>
+  <!-- cuello -->
+  <path d="M186 102 C194 72 208 50 230 38 L268 60 C262 86 240 108 210 122 Z" fill="#ffffff" stroke="#d9cfe8" stroke-width="3"/>
+  <!-- cabeza con hocico -->
+  <path d="M226 44 C228 27 242 18 257 21 C269 23 279 32 285 43 C290 51 295 57 302 61 C307 64 306 70 300 71 L285 74 C281 83 271 88 260 86 C244 83 231 68 226 54 Z" fill="#ffffff" stroke="#d9cfe8" stroke-width="3"/>
+  <!-- hocico rosado -->
+  <path d="M285 52 C292 55 298 59 301 63 C303 66 302 69 298 70 L286 72 C283 66 283 58 285 52 Z" fill="#f3d7e8"/>
+  <ellipse cx="294" cy="63" rx="2" ry="2.6" fill="#b06fa0"/>
+  <path d="M287 74 C291 76 296 76 299 74" stroke="#c9a6bd" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- oreja -->
+  <path d="M243 23 L250 4 L259 21 Z" fill="#ffffff" stroke="#d9cfe8" stroke-width="2.5"/>
+  <path d="M247 20 L250 11 L254 19 Z" fill="#f3d7e8"/>
+  <!-- cuerno sobre la frente -->
+  <path d="M232 30 L216 -18 L246 24 Z" fill="url(#uniCuerno)" stroke="#e8b04b" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M228 18 L237 15 M224 6 L232 3 M220 -6 L227 -8" stroke="#e8b04b" stroke-width="1.6"/>
+  <!-- ojo -->
+  <circle cx="262" cy="44" r="5.5" fill="#3a2d4d"/>
+  <circle cx="264" cy="42" r="1.8" fill="#fff"/>
+  <path d="M255 36 C259 33 265 33 269 36" stroke="#3a2d4d" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- mejilla -->
+  <circle cx="268" cy="62" r="6" fill="#ffd3e6" opacity=".75"/>
+  <!-- crin ondulada por el cuello y lomo -->
+  <path class="uni-crinpelo" d="M240 22 C224 30 210 48 200 72 C210 66 216 74 210 86 C222 80 230 88 222 100 C236 96 246 84 250 70 C242 62 240 44 248 30 Z" fill="url(#uniCrin)"/>
+  <path class="uni-crinpelo" d="M198 76 C186 86 174 96 160 102 C170 104 178 100 184 94 C180 104 172 110 162 114 C176 114 190 106 198 94 Z" fill="url(#uniCrin)" opacity=".9"/>
+  <!-- copete -->
+  <path d="M240 20 C234 12 236 2 244 -2 C242 6 246 12 252 16 Z" fill="url(#uniCrin)"/>
+</svg>`;
+  document.body.appendChild(u);
+  setTimeout(()=>u.remove(),5600);
+}
+cargarContador();
+document.getElementById('btnBuscar').addEventListener('click',buscarUbicacion);
+document.getElementById('inpUbicacion').addEventListener('keydown',e=>{if(e.key==='Enter')buscarUbicacion();});
+document.getElementById('btnMarcar').addEventListener('click',()=>{
+  modo=modo==='usuario'?null:'usuario';
+  document.getElementById('btnMarcar').textContent=modo==='usuario'?'Toca el mapa…':'📍 Marcar en el mapa';
+  msg(modo==='usuario'?'Toca el mapa en la ubicación del chofer.':'','');
+});
+function msg(txt,cls){const m=document.getElementById('msgBusqueda');m.textContent=txt;m.className=cls||'';}
+async function buscarUbicacion(){
+  registrarBusqueda(); // contador + unicornio 🦄
+  const q=document.getElementById('inpUbicacion').value.trim();
+  if(!q){msg('Escribe una alcaldía, municipio, colonia o coordenadas.','err');return;}
+  // 1) Coordenadas directas
+  const coord=q.match(/^(-?\d{1,3}\.?\d*)\s*,\s*(-?\d{1,3}\.?\d*)$/);
+  if(coord){ setUsuario(+coord[1],+coord[2],q); msg('Ubicación por coordenadas.','ok'); return; }
+  // 2) Gazetteer local (alcaldías, municipios, colonias) — instantáneo, sin internet
+  const local=buscarLocal(q);
+  if(local){ setUsuario(local.lat,local.lng,local.nombre); msg('📍 '+local.nombre+' — tiendas ordenadas por cercanía y rentabilidad abajo.','ok'); return; }
+  // 3) Intento de geocodificación en línea (direcciones exactas)
+  msg('Buscando dirección…','');
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q='+encodeURIComponent(q));
+    const d=await r.json();
+    if(d&&d.length){ setUsuario(+d[0].lat,+d[0].lon,d[0].display_name.split(',').slice(0,2).join(',')); msg('Ubicación encontrada: '+d[0].display_name,'ok'); }
+    else msg('No se encontró "'+q+'". Prueba con la alcaldía o municipio (ej. "Tláhuac", "Naucalpan"), una colonia conocida, coordenadas "lat, lng", o usa "Marcar en el mapa".','err');
+  }catch(e){
+    msg('No encontré "'+q+'" en la lista local y las direcciones exactas no están disponibles aquí. Prueba con la alcaldía, municipio o colonia (ej. "Tláhuac", "Iztapalapa", "Satélite"), coordenadas "lat, lng", o usa "Marcar en el mapa".','err');
+  }
+}
+
+/* ═══════════ TABLA EDITABLE ═══════════ */
+const tbody=document.getElementById('tbody');
+function render(){
+  tbody.innerHTML='';
+  tiendas.forEach(t=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input value="${(t.nombre||'').replace(/"/g,'&quot;')}" data-f="nombre">
+          ${t.direccion?`<div class="coords" style="white-space:normal;margin-top:2px">${t.direccion}</div>`:''}</td>
+      <td class="num"><input type="number" min="0" value="${t.vacantes??0}" data-f="vacantes"></td>
+      <td><select data-f="urgencia">${['Alta','Media','Baja'].map(u=>`<option ${t.urgencia===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td><select data-f="esquema">${ESQUEMAS.map(e=>`<option ${t.esquema===e?'selected':''}>${e}</option>`).join('')}</select></td>
+      <td><span class="pago-lbl">${pagoHoy(t.esquema)}</span></td>
+      <td>${t.lat!=null?`<span class="coords">${t.lat.toFixed(4)}, ${t.lng.toFixed(4)}</span>`:`<span class="coords falta">sin ubicar</span>`}<br>
+          <button class="btn sec mini" data-a="ubicar">📍 Ubicar</button>
+          <button class="btn sec mini" data-a="corregir">✎ Corregir</button></td>
+      <td><button class="btn rojo mini" data-a="borrar">✕</button></td>`;
+    // Fila de edición de ubicación (oculta)
+    const trEd=document.createElement('tr');
+    trEd.style.display='none';
+    trEd.innerHTML=`<td colspan="7" style="background:#F4F7FF;border-left:3px solid var(--ruta)">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:4px 0">
+        <b style="font-family:var(--disp);text-transform:uppercase;font-size:14px">Corregir ubicación:</b>
+        <input data-e="lugar" value="${(t.direccion||'').replace(/"/g,'&quot;')}" placeholder="Colonia, alcaldía o zona… (ej. Tecamachalco)" style="flex:1;min-width:180px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <button class="btn mini" data-e="buscarLugar">Buscar</button>
+        <span style="color:var(--ink-2);font-size:12px">o exacta:</span>
+        <input data-e="lat" type="number" step="0.00001" placeholder="Latitud" value="${t.lat??''}" style="width:110px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-family:var(--mono);font-size:12.5px">
+        <input data-e="lng" type="number" step="0.00001" placeholder="Longitud" value="${t.lng??''}" style="width:110px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-family:var(--mono);font-size:12.5px">
+        <button class="btn mini" data-e="guardar">✔ Guardar</button>
+        <button class="btn sec mini" data-e="cerrar">Cancelar</button>
+      </div>
+      <div data-e="msg" style="font-size:12.5px;margin-top:2px"></div>
+      <div class="hint" style="margin-top:2px">Tip: pega coordenadas de Google Maps en "Latitud, Longitud", o busca la zona y luego afina arrastrando el punto azul en el mapa.</div>
+    </td>`;
+    tr.querySelectorAll('[data-f]').forEach(el=>{
+      el.addEventListener('change',async ()=>{
+        const f=el.dataset.f;
+        if(f==='vacantes') t.vacantes=parseInt(el.value)||0;
+        else t[f]=el.value;
+        if(f==='nombre'&&t.lat==null){ const c=coordConocida(t.nombre); if(c){t.lat=c[0];t.lng=c[1];} }
+        await guardar(); render();
+      });
+    });
+    tr.querySelector('[data-a="borrar"]').addEventListener('click',async ()=>{
+      tiendas=tiendas.filter(x=>x.id!==t.id); await guardar(); render();
+    });
+    tr.querySelector('[data-a="ubicar"]').addEventListener('click',()=>{
+      modo='tienda'; tiendaUbicando=t.id;
+      const box=document.getElementById('modoUbicar');
+      box.style.display='block';
+      box.innerHTML=`Toca el mapa para colocar <b>${t.nombre||'(sin nombre)'}</b>. `;
+      const cancel=document.createElement('button');
+      cancel.className='btn sec mini'; cancel.textContent='Cancelar';
+      cancel.onclick=()=>{modo=null;tiendaUbicando=null;box.style.display='none';};
+      box.appendChild(cancel);
+      document.getElementById('map').scrollIntoView({behavior:'smooth'});
+    });
+    tr.querySelector('[data-a="corregir"]').addEventListener('click',()=>{
+      const abierto=trEd.style.display!=='none';
+      // cerrar otros editores abiertos
+      tbody.querySelectorAll('tr[data-editor]').forEach(x=>x.style.display='none');
+      quitarPreview();
+      trEd.style.display=abierto?'none':'';
+      if(!abierto){
+        const iLat=trEd.querySelector('[data-e="lat"]');
+        if(t.lat!=null) ponerPreview(t.lat,t.lng,t,trEd);
+        trEd.querySelector('[data-e="lugar"]').focus();
+      }
+    });
+    trEd.dataset.editor='1';
+    const edMsg=(txt,color)=>{const m=trEd.querySelector('[data-e="msg"]');m.textContent=txt;m.style.color=color||'var(--ink-2)';};
+    const leerCampos=()=>{
+      const la=parseFloat(trEd.querySelector('[data-e="lat"]').value);
+      const lo=parseFloat(trEd.querySelector('[data-e="lng"]').value);
+      return (isFinite(la)&&isFinite(lo))?[la,lo]:null;
+    };
+    trEd.querySelector('[data-e="buscarLugar"]').addEventListener('click',()=>{
+      const q=trEd.querySelector('[data-e="lugar"]').value.trim();
+      if(!q){edMsg('Escribe una colonia, alcaldía o zona.','var(--no)');return;}
+      const coord=q.match(/^(-?\d{1,3}\.?\d*)\s*,\s*(-?\d{1,3}\.?\d*)$/);
+      const r=coord?{nombre:'Coordenadas',lat:+coord[1],lng:+coord[2]}:buscarLocal(q);
+      if(r){
+        trEd.querySelector('[data-e="lat"]').value=r.lat.toFixed(5);
+        trEd.querySelector('[data-e="lng"]').value=r.lng.toFixed(5);
+        ponerPreview(r.lat,r.lng,t,trEd);
+        edMsg('📍 '+r.nombre+' — arrastra el punto azul en el mapa para afinar y presiona Guardar.','var(--ok)');
+      }else edMsg('No encontré "'+q+'". Prueba con la alcaldía/colonia o pega "lat, lng" de Google Maps.','var(--no)');
+    });
+    trEd.querySelector('[data-e="lugar"]').addEventListener('keydown',e=>{
+      if(e.key==='Enter') trEd.querySelector('[data-e="buscarLugar"]').click();
+    });
+    ['lat','lng'].forEach(f=>trEd.querySelector(`[data-e="${f}"]`).addEventListener('change',()=>{
+      const c=leerCampos(); if(c) ponerPreview(c[0],c[1],t,trEd);
+    }));
+    trEd.querySelector('[data-e="guardar"]').addEventListener('click',async ()=>{
+      const c=leerCampos();
+      if(!c){edMsg('Faltan coordenadas válidas. Busca la zona o escribe latitud y longitud.','var(--no)');return;}
+      t.lat=+c[0].toFixed(5); t.lng=+c[1].toFixed(5); t.aprox=false;
+      quitarPreview(); await guardar(); render();
+    });
+    trEd.querySelector('[data-e="cerrar"]').addEventListener('click',()=>{
+      trEd.style.display='none'; quitarPreview();
+    });
+    tbody.appendChild(tr);
+    tbody.appendChild(trEd);
+  });
+  pintarMapa();
+  if(markerUsuario){const p=markerUsuario.getLatLng();mostrarRanking(p.lat,p.lng);}
+  if(typeof renderCierreSelect==='function') renderCierreSelect();
+}
+document.getElementById('btnAgregar').addEventListener('click',async ()=>{
+  tiendas.push({id:nextId++,nombre:'',vacantes:1,urgencia:'Alta',esquema:'Alta',lat:null,lng:null});
+  await guardar(); render();
+  const inp=tbody.querySelector('tr:last-child input'); if(inp) inp.focus();
+});
+document.getElementById('btnLimpiar').addEventListener('click',async ()=>{
+  if(confirm('¿Vaciar toda la lista de tiendas?')){ tiendas=[]; await guardar(); render(); }
+});
+
+/* ═══════════ 2 · CIERRE DE CONTRATACIÓN ═══════════ */
+const esAmazon=n=>norm(n).includes('AMAZON');
+const esLiverpool=n=>norm(n).includes('LIVERPOOL');
+const esCedis=n=>norm(n).includes('CEDIS');
+
+/* Mini-mapa propio de la sección 2 (Cierre), se actualiza al elegir tienda */
+const mapCierre=L.map('mapCierre',{zoomControl:true,scrollWheelZoom:false}).setView([19.39,-99.17],10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(mapCierre);
+let markerCierre=null;
+function mostrarEnMapaCierre(t){
+  const msg=document.getElementById('mapCierreMsg');
+  if(t&&t.lat!=null&&t.lng!=null){
+    if(markerCierre) mapCierre.removeLayer(markerCierre);
+    markerCierre=L.circleMarker([t.lat,t.lng],{radius:10,color:'#fff',weight:2,fillColor:colorUrg[t.urgencia]||'#1D5BD6',fillOpacity:.95}).addTo(mapCierre)
+      .bindPopup(`<div class="pop-tt">${t.nombre}</div><span class="flag ${t.urgencia}">${(t.urgencia||'').toUpperCase()}</span> · ${t.vacantes} vacante(s)<br><span class="pop-esq"><b>${t.esquema}</b> · ${pagoHoy(t.esquema)}</span>`)
+      .openPopup();
+    mapCierre.setView([t.lat,t.lng],14);
+    setTimeout(()=>mapCierre.invalidateSize(),150);
+    msg.textContent='';
+  }else{
+    if(markerCierre){ mapCierre.removeLayer(markerCierre); markerCierre=null; }
+    msg.textContent=t?'⚠ Esta tienda no tiene ubicación en el mapa — usa "Ubicar" o "Corregir" en la sección 3.':'';
+  }
+}
+
+/* ── Configuración editable de los speechs (persiste para todo el equipo) ── */
+const KEY_CFG='despacho:speechConfig';
+const SPEECH_CONFIG_DEFAULT={
+  lvpTiendas:[
+    {zona:'Zona 2 (Metropolitana)', estandar:25, flash:25, bono:250, metaBono:75, horario:'9:00 am y 3:00 pm', semanaBaja:4250, semanaAlta:8500, semanaExp:13500},
+    {zona:'Zona 3 (Puebla)', estandar:25, flash:25, bono:250, metaBono:75, horario:'9:00 am y 3:00 pm', semanaBaja:4250, semanaAlta:8500, semanaExp:13500},
+    {zona:'Zona 4 (Guadalajara)', estandar:25, flash:25, bono:500, metaBono:75, horario:'9:00 am y 3:00 pm', semanaBaja:4750, semanaAlta:9500, semanaExp:15000},
+    {zona:'Zona 6 (MTY, Tampico, Saltillo)', estandar:35, flash:40, bono:250, metaBono:75, horario:'8:00 am y 3:00 pm (en una tienda) y 9:00 am y 3:00 pm (en las demás)', semanaBaja:5750, semanaAlta:11500, semanaExp:18300},
+    {zona:'Zona 7 (Querétaro)', estandar:25, flash:25, bono:250, metaBono:50, horario:'8:00 am y 3:00 pm', semanaBaja:4500, semanaAlta:9000, semanaExp:14250}
+  ],
+  cedis:{localBase:1251, extraLocal:25, tope:59, foraneaBase:2000, extraForanea:40},
+  amazon:{pagoBase:500, bonoGas:100, dias:'5 a 6', horas:4, horarioCarga:'15:30 hrs', rangoPaquetes:'25 a 45', zonaEntrega:'Polanco, Roma, Del Valle, entre otras zonas exclusivas', puntoCarga:'Col. Atlampa, Cuauhtémoc'},
+  lcAlta:{pagoPqt:60, minGar:600, entregasProm:20},
+  lcBaja:{pagoPqt:50, minGar:500, entregasProm:11},
+  lcFijo:{pagoDiario:600, entregasProm:13},
+  extra:{pagoDiario:600},
+  swat:{pagoDiario:800}
+};
+let SPEECH_CONFIG=JSON.parse(JSON.stringify(SPEECH_CONFIG_DEFAULT));
+
+async function cargarConfig(){
+  try{
+    if(!window.storage) return;
+    const r=await window.storage.get(KEY_CFG,true);
+    if(r&&r.value) SPEECH_CONFIG=Object.assign(JSON.parse(JSON.stringify(SPEECH_CONFIG_DEFAULT)),JSON.parse(r.value));
+  }catch(e){}
+}
+async function guardarConfig(){
+  try{ if(window.storage) await window.storage.set(KEY_CFG, JSON.stringify(SPEECH_CONFIG), true); }catch(e){}
+}
+
+function speechLiverpoolTiendas(nombre,veh,vac,urg,z){
+  const flashTxt = z.flash!=z.estandar ? ` (hasta $${z.flash} en entregas flash)` : '';
+  return `"¡Excelente elección! Te cuento por qué entrar a AccessPack para operar las rutas de ${nombre} es la decisión más inteligente que puedes tomar hoy. Aquí en AccessPack somos el aliado estratégico de Liverpool, pero tenemos muy claro algo: Tú eres nuestro motor principal. Sin tu trabajo, la magia de la entrega no sucede; tú eres quien hace que la experiencia del cliente sea perfecta, y por eso te cuidamos como tal.
+
+1. El Potencial de tus Ganancias (Tú pones el límite)
+
+Aquí no tienes un sueldo estático, tienes un negocio en tus manos. Pagamos $${z.estandar} por cada entrega exitosa${flashTxt}, más un Bono de Productividad de $${fmt(z.bono)} por cada ${z.metaBono} entregas acumuladas. ¡Y lo mejor es que no hay límite de bonos!
+
+Tu Curva de Aprendizaje: durante tu primera o segunda semana te asignaremos entre 10 y 15 paquetes diarios. El pago será un poco más bajo esos días, pero ya estás ganando dinero desde el día uno mientras te haces experto con tu ${veh}.
+
+En Temporada Regular (25 paquetes/día): unos $${fmt(z.semanaBaja)} a la semana (incluyendo bonos) — $${fmt(z.semanaBaja*4)} mensuales libres para ti.
+
+En Temporada Alta (50 paquetes/día): $${fmt(z.semanaAlta)} semanales — ¡$${fmt(z.semanaAlta*4)} al mes!
+
+Para los Expertos (meta de 80 paquetes/día): tus ingresos se disparan a $${fmt(z.semanaExp)} semanales, hasta $${fmt(z.semanaExp*4)} pesos al mes.
+
+Y ojo: este año es de Mundial aquí en México, el volumen de Liverpool va a estar por las nubes. Es el momento exacto para subirte al barco.
+
+2. Flexibilidad Estratégica
+
+Tus horarios de recolección son ${z.horario}. Si en algún turno el volumen baja, tienes la libertad total de aprovechar tu tiempo en plataformas como Uber o Didi.
+
+3. Nunca estarás solo: El respaldo de AccessPack
+
+Capitanes y Coordinadores estarán contigo físicamente en la operación, y nuestra Torre de Control (6:00 am a 11:00 pm) te da soporte logístico todo el día.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo para que inicies tu capacitación con tu ${veh}?"`;
+}
+
+function speechCedis(nombre,veh,vac,urg){
+  const c=SPEECH_CONFIG.cedis;
+  const ejPqt=c.tope+11;
+  const ejLocalExtra=(ejPqt-c.tope)*c.extraLocal;
+  const ejForaneaExtra=(ejPqt-c.tope)*c.extraForanea;
+  return `"¡Excelente elección! Al inclinarte por ${nombre}, estás entrando a la operación logística más potente del país con tu ${veh}. En AccessPack somos el aliado estratégico número uno de Liverpool, pero quiero que esto te quede grabado: Tú eres nuestro motor principal.
+
+1. Esquema de Ganancias: El poder de la ruta
+
+Aquí en CEDIS no te pagamos solo por paquete, te pagamos por ruta consolidada.
+
+Tu Curva de Aprendizaje: durante tu primera o segunda semana saldrás con media ruta, con pago proporcional a la carga — ¡ya estás ganando desde el día uno!
+
+Una vez dominando esto, manejamos dos tipos de ruta:
+
+• Ruta Local: pago base de $${fmt(c.localBase)} por ruta; a partir del paquete ${c.tope+1}, te pagamos $${c.extraLocal} extra por cada paquete adicional.
+• Ruta Foránea: pago base de $${fmt(c.foraneaBase)} por ruta; después del paquete ${c.tope}, cada entrega extra se paga a $${c.extraForanea}.
+
+¿Qué significa esto en dinero real?
+
+En Rutas Locales: en una semana constante (sin extras) generas una base de $${fmt(c.localBase*6)} semanales (unos $${fmt(c.localBase*6*4)} mensuales). Si entregas ${ejPqt} paquetes en una ruta, te llevas $${fmt(c.localBase+ejLocalExtra)} diarios (más de $${fmt((c.localBase+ejLocalExtra)*24)} al mes).
+
+En Rutas Foráneas: haciendo 4 salidas a la semana aseguras $${fmt(c.foraneaBase*4)} semanales de base ($${fmt(c.foraneaBase*4*4)} al mes). Si en una foránea entregas ${ejPqt} paquetes, por los extras te llevarías $${fmt(c.foraneaBase+ejForaneaExtra)} por esa sola ruta.
+
+2. Nunca estarás solo: El "Cobijo" de AccessPack
+
+Capitanes y Coordinadores en el CEDIS, más Torre de Control (6:00 am a 11:00 pm) monitoreando y lista para ayudarte.
+
+Justo ahora esta operación tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo para que inicies tu capacitación con tu ${veh} en CEDIS?"`;
+}
+
+function speechAmazon(nombre,veh,vac,urg){
+  const a=SPEECH_CONFIG.amazon;
+  const diario=a.pagoBase+a.bonoGas;
+  return `"¡Excelente decisión! Te cuento por qué elegir el proyecto de Amazon con AccessPack es la jugada más inteligente que puedes hacer con tu ${veh}. Tú eres nuestro motor principal.
+
+1. Tu Nómina Segura y en Medio Tiempo
+
+Ingreso Fijo Garantizado: $${fmt(a.pagoBase)} fijos al día, más $${fmt(a.bonoGas)} de bono para gasolina — $${fmt(diario)} diarios antes de impuestos.
+
+Días de Trabajo: laboramos ${a.dias} días a la semana según demanda; en una semana normal generas entre $${fmt(diario*5)} y $${fmt(diario*6)} (menos impuestos), es decir entre $${fmt(diario*5*4)} y $${fmt(diario*6*4)} al mes.
+
+Medio Tiempo Real: rutas programadas para ${a.horas} horas, desde que sales del CEDIS hasta tu última entrega.
+
+Seguridad desde el Día 1: alta en el IMSS desde tu ingreso.
+
+2. Operación Inteligente
+
+Las cargas inician a las ${a.horarioCarga} en un punto céntrico (${a.puntoCarga}). Con la mañana libre, muchos operadores complementan su ingreso con otro proyecto de AccessPack (como Tiendas) y aseguran su tarde con Amazon.
+
+Rutas Concentradas: entregas de ${a.rangoPaquetes} paquetes en zonas exclusivas (${a.zonaEntrega}).
+
+3. El "Cobijo" de AccessPack
+
+Coordinador asignado desde tu primer día, acompañamiento y soporte en tiempo real.
+
+Justo ahora esta operación tiene ${vac} posición(es) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo para que inicies tu capacitación con tu ${veh} en Amazon?"`;
+}
+
+function speechAltaDemanda(nombre,veh,vac,urg){
+  const c=SPEECH_CONFIG.lcAlta;
+  const semana=c.pagoPqt*c.entregasProm*5, semana6=Math.round(semana*1.2);
+  return `"¡Excelente decisión! Te confirmo que al quedarte con ${nombre} (Alta Demanda), estás entrando a la verdadera élite de las entregas con AccessPack. Tú eres nuestro motor principal, manejando tu ${veh}.
+
+Tus Ingresos (Alta Demanda)
+
+Te pagamos $${c.pagoPqt} por despensa entregada. Con un promedio estimado de ${c.entregasProm} entregas al día, generas $${fmt(semana)} a la semana trabajando tus 5 días base.
+
+Si decides trabajar un 6to día voluntario, ¡tus ingresos se disparan a $${fmt(semana6)} semanales! (más de $${fmt(semana6*4)} libres al mes).
+
+¡Protección AccessPack!: si haces de 6 a 10 entregas en un día flojo, te aseguramos un Mínimo Garantizado de $${fmt(c.minGar)} ese día. ¡Tú nunca pierdes!
+
+Tu Equilibrio (Esquema 5x2)
+
+5 días laborados por 2 de descanso rolados; tú decides si vas por el 6to día.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo?"`;
+}
+
+function speechBajaDemanda(nombre,veh,vac,urg){
+  const c=SPEECH_CONFIG.lcBaja;
+  const semana=c.pagoPqt*c.entregasProm*5, semana6=Math.round(semana*1.2);
+  return `"¡Excelente decisión! Te confirmo que al quedarte con ${nombre}, elegiste el equilibrio perfecto entre un ritmo constante y ganancias seguras con AccessPack, manejando tu ${veh}.
+
+Tus Ingresos y Protección
+
+Te pagamos $${c.pagoPqt} por cada despensa entregada. Con el promedio de ${c.entregasProm} pedidos de esta zona, generas $${fmt(semana)} semanales trabajando tus 5 días base.
+
+Si aprovechas tu 6to día voluntario, alcanzas los $${fmt(semana6)} semanales.
+
+¡Protección AccessPack!: si la tienda tiene un día muy lento y solo salen de 6 a 10 entregas, te protegemos con un Mínimo Garantizado de $${fmt(c.minGar)} ese día.
+
+Tu Equilibrio (Esquema 5x2)
+
+5 días laborados por 2 de descanso rolados.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo?"`;
+}
+
+function speechFijo(nombre,veh,pago,entregasProm,vac,urg,tipo){
+  const promTxt = entregasProm ? ` Manejamos un promedio de unos ${entregasProm} pedidos diarios, pero sin importar el volumen,` : '';
+  return `"¡Excelente decisión! Te confirmo que al quedarte con ${nombre} (${tipo}), estás asegurando tranquilidad absoluta con AccessPack para tu ${veh}.
+
+Tu Seguridad Financiera
+
+Tienes un Pago Fijo Diario de $${fmt(pago)}.${promTxt} tu pago diario está completamente blindado.
+
+Trabajando tus 5 días base, te llevas $${fmt(pago*5)} a la semana garantizados.
+
+Con un 6to día voluntario, sube a $${fmt(pago*6)} semanales.
+
+Tu Equilibrio (Esquema 5x2)
+
+2 días de descanso rolados por cada 5 laborados.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo y amarremos tu lugar?"`;
+}
+
+function speechPxP(nombre,veh,vac,urg){
+  return `"¡Excelente elección! Te cuento por qué entrar a AccessPack para operar las rutas de ${nombre} es la decisión más inteligente para sacarle jugo a tu ${veh}. Tú eres nuestro motor principal.
+
+El Potencial de tus Ganancias
+
+Pagamos por paquete entregado, más bono de productividad por volumen acumulado.
+
+Nunca estarás solo: contamos con Torre de Control (6:00 am a 11:00 pm).
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo?"`;
+}
+
+function speechOnDemand(nombre,veh,vac,urg){
+  return `"¡Excelente elección! Con ${nombre} en esquema OnDemand, tú decides cuándo conectar tu ${veh} y generar ingresos con AccessPack, sin comprometerte a un horario fijo.
+
+Cómo funciona
+
+Te conectas solo en las horas en las que quieres trabajar; el pago varía según la demanda de ese bloque de horario, y siempre puedes ver la tarifa antes de aceptar la ruta.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo para que empieces a operar con tu ${veh}?"`;
+}
+
+function speechLiverpoolGenerico(nombre,veh,vac,urg){
+  return `"¡Excelente elección! ${nombre} maneja un esquema propio de Liverpool, y en AccessPack te acompañamos como tu aliado estratégico para operar ahí con tu ${veh}.
+
+Las condiciones específicas de pago y horario de esta tienda te las confirma tu supervisor directo antes de tu primer día, pero el respaldo de AccessPack (Torre de Control 6:00 am–11:00 pm) aplica igual que en el resto de la operación.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo?"`;
+}
+
+function speechGenerica(nombre,veh,esq,vac,urg){
+  return `"¡Excelente elección! En ${nombre} el esquema asignado es "${esq}" — ${pagoHoy(esq)}. En AccessPack te acompañamos como tu aliado estratégico para operar ahí con tu ${veh}.
+
+Justo ahora esta tienda tiene ${vac} vacante(s) con urgencia ${urg}. ¿Cerramos tu contratación hoy mismo?"`;
+}
+
+
+/* ── 6 · Editor de configuración de speechs ── */
+function campoCfg(label,id,value){
+  return `<div><label>${label}</label><input id="${id}" value="${(value+'').replace(/"/g,'&quot;')}"></div>`;
+}
+function renderConfigForm(){
+  const tbl=document.getElementById('cuerpoLvp');
+  if(tbl) tbl.innerHTML=SPEECH_CONFIG.lvpTiendas.map((z,i)=>`
+    <tr>
+      <td><input data-i="${i}" data-k="zona" class="cfgz" value="${(z.zona||'').replace(/"/g,'&quot;')}" style="min-width:170px"></td>
+      <td><input data-i="${i}" data-k="estandar" class="cfgz" value="${z.estandar}" style="width:60px"></td>
+      <td><input data-i="${i}" data-k="flash" class="cfgz" value="${z.flash}" style="width:60px"></td>
+      <td><input data-i="${i}" data-k="bono" class="cfgz" value="${z.bono}" style="width:70px"></td>
+      <td><input data-i="${i}" data-k="metaBono" class="cfgz" value="${z.metaBono}" style="width:60px"></td>
+      <td><input data-i="${i}" data-k="horario" class="cfgz" value="${(z.horario||'').replace(/"/g,'&quot;')}" style="min-width:230px"></td>
+      <td><input data-i="${i}" data-k="semanaBaja" class="cfgz" value="${z.semanaBaja}" style="width:85px"></td>
+      <td><input data-i="${i}" data-k="semanaAlta" class="cfgz" value="${z.semanaAlta}" style="width:85px"></td>
+      <td><input data-i="${i}" data-k="semanaExp" class="cfgz" value="${z.semanaExp}" style="width:85px"></td>
+      <td><button type="button" class="btn rojo mini" onclick="eliminarZona(${i})">✕</button></td>
+    </tr>`).join('');
+
+  const c=SPEECH_CONFIG.cedis;
+  document.getElementById('cfgCedis').innerHTML=
+    campoCfg('Pago Ruta Local ($)','cedisLocalBase',c.localBase)+
+    campoCfg('Extra Pqt Local ($)','cedisExtraLocal',c.extraLocal)+
+    campoCfg('Tope paquetes p/extras','cedisTope',c.tope)+
+    campoCfg('Pago Ruta Foránea ($)','cedisForaneaBase',c.foraneaBase)+
+    campoCfg('Extra Pqt Foránea ($)','cedisExtraForanea',c.extraForanea);
+
+  const a=SPEECH_CONFIG.amazon;
+  document.getElementById('cfgAmazon').innerHTML=
+    campoCfg('Pago Base Diario ($)','amzBase',a.pagoBase)+
+    campoCfg('Bono Gasolina ($)','amzGas',a.bonoGas)+
+    campoCfg('Días/Semana','amzDias',a.dias)+
+    campoCfg('Horas/Ruta','amzHoras',a.horas)+
+    campoCfg('Horario de Carga','amzHorarioCarga',a.horarioCarga)+
+    campoCfg('Rango de Paquetes','amzRango',a.rangoPaquetes)+
+    campoCfg('Zona de Entrega','amzZona',a.zonaEntrega)+
+    campoCfg('Punto de Carga','amzPunto',a.puntoCarga);
+
+  const la=SPEECH_CONFIG.lcAlta;
+  document.getElementById('cfgLcAlta').innerHTML=
+    campoCfg('Pago Pqt ($)','laPago',la.pagoPqt)+
+    campoCfg('Mínimo Garantizado ($)','laMinGar',la.minGar)+
+    campoCfg('Entregas Promedio/Día','laProm',la.entregasProm);
+
+  const lb=SPEECH_CONFIG.lcBaja;
+  document.getElementById('cfgLcBaja').innerHTML=
+    campoCfg('Pago Pqt ($)','lbPago',lb.pagoPqt)+
+    campoCfg('Mínimo Garantizado ($)','lbMinGar',lb.minGar)+
+    campoCfg('Entregas Promedio/Día','lbProm',lb.entregasProm);
+
+  const lf=SPEECH_CONFIG.lcFijo, ex=SPEECH_CONFIG.extra, sw=SPEECH_CONFIG.swat;
+  document.getElementById('cfgFijoExtraSwat').innerHTML=
+    campoCfg('Pago Fijo Diario ($)','lfPago',lf.pagoDiario)+
+    campoCfg('Entregas Promedio/Día (Fijo)','lfProm',lf.entregasProm)+
+    campoCfg('Pago Diario Extra ($)','exPago',ex.pagoDiario)+
+    campoCfg('Pago Diario Swat ($)','swPago',sw.pagoDiario);
+
+  llenarZonaSelects();
+}
+function leerConfigDesdeFormulario(){
+  document.querySelectorAll('#cuerpoLvp tr').forEach(tr=>{
+    tr.querySelectorAll('input.cfgz').forEach(inp=>{
+      const i=+inp.dataset.i, k=inp.dataset.k;
+      if(!SPEECH_CONFIG.lvpTiendas[i]) return;
+      SPEECH_CONFIG.lvpTiendas[i][k] = (k==='zona'||k==='horario') ? inp.value : (parseFloat(inp.value)||0);
+    });
+  });
+  const num=id=>parseFloat(document.getElementById(id).value)||0;
+  const txt=id=>document.getElementById(id).value;
+  SPEECH_CONFIG.cedis={localBase:num('cedisLocalBase'),extraLocal:num('cedisExtraLocal'),tope:num('cedisTope'),foraneaBase:num('cedisForaneaBase'),extraForanea:num('cedisExtraForanea')};
+  SPEECH_CONFIG.amazon={pagoBase:num('amzBase'),bonoGas:num('amzGas'),dias:txt('amzDias'),horas:num('amzHoras'),horarioCarga:txt('amzHorarioCarga'),rangoPaquetes:txt('amzRango'),zonaEntrega:txt('amzZona'),puntoCarga:txt('amzPunto')};
+  SPEECH_CONFIG.lcAlta={pagoPqt:num('laPago'),minGar:num('laMinGar'),entregasProm:num('laProm')};
+  SPEECH_CONFIG.lcBaja={pagoPqt:num('lbPago'),minGar:num('lbMinGar'),entregasProm:num('lbProm')};
+  SPEECH_CONFIG.lcFijo={pagoDiario:num('lfPago'),entregasProm:num('lfProm')};
+  SPEECH_CONFIG.extra={pagoDiario:num('exPago')};
+  SPEECH_CONFIG.swat={pagoDiario:num('swPago')};
+}
+function agregarZona(){
+  leerConfigDesdeFormulario();
+  SPEECH_CONFIG.lvpTiendas.push({zona:'Nueva zona', estandar:25, flash:25, bono:250, metaBono:75, horario:'9:00 am y 3:00 pm', semanaBaja:4250, semanaAlta:8500, semanaExp:13500});
+  renderConfigForm();
+}
+function eliminarZona(i){
+  leerConfigDesdeFormulario();
+  if(SPEECH_CONFIG.lvpTiendas.length<=1){ alert('Debe quedar al menos una zona.'); return; }
+  SPEECH_CONFIG.lvpTiendas.splice(i,1);
+  renderConfigForm();
+}
+document.getElementById('btnAddZona').addEventListener('click',agregarZona);
+document.getElementById('btnGuardarConfig').addEventListener('click',async ()=>{
+  leerConfigDesdeFormulario();
+  await guardarConfig();
+  renderConfigForm();
+  generarCierre();
+  generarSpeechCercanas();
+  const msg=document.getElementById('cfgMsg');
+  msg.textContent='✔ Guardado — todo el equipo verá estos valores.';
+  setTimeout(()=>msg.textContent='',3000);
+});
+document.getElementById('btnResetConfig').addEventListener('click',async ()=>{
+  if(!confirm('¿Restaurar todos los valores originales del documento de corrección? Se perderán tus cambios guardados.')) return;
+  SPEECH_CONFIG=JSON.parse(JSON.stringify(SPEECH_CONFIG_DEFAULT));
+  await guardarConfig();
+  renderConfigForm();
+  generarCierre();
+  generarSpeechCercanas();
+});
+
+/* ── Ganancia real por tienda (sincronizada del dashboard de Pedidos) ── */
+const SPREADSHEET_KEY_GAN="10PZS7SuKDkI2kecGumZm6Oiw28P-d6l4uCLTTn3o5fk";
+let GANANCIAS_TIENDAS={};   // {storeKey: {nombre, monto, formato, mes}}
+function cleanStoreKeyG(name){
+  if(!name) return "";
+  return String(name).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/^\d+\s*-\s*/,"").replace(/\s+/g,' ').trim();
+}
+function identifyStorePaymentFormatG(storeName){
+  let n=cleanStoreKeyG(storeName).toLowerCase();
+  if(n.includes('sumesa bajio')||n.includes('sumesa valle')||n.includes('sumesa san angel')||n.includes('iztapalapa')||n.includes('las torres')||n.includes('torres')) return "FIJO";
+  if(n.includes('sumesa oaxaca')) return "VARIABLE";
+  if(n.includes('sumesa')) return "FIJO";
+  return "VARIABLE";
+}
+function parseCleanDateStrG(str){
+  if(!str) return "";
+  if(str.includes("Date(")){
+    let m=str.match(/Date\((\d+),(\d+),(\d+)/);
+    if(m) return `${String(m[3]).padStart(2,'0')}/${String(parseInt(m[2])+1).padStart(2,'0')}/${m[1]}`;
+  }
+  let s=str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+  if(s){ let a=s[3]; if(a.length===2)a="20"+a; return `${s[1].padStart(2,'0')}/${s[2].padStart(2,'0')}/${a}`; }
+  return "";
+}
+const MESES_G=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+window.processGananciasJSONP=function(response){
+  try{
+    if(!response||response.status!=='ok'||!response.table) return;
+    const table=response.table;
+    let colMap={fecha:-1,sucursal:-1,operador:-1,puntual:-1,tarde:-1};
+    let startRow=0;
+    if(table.cols&&table.cols.some(c=>c.label&&c.label.trim()!=='')){
+      table.cols.forEach((c,idx)=>{
+        const h=(c.label||'').toLowerCase();
+        if(h.includes('fecha'))colMap.fecha=idx;
+        else if(h.includes('sucursal')||h.includes('tienda'))colMap.sucursal=idx;
+        else if(h.includes('operador')||h.includes('repartidor')||h.includes('nombre'))colMap.operador=idx;
+        else if(h.includes('puntual'))colMap.puntual=idx;
+        else if(h.includes('tarde'))colMap.tarde=idx;
+      });
+    }else if(table.rows.length>0){
+      const r0=table.rows[0];
+      if(r0&&r0.c){
+        r0.c.forEach((cell,idx)=>{
+          const h=cell&&cell.v?String(cell.v).toLowerCase():'';
+          if(h.includes('fecha'))colMap.fecha=idx;
+          else if(h.includes('sucursal')||h.includes('tienda'))colMap.sucursal=idx;
+          else if(h.includes('operador')||h.includes('repartidor')||h.includes('nombre'))colMap.operador=idx;
+          else if(h.includes('puntual'))colMap.puntual=idx;
+          else if(h.includes('tarde'))colMap.tarde=idx;
+        });
+        if(colMap.fecha>-1||colMap.sucursal>-1) startRow=1;
+      }
+    }
+    if(colMap.fecha===-1)colMap.fecha=0;
+    if(colMap.sucursal===-1)colMap.sucursal=1;
+    if(colMap.operador===-1)colMap.operador=2;
+    if(colMap.puntual===-1)colMap.puntual=3;
+    if(colMap.tarde===-1)colMap.tarde=4;
+    const num=cell=>{
+      if(!cell||cell.v==null) return 0;
+      if(typeof cell.v==='number') return Math.floor(cell.v);
+      const p=parseInt(String(cell.f||cell.v).trim().replace(/,/g,''),10);
+      return isNaN(p)?0:p;
+    };
+    const items=[];
+    let maxDate=null;
+    for(let i=startRow;i<table.rows.length;i++){
+      const r=table.rows[i]; if(!r||!r.c) continue;
+      const rawF=r.c[colMap.fecha]?String(r.c[colMap.fecha].f||r.c[colMap.fecha].v||'').trim():'';
+      const rawS=r.c[colMap.sucursal]?String(r.c[colMap.sucursal].v||r.c[colMap.sucursal].f||'').trim():'';
+      const rawO=r.c[colMap.operador]?String(r.c[colMap.operador].v||r.c[colMap.operador].f||'').trim():'';
+      if(!rawF&&!rawS&&!rawO) continue;
+      const fecha=parseCleanDateStrG(rawF); if(!fecha) continue;
+      const pt=num(r.c[colMap.puntual]), td=num(r.c[colMap.tarde]);
+      const parts=fecha.split('/');
+      const d=new Date(+parts[2],+parts[1]-1,+parts[0]);
+      if(!maxDate||d>maxDate) maxDate=d;
+      const baseLunes=new Date(2026,6,6);
+      const semana=28+Math.floor((d-baseLunes)/(1000*60*60*24*7));
+      items.push({fecha,mesIdx:+parts[1]-1,anio:+parts[2],semana,sucursal:rawS||'No Especificada',operador:rawO.toUpperCase(),totales:pt+td});
+    }
+    if(!items.length||!maxDate) return;
+    // Mes más reciente con datos
+    const mesActivo=maxDate.getMonth(), anioActivo=maxDate.getFullYear();
+    const storeWeekMap={};
+    items.forEach(it=>{
+      if(it.mesIdx!==mesActivo||it.anio!==anioActivo) return;
+      const sKey=cleanStoreKeyG(it.sucursal);
+      if(!storeWeekMap[sKey]) storeWeekMap[sKey]={name:it.sucursal.replace(/^\d+\s*-\s*/,''),formato:identifyStorePaymentFormatG(it.sucursal),weeks:{}};
+      const w=storeWeekMap[sKey].weeks;
+      if(!w[it.semana]) w[it.semana]={riders:{}};
+      const rd=w[it.semana].riders;
+      if(!rd[it.operador]) rd[it.operador]={totales:0,days:new Set()};
+      rd[it.operador].totales+=it.totales;
+      rd[it.operador].days.add(it.fecha);
+    });
+    const out={};
+    Object.keys(storeWeekMap).forEach(sKey=>{
+      const sd=storeWeekMap[sKey];
+      const weekly=[];
+      Object.keys(sd.weeks).forEach(sem=>{
+        const wd=sd.weeks[sem];
+        let keys=Object.keys(wd.riders).filter(k=>wd.riders[k].days.size>1);
+        if(!keys.length) keys=Object.keys(wd.riders);
+        if(!keys.length) return;
+        if(sd.formato==='FIJO'){ weekly.push(3500); return; }
+        let tot=0; keys.forEach(k=>tot+=wd.riders[k].totales);
+        weekly.push((tot*55)/keys.length);
+      });
+      if(weekly.length){
+        const prom=weekly.reduce((a,b)=>a+b,0)/weekly.length;
+        out[sKey]={nombre:sd.name,monto:prom,formato:sd.formato,mes:MESES_G[mesActivo]};
+      }
+    });
+    GANANCIAS_TIENDAS=out;
+    // Refrescar speeches visibles con el dato nuevo
+    if(typeof generarCierre==='function') generarCierre();
+    if(typeof generarSpeechCercanas==='function') generarSpeechCercanas();
+  }catch(e){ console.warn('Ganancias sync:',e); }
+};
+function initGananciasSync(){
+  try{
+    const old=document.getElementById('jsonp-ganancias');
+    if(old) old.remove();
+    const s=document.createElement('script');
+    s.id='jsonp-ganancias';
+    s.src=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_KEY_GAN}/gviz/tq?sheet=Pedidos&tqx=responseHandler:processGananciasJSONP&_=${Date.now()}`;
+    s.onerror=()=>console.warn('No se pudo sincronizar ganancias por tienda.');
+    document.body.appendChild(s);
+  }catch(e){}
+}
+function gananciaDe(t){
+  if(!t||!t.nombre) return null;
+  const keys=Object.keys(GANANCIAS_TIENDAS);
+  if(!keys.length) return null;
+  const kT=cleanStoreKeyG(t.nombre);
+  // 1) inclusión directa
+  let hit=keys.find(k=>kT===k)||keys.find(k=>kT.includes(k)||k.includes(kT));
+  if(hit) return GANANCIAS_TIENDAS[hit];
+  // 2) por tokens significativos (>3 letras, sin genéricos)
+  const genericas=new Set(['LA','COMER','CITY','MARKET','MKT','FRESKO','SUMESA','TIENDA','SUCURSAL','PLAZA','DE','DEL','LAS','LOS','EL']);
+  const toksT=kT.split(' ').filter(x=>x.length>3&&!genericas.has(x));
+  if(!toksT.length) return null;
+  hit=keys.find(k=>{
+    const toksK=k.split(' ').filter(x=>x.length>3&&!genericas.has(x));
+    if(!toksK.length) return false;
+    return toksK.every(x=>kT.includes(x))||toksT.every(x=>k.includes(x));
+  });
+  return hit?GANANCIAS_TIENDAS[hit]:null;
+}
+function anexarGanancia(txt,t){
+  const g=gananciaDe(t);
+  if(!g) return txt;
+  const linea=`⟦G⟧💰 GANANCIA REAL EN ESTA TIENDA: los repartidores activos están ganando en promedio $${fmt(g.monto)} a la semana (dato real de operación · ${g.mes}${g.formato==='FIJO'?' · esquema fijo':''}).⟦/G⟧`;
+  const idx=txt.lastIndexOf('\n\n');
+  if(idx>0) return txt.slice(0,idx)+'\n\n'+linea+txt.slice(idx);
+  return txt+'\n\n'+linea;
+}
+function escaparHTML_G(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function renderSpeech(el,txt){
+  el.innerHTML=escaparHTML_G(txt)
+    .replace(/⟦G⟧/g,'<span class="ganancia-real">')
+    .replace(/⟦\/G⟧/g,'</span>');
+}
+
+function necesitaZonaLvp(t){
+  const esq=t.esquema||esquemaDefault(t.nombre);
+  return esq==='No aplica' && esLiverpool(t.nombre) && !esCedis(t.nombre);
+}
+
+/* ── Infografías por tienda ── */
+function infografiaPara(t){
+  if(!t || typeof INFOGRAFIAS==='undefined') return null;
+  const n=norm(t.nombre||''), esq=t.esquema||esquemaDefault(t.nombre);
+  const pick=k=>INFOGRAFIAS[k]?{key:k,label:INFOGRAFIAS_LABELS[k],data:INFOGRAFIAS[k]}:null;
+  if(esAmazon(t.nombre)) return pick('amazon_4h');
+  if(esCedis(t.nombre)) return null; // sin infografía de CEDIS por ahora
+  if(esLiverpool(t.nombre)){
+    if(n.includes('SALTILLO')) return pick('lvp_saltillo');
+    if(n.includes('MONTERREY')||n.includes('MTY')) return pick('lvp_monterrey');
+    if(n.includes('TAMPICO')) return pick('lvp_tampico');
+    if(n.includes('JUAREZ')) return pick('lvp_juarez');
+    if(n.includes('QUERETARO')||n.includes('QRO')) return pick('lvp_queretaro');
+    if(n.includes('IRAPUATO')) return pick('lvp_irapuato');
+    if(n.includes('GUADALAJARA')&&n.includes('CENTRO')) return pick('lvp_gdl_centro');
+    if(n.includes('GUADALAJARA')||n.includes('GDL')||n.includes('ANDARES')) return pick('lvp_gdl');
+    if(n.includes('PUEBLA')) return pick('lvp_puebla');
+    if(n.includes('TOLUCA')||n.includes('METEPEC')) return pick('lvp_toluca');
+    return pick('lvp_cdmx');
+  }
+  // La Comer / City Market / Fresko / Sumesa y demás
+  if(n.includes('PUEBLA')||n.includes('ANGELOPOLIS')) return pick('lc_puebla');
+  if(n.includes('QUERETARO')||n.includes('QRO')) return pick('lc_queretaro');
+  if(esq==='Alta') return pick('lc_alta');
+  return pick('lc_general');
+}
+async function bajarInfografia(e){
+  e.preventDefault();
+  const a=e.currentTarget;
+  try{
+    const blob=await (await fetch(a.href)).blob();
+    const url=URL.createObjectURL(blob);
+    const tmp=document.createElement('a');
+    tmp.href=url; tmp.download=a.download; tmp.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(err){ window.open(a.href,'_blank'); }
+}
+function mostrarInfografia(t,prefix){
+  const box=document.getElementById(prefix+'Infograf');
+  if(!box) return;
+  const inf=infografiaPara(t);
+  if(!inf){ box.style.display='none'; return; }
+  box.style.display='block';
+  const img=document.getElementById(prefix+'InfografImg');
+  const dl=document.getElementById(prefix+'InfografDl');
+  const lbl=document.getElementById(prefix+'InfografLabel');
+  img.src=inf.data;
+  dl.href=inf.data;
+  dl.download='Infografia_'+inf.key+'.png';
+  dl.onclick=bajarInfografia;
+  lbl.textContent=inf.label+' — descárgala y envíasela al candidato por WhatsApp o correo.';
+}
+function llenarZonaSelects(){
+  const opts=SPEECH_CONFIG.lvpTiendas.map((z,i)=>`<option value="${i}">${z.zona}</option>`).join('');
+  ['cierreZona','cercanasZona'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel) return;
+    const prev=sel.value;
+    sel.innerHTML=opts;
+    if(prev!=='' && +prev<SPEECH_CONFIG.lvpTiendas.length) sel.value=prev;
+  });
+}
+function construirSpeech(t,veh,zonaIdx){
+  const vac=t.vacantes??0, urg=t.urgencia||'Media', esq=t.esquema||esquemaDefault(t.nombre);
+  let txt;
+  switch(esq){
+    case 'Alta': txt=speechAltaDemanda(t.nombre,veh,vac,urg); break;
+    case 'Baja': txt=speechBajaDemanda(t.nombre,veh,vac,urg); break;
+    case 'Fijo $700': txt=speechFijo(t.nombre,veh,SPEECH_CONFIG.lcFijo.pagoDiario,SPEECH_CONFIG.lcFijo.entregasProm,vac,urg,'Pago Fijo'); break;
+    case 'Extra $600': txt=speechFijo(t.nombre,veh,SPEECH_CONFIG.extra.pagoDiario,null,vac,urg,'Extra'); break;
+    case 'Swat $800': txt=speechFijo(t.nombre,veh,SPEECH_CONFIG.swat.pagoDiario,null,vac,urg,'SWAT'); break;
+    case 'PxP': txt=speechPxP(t.nombre,veh,vac,urg); break;
+    case 'OnDemand': txt=speechOnDemand(t.nombre,veh,vac,urg); break;
+    case 'No aplica':
+      if(esCedis(t.nombre)) txt=speechCedis(t.nombre,veh,vac,urg);
+      else if(esLiverpool(t.nombre)){
+        const z=SPEECH_CONFIG.lvpTiendas[zonaIdx||0]||SPEECH_CONFIG.lvpTiendas[0];
+        txt=speechLiverpoolTiendas(t.nombre,veh,vac,urg,z);
+      }
+      else if(esAmazon(t.nombre)) txt=speechAmazon(t.nombre,veh,vac,urg);
+      else txt=speechLiverpoolGenerico(t.nombre,veh,vac,urg);
+      break;
+    default: txt=speechGenerica(t.nombre,veh,esq,vac,urg);
+  }
+  txt=anexarGanancia(txt,t);
+  return {esq,vac,urg,txt};
+}
+function generarCierre(){
+  const selTienda=document.getElementById('cierreTienda');
+  const nombre=selTienda.value;
+  const veh=document.getElementById('cierreVeh').value;
+  const t=tiendas.find(x=>x.nombre===nombre);
+  const info=document.getElementById('cierreInfo'), out=document.getElementById('cierreSpeech');
+  const zonaWrap=document.getElementById('cierreZonaWrap');
+  if(!t){
+    info.textContent='';
+    out.textContent='Agrega tiendas en la sección 3 (o sube el Excel/foto del día) para poder generar un speech de cierre.';
+    mostrarEnMapaCierre(null);
+    mostrarInfografia(null,'cierre');
+    zonaWrap.style.display='none';
+    return;
+  }
+  const mostrarZona=necesitaZonaLvp(t);
+  zonaWrap.style.display=mostrarZona?'flex':'none';
+  const zonaIdx=mostrarZona?parseInt(document.getElementById('cierreZona').value||0):0;
+  const {esq,vac,urg,txt}=construirSpeech(t,veh,zonaIdx);
+  info.innerHTML=`Esquema detectado: <b>${esq}</b> · ${pagoHoy(esq)} · <span class="flag ${urg}">${urg.toUpperCase()}</span> · ${vac} vacante(s)`;
+  renderSpeech(out,txt);
+  mostrarEnMapaCierre(t);
+  mostrarInfografia(t,'cierre');
+}
+document.getElementById('cierreZona').addEventListener('change',generarCierre);
+
+/* ── Caja "Tiendas cercanas" (sección 1, tras una búsqueda) ── */
+function poblarCercanas(lista){
+  const card=document.getElementById('cercanasCard');
+  const sel=document.getElementById('cercanasSel');
+  if(!lista||!lista.length){
+    card.style.display='none';
+    document.getElementById('cercanasSpeech').textContent='';
+    document.getElementById('cercanasInfo').textContent='';
+    return;
+  }
+  card.style.display='block';
+  const prev=sel.value;
+  sel.innerHTML=lista.map((t,i)=>`<option value="${t.id}">#${i+1} · ${t.nombre} — ${t.km} km · ${t.esquema}</option>`).join('');
+  if(lista.some(t=>String(t.id)===prev)) sel.value=prev;
+  generarSpeechCercanas();
+}
+function generarSpeechCercanas(){
+  const sel=document.getElementById('cercanasSel');
+  if(!sel||!sel.value) return;
+  const veh=document.getElementById('cercanasVeh').value;
+  const t=tiendas.find(x=>String(x.id)===sel.value);
+  const info=document.getElementById('cercanasInfo'), out=document.getElementById('cercanasSpeech');
+  const zonaWrap=document.getElementById('cercanasZonaWrap');
+  if(!t){ info.textContent=''; out.textContent=''; zonaWrap.style.display='none'; mostrarInfografia(null,'cercanas'); return; }
+  const mostrarZona=necesitaZonaLvp(t);
+  zonaWrap.style.display=mostrarZona?'flex':'none';
+  const zonaIdx=mostrarZona?parseInt(document.getElementById('cercanasZona').value||0):0;
+  const {esq,vac,urg,txt}=construirSpeech(t,veh,zonaIdx);
+  info.innerHTML=`Esquema detectado: <b>${esq}</b> · ${pagoHoy(esq)} · <span class="flag ${urg}">${urg.toUpperCase()}</span> · ${vac} vacante(s)`;
+  renderSpeech(out,txt);
+  mostrarInfografia(t,'cercanas');
+}
+document.getElementById('cercanasZona').addEventListener('change',generarSpeechCercanas);
+document.getElementById('cercanasSel').addEventListener('change',generarSpeechCercanas);
+document.getElementById('cercanasVeh').addEventListener('change',generarSpeechCercanas);
+document.getElementById('btnCopiarCercanas').addEventListener('click',()=>{
+  const txt=document.getElementById('cercanasSpeech').textContent;
+  if(!txt) return;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const b=document.getElementById('btnCopiarCercanas');
+    b.textContent='¡Copiado!'; setTimeout(()=>b.textContent='Copiar',1500);
+  });
+});
+function renderCierreSelect(){
+  const sel=document.getElementById('cierreTienda');
+  if(!sel) return;
+  const prev=sel.value;
+  sel.innerHTML=tiendas.map(t=>`<option value="${(t.nombre||'').replace(/"/g,'&quot;')}">${t.nombre||'(sin nombre)'}</option>`).join('');
+  if(tiendas.some(t=>t.nombre===prev)) sel.value=prev;
+  generarCierre();
+}
+document.getElementById('cierreTienda').addEventListener('change',generarCierre);
+document.getElementById('cierreVeh').addEventListener('change',generarCierre);
+document.getElementById('btnCopiarCierre').addEventListener('click',()=>{
+  const txt=document.getElementById('cierreSpeech').textContent;
+  if(!txt) return;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const b=document.getElementById('btnCopiarCierre');
+    b.textContent='¡Copiado!'; setTimeout(()=>b.textContent='Copiar',1500);
+  });
+});
+
+/* ═══════════ EXCEL: IMPORTAR / EXPORTAR ═══════════ */
+const UBICACION_CIUDAD={'ZONA METROPOLITANA':'Ciudad de México','GUADALAJARA':'Guadalajara, Jalisco','QUERETARO':'Querétaro, Querétaro','PUEBLA':'Puebla, Puebla','MONTERREY':'Monterrey, Nuevo León','COAHUILA':'Saltillo, Coahuila','TAMAULIPAS':'Tampico, Tamaulipas','CHIHUAHUA':'Chihuahua, Chihuahua','COLIMA':'Manzanillo, Colima','CDMX':'Ciudad de México','EDOMEX':'Estado de México'};
+function nombreDesdeReporte(nombre,cliente){
+  let n=nombre.replace(/^\d+\s*-\s*/,'').trim();          // quitar prefijo numérico "112 - "
+  n=n.replace(/^L\.\s*/i,'LIVERPOOL ');                    // "L. ZAPOPAN" → "LIVERPOOL ZAPOPAN"
+  const nn=norm(n), c=norm(cliente||'');
+  if(c.includes('CEDIS')&&!nn.includes('CEDIS')) n='CEDIS '+n;
+  else if(c.includes('LIVERPOOL')&&!nn.includes('LIVERPOOL')&&!nn.includes('CEDIS')) n='LIVERPOOL '+n;
+  // expandir abreviaturas de CEDIS
+  n=n.replace(/\bCHH\b/i,'CHIHUAHUA').replace(/\bQRO\b/i,'QUERETARO');
+  return n.toUpperCase();
+}
+function esquemaDesdeReporte(nombre,cliente){
+  const n=norm(nombre), c=norm(cliente||'');
+  if(c.includes('AMAZON')||n.includes('AMAZON')) return 'No aplica';
+  if(c.includes('LIVERPOOL')||n.includes('LIVERPOOL')||n.includes('CEDIS')) return 'No aplica';
+  if(n.includes('EXTRAS')) return 'Extra $600';
+  // La Comer: fijos y bajas conocidas, el resto Alta
+  if(n.includes('SUMESA OAXACA')||n.includes('SANTA MARIA')||n.includes('STA MARIA')) return 'Baja';
+  if(n.includes('SUMESA')||n.includes('IZTAPALAPA')||n.includes('MANZANILLO')||n.includes('FRESKO CUMBRES')||n.includes('LAS TORRES')) return 'Fijo $700';
+  return 'Alta';
+}
+function urgDesdePrioridad(v,esReporte){
+  const p=norm(v);
+  if(p.startsWith('URGENTE')||p.startsWith('ALTA')) return 'Alta';
+  if(p.startsWith('MEDIA')) return 'Media';
+  if(p.startsWith('BAJA')) return 'Baja';
+  return esReporte?'Baja':'Media'; // en el reporte, sin prioridad = sin urgencia
+}
+document.getElementById('fileXlsx').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      // Leemos como matriz para encontrar la fila de encabezados (puede no ser la primera)
+      const matriz=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const iHead=matriz.findIndex(fila=>fila.some(c=>norm(c).startsWith('VACANTE')||norm(c).startsWith('SUCURSAL')||norm(c).startsWith('TIENDA')));
+      if(iHead<0) throw new Error('sin encabezados');
+      const heads=matriz[iHead].map(h=>norm(h));
+      const col=(...claves)=>heads.findIndex(h=>claves.some(k=>h.includes(k)));
+      const iSuc=col('SUCURSAL','TIENDA','NOMBRE');
+      const iVac=col('VACANTE'), iUrg=col('URGENCIA','PRIORIDAD'), iEsq=col('ESQUEMA');
+      const iCad=col('CADENA'), iCli=col('CLIENTE'), iEst=col('ESTATUS');
+      const iUbic=col('UBICACION');
+      const iDir=col('DIRECCION'), iMun=col('ALCALDIA','MUNICIPIO');
+      const iEdo=col('ESTADO'), iCP=col('CODIGO POSTAL','C.P','CP');
+      const iLat=col('LATITUD'), iLng=col('LONGITUD');
+      // ¿Es el formato "Reporte de urgencias"? (tiene PRIORIDAD y CLIENTE)
+      const esReporte = iUrg>=0 && heads[iUrg].includes('PRIORIDAD') && iCli>=0;
+      const vistas=new Map();
+      let omitidasInactivas=0;
+      for(let i=iHead+1;i<matriz.length;i++){
+        const r=matriz[i];
+        if(!r||!r.some(c=>(c??'').toString().trim())) continue;
+        const cel=idx=>idx>=0?(r[idx]??'').toString().trim():'';
+        // Filtrar tiendas inactivas/cerradas del reporte
+        const est=norm(cel(iEst));
+        if(est&&(est.includes('INACTIV')||est.includes('CERRAD'))){ omitidasInactivas++; continue; }
+        const cadena=cel(iCad), cliente=cel(iCli);
+        const dirCompleta=cel(iDir);
+        // Nombre: columna Sucursal si existe; si no, Cadena + colonia (último tramo de la dirección)
+        let nombre=cel(iSuc);
+        if(!nombre){
+          const colonia=dirCompleta.includes(',')?dirCompleta.split(',').pop().trim().replace(/^COL\.?\s*/i,''):cel(iMun);
+          nombre=((cadena||'Tienda')+' '+(colonia||cel(iMun))).toUpperCase().trim();
+        }
+        if(!nombre) continue;
+        if(esReporte) nombre=nombreDesdeReporte(nombre,cliente);
+        const vac=parseInt(cel(iVac))||0;
+        const urg=urgDesdePrioridad(cel(iUrg),esReporte);
+        let esq=normEsquema(cel(iEsq));
+        if(!ESQUEMAS.includes(esq)) esq=esReporte?esquemaDesdeReporte(nombre,cliente):esquemaDefault(nombre);
+        // Dirección para mostrar/geocodificar
+        const ciudadUbic=UBICACION_CIUDAD[norm(cel(iUbic))]||cel(iUbic);
+        const direccion=[dirCompleta,cel(iMun),cel(iEdo),cel(iCP)].filter(Boolean).join(', ')||ciudadUbic;
+        const la=parseFloat(cel(iLat)), lo=parseFloat(cel(iLng));
+        const key=norm(nombre+'|'+dirCompleta);
+        if(vistas.has(key)){ // misma tienda repetida: conservar mayor vacantes y la urgencia más alta
+          const p=vistas.get(key);
+          p.vacantes=Math.max(p.vacantes,vac);
+          const rango={Alta:3,Media:2,Baja:1};
+          if((rango[urg]||0)>(rango[p.urgencia]||0)) p.urgencia=urg;
+        }else{
+          const c=(isFinite(la)&&isFinite(lo))?[la,lo]:coordConocida(nombre);
+          vistas.set(key,{id:nextId++,nombre,vacantes:vac,urgencia:urg,esquema:esq,direccion,lat:c?c[0]:null,lng:c?c[1]:null});
+        }
+      }
+      if(!vistas.size) throw new Error('sin filas');
+      tiendas=[...vistas.values()];
+      await guardar(); render();
+      const sinUb=tiendas.filter(t=>t.lat==null).length;
+      document.getElementById('msgCarga').innerHTML=
+        `✔ <b>${tiendas.length} tiendas cargadas</b>${esReporte?' (Reporte de urgencias detectado: URGENTE→Alta, sin prioridad→Baja)':''}${omitidasInactivas?` · ${omitidasInactivas} inactiva(s) omitida(s)`:''} (duplicados combinados).`+
+        (sinUb?` ⚠ ${sinUb} sin ubicación — buscando por dirección…`:' Todas ubicadas en el mapa.');
+      if(sinUb) geocodificarPendientes();
+    }catch(err){
+      document.getElementById('msgCarga').textContent='✖ No se pudo leer el archivo. Acepta el formato clásico (Sucursal · Vacantes · Urgencia · Esquema · Dirección) o el Reporte de urgencias (Sucursal · Cliente · Estatus · Ubicación · Prioridad · Vacantes).';
+    }
+    e.target.value='';
+  };
+  rd.readAsArrayBuffer(f);
+});
+/* ═══════════ FOTO: LEER TIENDAS CON IA ═══════════ */
+document.getElementById('fileFoto').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const msgC=document.getElementById('msgCarga');
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    try{
+      msgC.innerHTML='⏳ Leyendo la foto… esto tarda unos segundos.';
+      const base64=ev.target.result.split(',')[1];
+      const media=f.type&&f.type.startsWith('image/')?f.type:'image/png';
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens:1000,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:media,data:base64}},
+            {type:'text',text:'Esta foto contiene una lista de tiendas/sucursales para despacho de choferes (cadenas como La Comer, Fresko, City Market, Sumesa, Amazon, Liverpool). Extrae TODAS las tiendas visibles. Corrige errores de dedo obvios (ej. "mitdown"→"Midtown") y NO repitas tiendas duplicadas (mismo nombre aunque esté escrito con mayúsculas/minúsculas distintas). Si la foto muestra vacantes, urgencia (Alta/Media/Baja), esquema o dirección, inclúyelos; si no se ven, omite esos campos. Responde SOLO con un arreglo JSON válido, sin texto adicional ni markdown, con objetos de esta forma: [{"nombre":"LA COMER TLALPAN","vacantes":2,"urgencia":"Alta","esquema":"Alta demanda","direccion":"..."}] Los campos vacantes, urgencia, esquema y direccion son opcionales.'}
+          ]}]
+        })
+      });
+      const data=await resp.json();
+      if(!data||!data.content) throw new Error('sin respuesta');
+      const texto=data.content.map(b=>b.type==='text'?b.text:'').join('').replace(/```json|```/g,'').trim();
+      const lista=JSON.parse(texto.slice(texto.indexOf('['),texto.lastIndexOf(']')+1));
+      if(!Array.isArray(lista)||!lista.length) throw new Error('vacío');
+      let nuevas=0,actualizadas=0;
+      for(const it of lista){
+        const nombre=(it.nombre||'').toString().trim();
+        if(!nombre) continue;
+        let urg=(it.urgencia||'').toString().trim();
+        urg=urg? urg[0].toUpperCase()+urg.slice(1).toLowerCase():'';
+        if(!['Alta','Media','Baja'].includes(urg)) urg='';
+        let esq=normEsquema(it.esquema||'');
+        if(!ESQUEMAS.includes(esq)) esq='';
+        const vac=parseInt(it.vacantes);
+        const existente=tiendas.find(t=>norm(t.nombre)===norm(nombre));
+        if(existente){ // actualizar la que ya está
+          if(isFinite(vac)) existente.vacantes=vac;
+          if(urg) existente.urgencia=urg;
+          if(esq) existente.esquema=esq;
+          if(it.direccion&&!existente.direccion) existente.direccion=it.direccion.toString().trim();
+          actualizadas++;
+        }else{
+          const c=coordConocida(nombre);
+          tiendas.push({id:nextId++,nombre:nombre.toUpperCase(),vacantes:isFinite(vac)?vac:1,
+            urgencia:urg||'Media',esquema:esq||esquemaDefault(nombre),
+            direccion:(it.direccion||'').toString().trim(),lat:c?c[0]:null,lng:c?c[1]:null});
+          nuevas++;
+        }
+      }
+      await guardar(); render();
+      const sinUb=tiendas.filter(t=>t.lat==null).length;
+      msgC.innerHTML=`✔ <b>Foto leída:</b> ${nuevas} tienda(s) nueva(s), ${actualizadas} actualizada(s).`+
+        (sinUb?` ⚠ ${sinUb} sin ubicación — buscando por dirección…`:'')+
+        ` <button class="btn rojo mini" id="btnDeshacerFoto">Quitar las que no venían en la foto</button>`;
+      const nombresFoto=new Set(lista.map(x=>norm(x.nombre||'')));
+      document.getElementById('btnDeshacerFoto').addEventListener('click',async ()=>{
+        tiendas=tiendas.filter(t=>nombresFoto.has(norm(t.nombre)));
+        await guardar(); render();
+        msgC.innerHTML=`✔ Lista dejada solo con las <b>${tiendas.length} tiendas de la foto</b>.`;
+      });
+      if(sinUb) geocodificarPendientes();
+    }catch(err){
+      msgC.textContent='✖ No pude leer la foto. Intenta con una imagen más clara y de frente, o sube el Excel.';
+    }
+    e.target.value='';
+  };
+  rd.readAsDataURL(f);
+});
+
+/* Ubica automáticamente las tiendas sin coordenadas usando su dirección del Excel */
+async function geocodificarPendientes(){
+  const pend=tiendas.filter(t=>t.lat==null&&(t.direccion||'').trim());
+  let ok=0;
+  for(const t of pend){
+    // 1) intento con el gazetteer local (colonia / alcaldía dentro de la dirección)
+    let r=buscarLocal(t.direccion)||buscarLocal(t.direccion.split(',').slice(-3).join(' '));
+    // 2) intento en línea con la dirección completa
+    if(!r){
+      try{
+        const q=encodeURIComponent(t.direccion+', México');
+        const resp=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q='+q);
+        const d=await resp.json();
+        if(d&&d.length) r={lat:+d[0].lat,lng:+d[0].lon};
+        await new Promise(s=>setTimeout(s,1100)); // respetar límite de Nominatim
+      }catch(e){}
+    }
+    if(r){ t.lat=+r.lat.toFixed(5); t.lng=+r.lng.toFixed(5); ok++; }
+  }
+  if(ok){ await guardar(); render(); }
+  const sinUb=tiendas.filter(t=>t.lat==null).length;
+  document.getElementById('msgCarga').innerHTML=
+    `✔ <b>${tiendas.length} tiendas cargadas.</b>`+
+    (sinUb?` ⚠ ${sinUb} sin ubicación: usa “Ubicar” o “Corregir” en la tabla.`:' Todas ubicadas en el mapa.');
+}
+document.getElementById('btnExportar').addEventListener('click',()=>{
+  const data=tiendas.map(t=>({Sucursal:t.nombre,Vacantes:t.vacantes,Urgencia:t.urgencia,Esquema:t.esquema,
+    'Dirección':t.direccion||'','Pago hoy':pagoHoy(t.esquema),Lat:t.lat??'',Lng:t.lng??''}));
+  const ws=XLSX.utils.json_to_sheet(data);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Tiendas');
+  XLSX.writeFile(wb,'tiendas_del_dia.xlsx');
+});
+
+/* ═══════════ DEMO (datos del archivo de hoy) ═══════════ */
+const DEMO=[
+ ['LA COMER COYOACAN',2,'Alta','Alta'],['CITY MARKET PILARES',1,'Media','Alta'],
+ ['FRESKO TECAMACHALCO',2,'Alta','Alta'],['LA COMER BOSQUE REAL',2,'Alta','Alta'],
+ ['LA COMER LOMAS ANAHUAC',3,'Alta','Alta'],['LA COMER MANZANILLO',1,'Baja','Baja'],
+ ['LA COMER INSURGENTES',2,'Alta','Alta'],['FRESKO VALLARTA',2,'Alta','Alta'],
+ ['LA COMER DEL VALLE',2,'Alta','Alta'],['CITY MARKET SAN JERONIMO',2,'Alta','Alta'],
+ ['LA COMER LAGO ALBERTO',3,'Alta','Alta'],['FRESKO CUMBRES',1,'Alta','Alta'],
+ ['LA COMER VILLA COAPA',2,'Alta','Alta'],['LA COMER OLIVAR',2,'Alta','Alta'],
+ ['FRESKO PABELLON',2,'Alta','Alta'],['FRESKO MIDTOWN GDL',2,'Alta','Alta'],
+ ['CITY PLAZA PATRIA GDL',2,'Alta','Alta'],['AMAZON ATLAMPA',10,'Alta','No aplica'],
+ ['LA COMER PUEBLA (ANGELOPOLIS)',2,'Alta','Alta'],
+ ['LIVERPOOL ANDARES GUADALAJARA',2,'Alta','No aplica'],
+ ['LIVERPOOL CENTRO DE GUADALAJARA',2,'Alta','No aplica'],
+];
+async function cargarDemo(){
+  tiendas=DEMO.map(([n,v,u,e])=>{
+    const c=coordConocida(n);
+    return {id:nextId++,nombre:n,vacantes:v,urgencia:u,esquema:e,lat:c?c[0]:null,lng:c?c[1]:null};
+  });
+  await guardar(); render();
+  document.getElementById('msgCarga').innerHTML=`✔ <b>${tiendas.length} tiendas de ejemplo cargadas</b> (tu archivo de hoy).`;
+}
+document.getElementById('btnDemo').addEventListener('click',cargarDemo);
+
+/* ═══════════ INICIO ═══════════ */
+(async ()=>{
+  await cargarConfig();
+  renderConfigForm();
+  const hay=await cargarGuardado();
+  render();
+  if(!hay) document.getElementById('msgCarga').innerHTML='⚠ <b>Todavía no se ha publicado la lista de hoy.</b> Se sube en <a href="actualizar/">/actualizar</a>.';
+  initGananciasSync();
+  setInterval(initGananciasSync, 10*60*1000); // refrescar cada 10 min
+})();
+</script>
+
+<div id="vidOverlay" style="display:none;position:fixed;right:18px;bottom:18px;z-index:99998;background:#fff;border:3px solid #8e44ad;border-radius:14px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35)">
+  <video id="vidConsulta" width="230" muted playsinline style="display:block;border-radius:10px;max-width:60vw"></video>
+</div>
+</body>
+</html>

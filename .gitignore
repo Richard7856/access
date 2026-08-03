@@ -1,0 +1,6 @@
+.DS_Store
+.claude/settings.local.json
+
+# Datos de operación: el repo es público y esto es el reporte real de
+# vacantes. Si lo quieres versionar, borra esta línea a conciencia.
+*.xlsx

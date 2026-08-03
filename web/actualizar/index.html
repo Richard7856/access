@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Actualizar tiendas del día · Despacho de Choferes</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;--ink:#131B26;--ink-2:#4A5568;--paper:#ECEFF3;--card:#FFF;--line:#D4DAE2;--ruta:#1D5BD6;--ruta-osc:#123F9C;
+      --alta:#D6402E;--media:#E39B0D;--baja:#2F8F5B;--ok:#1F7A4D;--ok-bg:#E7F4EC;--no:#B3261E;--no-bg:#FBEAE8;
+      --mono:'IBM Plex Mono',monospace;--disp:'Barlow Condensed',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding:0 14px 60px}
+header{background:var(--ink);color:#fff;padding:18px 0 16px;border-bottom:4px solid var(--ruta)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding-bottom:0}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(24px,5vw,34px);letter-spacing:.5px;text-transform:uppercase}
+header a{color:#AEB9C9;font-family:var(--mono);font-size:13px}
+header a:hover{color:#fff}
+section{margin-top:22px}
+.sec-tt{font-family:var(--disp);font-weight:700;font-size:21px;text-transform:uppercase;letter-spacing:.6px;
+        display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sec-tt::after{content:"";flex:1;height:2px;background:var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+.hint{font-size:13px;color:var(--ink-2)}
+.btn{font-family:'Inter';font-weight:600;font-size:14px;border:none;border-radius:6px;padding:10px 16px;cursor:pointer;
+     background:var(--ruta);color:#fff;transition:background .15s;display:inline-block;text-decoration:none}
+.btn:hover{background:var(--ruta-osc)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.sec{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.sec:hover{background:#F0F2F5}
+.btn.mini{padding:5px 10px;font-size:12.5px}
+.btn.ok{background:var(--ok)}
+input[type=file]{display:none}
+input[type=password],input[type=text]{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:6px;
+     font-size:15px;font-family:'Inter';background:#fff}
+label.campo{display:block;font-size:12.5px;color:var(--ink-2);margin:10px 0 4px;font-weight:600}
+.msg{padding:11px 14px;border-radius:6px;margin-bottom:14px;font-size:14px}
+.msg.err{background:var(--no-bg);color:var(--no);border:1px solid #f0c4c0}
+.msg.ok{background:var(--ok-bg);color:var(--ok);border:1px solid #b9e0c9}
+.msg.warn{background:#FFF7E0;color:#8a6100;border:1px solid #f0dca6}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.kpi{flex:1;min-width:130px;background:#F8F9FB;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{display:block;font-family:var(--disp);font-size:26px;line-height:1.1;color:var(--ink)}
+.kpi span{font-size:12px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.4px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-2);
+   padding:6px;border-bottom:2px solid var(--line);position:sticky;top:0;background:#fff}
+td{padding:6px;border-bottom:1px solid #EDF0F4}
+.flag{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:600;padding:2px 7px;color:#fff;border-radius:3px}
+.flag.Alta{background:var(--alta)}.flag.Media{background:var(--media)}.flag.Baja{background:var(--baja)}
+.tag{font-family:var(--mono);font-size:10.5px;padding:2px 6px;border-radius:3px;background:#EEF2F8;color:var(--ink-2)}
+.tag.nueva{background:#E7F4EC;color:var(--ok)}
+.zona{border:2px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;background:#FAFBFC}
+.zona.encima{border-color:var(--ruta);background:#EEF3FD}
+.scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.barra{height:6px;background:#E4E8EE;border-radius:3px;overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;background:var(--ruta);width:0;transition:width .2s}
+.oculto{display:none}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Actualizar tiendas del día</h1>
+  <a href="../">← Volver al despacho</a>
+</div></header>
+
+<div class="wrap">
+<div id="avisos"></div>
+
+<!-- ═══ PRIMER USO: crear la clave ═══ -->
+<section id="secCrear" class="oculto">
+  <div class="sec-tt">Primer paso</div>
+  <div class="card">
+    <p style="margin-bottom:6px"><b>Elige la clave</b> para publicar la lista del día.</p>
+    <p class="hint">Se pide una sola vez. Hazlo ahora, antes de compartir la página con tu equipo.
+       Es un candado ligero para que nadie borre la lista sin querer: quien sepa de programación
+       puede saltárselo, así que no la uses como si fuera una contraseña bancaria.</p>
+    <form id="formCrear" style="margin-top:14px;max-width:380px">
+      <label class="campo" for="c1">Clave (mínimo 6 caracteres)</label>
+      <input id="c1" type="password" required minlength="6" autocomplete="new-password">
+      <label class="campo" for="c2">Repítela</label>
+      <input id="c2" type="password" required minlength="6" autocomplete="new-password">
+      <button class="btn" style="margin-top:14px">Guardar clave</button>
+    </form>
+  </div>
+</section>
+
+<!-- ═══ LOGIN ═══ -->
+<section id="secEntrar" class="oculto">
+  <div class="sec-tt">Entrar</div>
+  <div class="card">
+    <form id="formEntrar" style="max-width:340px">
+      <label class="campo" for="pw">Clave</label>
+      <input id="pw" type="password" required autofocus autocomplete="current-password">
+      <button class="btn" style="margin-top:14px">Entrar</button>
+    </form>
+    <p class="hint" style="margin-top:14px">Esta página es solo para publicar la lista del día.
+       El equipo consulta el despacho <a href="../">aquí</a>, sin clave.</p>
+  </div>
+</section>
+
+<!-- ═══ PANEL ═══ -->
+<div id="panel" class="oculto">
+
+<section>
+  <div class="sec-tt">1 · Lista publicada ahora</div>
+  <div class="card">
+    <div class="kpis" id="kpisActual"></div>
+    <a class="btn sec mini" href="../">Ver cómo lo está viendo el equipo →</a>
+  </div>
+</section>
+
+<section>
+  <div class="sec-tt">2 · Subir el Excel de hoy</div>
+  <div class="card">
+    <div class="zona" id="zona">
+      <label class="btn" for="archivo">⬆ Elegir el archivo</label>
+      <input type="file" id="archivo" accept=".xlsx,.xls,.csv">
+      <p class="hint" style="margin-top:10px">…o arrástralo aquí. Acepta <b>.xlsx</b>, <b>.xls</b> y <b>.csv</b>.</p>
+    </div>
+    <p class="hint" style="margin-top:10px">
+      Funciona con el <b>Reporte de urgencias</b> (Sucursal · Cliente · Estatus de Tienda · Ubicación · Prioridad · Vacantes)
+      y con el formato clásico (Sucursal · Vacantes · Urgencia · Esquema · Dirección).
+      Las tiendas <b>inactivas o cerradas</b> se descartan solas, los duplicados se combinan y
+      <b>URGENTE</b> se convierte en urgencia Alta.
+    </p>
+    <label class="hint" style="display:block;margin-top:10px">
+      <input type="checkbox" id="conservarUbic" checked>
+      Conservar las ubicaciones que ya corregiste a mano para las tiendas que se repiten.
+    </label>
+    <div id="progreso" class="oculto" style="margin-top:14px">
+      <p class="hint" id="progresoTxt"></p>
+      <div class="barra"><i id="progresoBarra"></i></div>
+    </div>
+    <div id="resultado"></div>
+  </div>
+</section>
+
+<section id="secPrevia" class="oculto">
+  <div class="sec-tt">3 · Revisa y publica</div>
+  <div class="card">
+    <div class="kpis" id="previaKpis"></div>
+    <div id="previaAvisos"></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Tienda</th><th>Vac.</th><th>Urgencia</th><th>Esquema</th><th>Ubicación</th></tr></thead>
+      <tbody id="previaBody"></tbody>
+    </table></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center">
+      <button class="btn ok" id="btnPublicar">✔ Publicar para el equipo</button>
+      <button class="btn sec" id="btnCancelar">Cancelar</button>
+      <span class="hint" id="msgPublicar"></span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-tt">Copias de seguridad</div>
+  <div class="card">
+    <p class="hint" style="margin-bottom:10px">Cada vez que publicas se guarda una copia. Si subiste el
+       archivo equivocado, restaura la anterior. Las copias nunca se borran ni se modifican.</p>
+    <div id="historial" class="hint">Cargando…</div>
+  </div>
+</section>
+
+<section>
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+    <button class="btn sec mini" id="btnCambiar">Cambiar la clave</button>
+    <button class="btn sec mini" id="btnSalir">Cerrar sesión</button>
+  </div>
+</section>
+
+</div><!-- /panel -->
+</div><!-- /wrap -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../conexion.js"></script>
+<script src="../despacho-datos.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let propuesta=null, actuales=[];
+
+function aviso(html,clase){
+  $('avisos').innerHTML = html ? `<div class="msg ${clase||'warn'}" style="margin-top:18px">${html}</div>` : '';
+}
+function mostrar(id,si){ $(id).classList.toggle('oculto',!si); }
+
+/* ── Arranque: ¿hay clave? ¿ya entré? ───────────────────────── */
+(async()=>{
+  const est=await DESPACHO.listo;
+  try{ actuales=JSON.parse(est.datos['despacho:tiendas']||'[]')||[]; }catch(e){ actuales=[]; }
+  const hayClave=!!est.datos['despacho:admin'];
+  if(!hayClave)              mostrar('secCrear',true);
+  else if(!DESPACHO.esAdmin())mostrar('secEntrar',true);
+  else                        abrirPanel();
+})();
+
+function abrirPanel(){
+  mostrar('secCrear',false); mostrar('secEntrar',false); mostrar('panel',true);
+  const vac=actuales.reduce((a,t)=>a+(+t.vacantes||0),0);
+  const est=DESPACHO.estado();
+  $('kpisActual').innerHTML=
+    `<div class="kpi"><b>${actuales.length}</b><span>tiendas</span></div>`+
+    `<div class="kpi"><b>${vac}</b><span>vacantes</span></div>`+
+    `<div class="kpi" style="flex:2"><b style="font-size:16px;line-height:1.3;padding-top:6px">`+
+      `${est.actualizadoTxt?est.actualizadoTxt.replace('Datos del ',''):'Sin publicar'}</b><span>última actualización</span></div>`;
+  cargarHistorial();
+}
+
+/* ── Crear la clave ─────────────────────────────────────────── */
+$('formCrear').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if($('c1').value!==$('c2').value) return aviso('Las dos claves no coinciden.','err');
+  try{
+    await storage.set('despacho:admin', JSON.stringify({hash: await DESPACHO.hash($('c1').value)}));
+    DESPACHO.entrar();
+    aviso('Listo, la clave quedó guardada.','ok');
+    abrirPanel();
+  }catch(err){ aviso('No se pudo guardar la clave: '+err.message,'err'); }
+});
+
+/* ── Entrar ─────────────────────────────────────────────────── */
+$('formEntrar').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const guardado=JSON.parse(DESPACHO.estado().datos['despacho:admin']||'{}');
+  if(await DESPACHO.hash($('pw').value)===guardado.hash){
+    DESPACHO.entrar(); aviso(''); abrirPanel();
+  }else{
+    aviso('Clave incorrecta.','err'); $('pw').value='';
+  }
+});
+
+$('btnSalir').addEventListener('click',()=>{ DESPACHO.salir(); location.reload(); });
+$('btnCambiar').addEventListener('click',async()=>{
+  const actual=prompt('Escribe la clave actual:'); if(actual===null) return;
+  const guardado=JSON.parse(DESPACHO.estado().datos['despacho:admin']||'{}');
+  if(await DESPACHO.hash(actual)!==guardado.hash) return aviso('La clave actual no es correcta.','err');
+  const nueva=prompt('Escribe la clave nueva (mínimo 6 caracteres):'); if(nueva===null) return;
+  if((nueva||'').length<6) return aviso('La clave nueva es muy corta.','err');
+  try{
+    await storage.set('despacho:admin', JSON.stringify({hash: await DESPACHO.hash(nueva)}));
+    aviso('Clave actualizada.','ok');
+  }catch(err){ aviso('No se pudo cambiar la clave: '+err.message,'err'); }
+});
+
+/* ── Arrastrar y soltar ─────────────────────────────────────── */
+const zona=$('zona');
+['dragenter','dragover'].forEach(ev=>zona.addEventListener(ev,e=>{e.preventDefault();zona.classList.add('encima');}));
+['dragleave','drop'].forEach(ev=>zona.addEventListener(ev,e=>{e.preventDefault();zona.classList.remove('encima');}));
+zona.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) leer(f); });
+$('archivo').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) leer(f); e.target.value=''; });
+
+function progreso(txt,pct){
+  mostrar('progreso',!!txt);
+  $('progresoTxt').textContent=txt||'';
+  $('progresoBarra').style.width=(pct||0)+'%';
+}
+function resultado(html,clase){
+  $('resultado').innerHTML=html?`<div class="msg ${clase||'warn'}" style="margin-top:14px">${html}</div>`:'';
+}
+
+/* ── Leer, ubicar y previsualizar ───────────────────────────── */
+async function leer(file){
+  resultado(''); mostrar('secPrevia',false); propuesta=null;
+  progreso('Leyendo '+file.name+'…',10);
+  let r;
+  try{
+    r=parsearExcel(await file.arrayBuffer());
+  }catch(err){
+    progreso('');
+    resultado('✖ <b>No pude leer el archivo.</b> Revisa que sea el reporte de vacantes '+
+              '(con columnas Sucursal y Vacantes o Prioridad) y no otro documento.','err');
+    return;
+  }
+
+  let reutilizadas=0;
+  if($('conservarUbic').checked&&actuales.length){
+    // Solo las ubicaciones exactas (las de "solo ciudad" se recalculan igual de rápido).
+    const mapa=new Map(actuales.filter(t=>t.lat!=null&&!t.aprox).map(t=>[norm(t.nombre),t]));
+    for(const t of r.tiendas){
+      if(t.lat==null){
+        const v=mapa.get(norm(t.nombre));
+        if(v){ t.lat=v.lat; t.lng=v.lng; reutilizadas++; }
+      }
+    }
+  }
+
+  const faltan=r.tiendas.filter(t=>t.lat==null&&(t.direccion||'').trim()).length;
+  if(faltan) progreso('Buscando la ubicación de '+faltan+' tienda(s)…',30);
+  const ub=await ubicarPendientes(r.tiendas,(hecho,total,nombre)=>{
+    progreso('Ubicando '+hecho+' de '+total+': '+nombre,30+Math.round(60*hecho/total));
+  });
+  progreso('');
+  propuesta=r.tiendas;
+  pintarPrevia(r,ub,reutilizadas);
+}
+
+function pintarPrevia(r,ub,reutilizadas){
+  const vac=propuesta.reduce((a,t)=>a+(+t.vacantes||0),0);
+  const antes=new Set(actuales.map(t=>norm(t.nombre)));
+  const ahora=new Set(propuesta.map(t=>norm(t.nombre)));
+  const nuevas=propuesta.filter(t=>!antes.has(norm(t.nombre)));
+  const salen=actuales.filter(t=>!ahora.has(norm(t.nombre)));
+  const urgentes=propuesta.filter(t=>t.urgencia==='Alta').length;
+  const sinUb=propuesta.filter(t=>t.lat==null).length;
+
+  $('previaKpis').innerHTML=
+    `<div class="kpi"><b>${propuesta.length}</b><span>tiendas</span></div>`+
+    `<div class="kpi"><b>${vac}</b><span>vacantes</span></div>`+
+    `<div class="kpi"><b style="color:var(--alta)">${urgentes}</b><span>urgencia alta</span></div>`+
+    `<div class="kpi"><b>${nuevas.length}</b><span>nuevas</span></div>`;
+
+  let avisos='';
+  if(r.esReporte) avisos+='<div class="msg ok">Detecté el <b>Reporte de urgencias</b>: URGENTE → urgencia Alta, sin prioridad → Baja.</div>';
+  if(r.omitidasInactivas) avisos+=`<div class="msg warn">Descarté <b>${r.omitidasInactivas}</b> tienda(s) marcadas como inactivas o cerradas.</div>`;
+  if(reutilizadas) avisos+=`<div class="msg ok">Conservé la ubicación corregida a mano de <b>${reutilizadas}</b> tienda(s).</div>`;
+  if(ub.aproximadas) avisos+=`<div class="msg warn"><b>${ub.aproximadas}</b> tienda(s) quedaron en el <b>centro de su ciudad</b>: el reporte solo trae la ciudad, no la dirección. Salen en el mapa y en las búsquedas, pero la distancia que ve el chofer es aproximada. Para afinarlas, usa “Corregir” en la sección 3 del despacho (queda guardado y se respeta en las siguientes cargas).</div>`;
+  if(sinUb) avisos+=`<div class="msg warn"><b>${sinUb}</b> tienda(s) sin ubicación: aparecerán en la lista, pero no en las búsquedas por cercanía.</div>`;
+  if(salen.length) avisos+=`<div class="msg warn">Van a <b>desaparecer ${salen.length}</b> tienda(s) que hoy están publicadas: ${salen.slice(0,8).map(t=>esc(t.nombre)).join(', ')}${salen.length>8?'…':''}</div>`;
+  $('previaAvisos').innerHTML=avisos;
+
+  const orden={Alta:0,Media:1,Baja:2};
+  const lista=[...propuesta].sort((a,b)=>(orden[a.urgencia]??3)-(orden[b.urgencia]??3)||(b.vacantes-a.vacantes));
+  $('previaBody').innerHTML=lista.map(t=>
+    `<tr><td>${esc(t.nombre)} ${!antes.has(norm(t.nombre))?'<span class="tag nueva">nueva</span>':''}</td>`+
+    `<td>${t.vacantes}</td>`+
+    `<td><span class="flag ${t.urgencia}">${(t.urgencia||'').toUpperCase()}</span></td>`+
+    `<td><span class="tag">${esc(t.esquema)}</span></td>`+
+    `<td class="hint">${t.lat==null?'— sin ubicar':(t.aprox?'📍 solo ciudad':'📍 en el mapa')}</td></tr>`).join('');
+
+  mostrar('secPrevia',true);
+  $('secPrevia').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ── Publicar ───────────────────────────────────────────────── */
+$('btnCancelar').addEventListener('click',()=>{ propuesta=null; mostrar('secPrevia',false); });
+$('btnPublicar').addEventListener('click',()=>publicar(propuesta,'Excel del día'));
+
+async function publicar(lista,nota){
+  if(!lista||!lista.length) return;
+  const b=$('btnPublicar'); b.disabled=true; b.textContent='Publicando…';
+  try{
+    // 1) copia en el historial  2) lista vigente que ve el equipo
+    await DESPACHO.rest('despacho_publicaciones',{
+      method:'POST',
+      headers:{Prefer:'return=minimal'},
+      body:JSON.stringify({tiendas:lista, nota:nota})
+    });
+    await storage.set('despacho:tiendas', JSON.stringify(lista));
+    actuales=lista;
+    propuesta=null;
+    mostrar('secPrevia',false);
+    resultado(`✔ <b>Publicado.</b> El equipo ya ve las ${lista.length} tiendas al abrir o recargar el despacho. `+
+              `<a href="../">Ver el despacho →</a>`,'ok');
+    abrirPanel();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(err){
+    $('msgPublicar').textContent='✖ '+err.message;
+  }finally{
+    b.disabled=false; b.textContent='✔ Publicar para el equipo';
+  }
+}
+
+/* ── Historial ──────────────────────────────────────────────── */
+async function cargarHistorial(){
+  try{
+    const filas=await DESPACHO.rest('despacho_publicaciones?select=id,creado,nota,tiendas&order=id.desc&limit=12');
+    if(!filas.length){ $('historial').textContent='Aún no hay copias: aparecerán en cuanto publiques la primera lista.'; return; }
+    $('historial').innerHTML='<table><tbody>'+filas.map((f,i)=>
+      `<tr><td>${esc(DESPACHO.fechaBonita(f.creado))}</td>`+
+      `<td class="hint">${(f.tiendas||[]).length} tiendas${f.nota?' · '+esc(f.nota):''}</td>`+
+      `<td style="text-align:right">${i===0?'<span class="tag">publicada</span>':
+        `<button class="btn sec mini" data-restaurar="${f.id}">Restaurar</button>`}</td></tr>`).join('')+'</tbody></table>';
+    $('historial').querySelectorAll('[data-restaurar]').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const fila=filas.find(x=>String(x.id)===btn.dataset.restaurar);
+        if(!fila||!confirm('¿Restaurar esta lista? El equipo verá esta versión.')) return;
+        await publicar(fila.tiendas,'restaurada del '+DESPACHO.fechaBonita(fila.creado));
+      });
+    });
+  }catch(err){ $('historial').textContent='No pude cargar el historial: '+err.message; }
+}
+</script>
+</body>
+</html>
