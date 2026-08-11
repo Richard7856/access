@@ -37,6 +37,7 @@ OTRAS = [
      ["/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",        []),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
+    ("grand",              "carrera",      "Gran Carrera de Reclutamiento", []),
 ]
 
 # Proyecto de Supabase (mascotas). La clave es la publicable: es normal que

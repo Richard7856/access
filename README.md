@@ -12,6 +12,7 @@ sin PHP, sin instalación.
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
 | `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
+| `/carrera` | marcador del equipo: pista, altas, clasificación | **nada: se reinicia al recargar** |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
 solo él. Ahí puede tener sentido — son herramientas de análisis personal.
@@ -21,6 +22,13 @@ localStorage ni IndexedDB, todo vive en memoria (`const state = {}`). Si recarga
 o cierras la pestaña a media captura, se pierde el trabajo y los documentos
 adjuntos. Hacerlo persistente es más caro que el resto porque además de datos
 maneja **archivos** (PDF e imágenes), que irían a Supabase Storage.
+
+**La Gran Carrera tampoco guarda nada**, y ahí duele más: es un marcador de
+competencia entre reclutadores, pero cada quien ve su propio tablero y al
+recargar vuelve a cero. Comprobado — se registra un alta, se recarga y queda
+"Aún no hay altas registradas". Es la que más fácil se arregla: el estado son
+unos contadores y una lista de altas, así que le queda el mismo enganche que al
+Clasificador (una fila en `despacho_estado`).
 
 ## Cómo se comparte el Clasificador
 

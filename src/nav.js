@@ -11,6 +11,7 @@
     { url: '/clasificador/', nombre: 'Clasificador', icono: '🗂' },
     { url: '/expedientes/',  nombre: 'Expedientes',  icono: '📁' },
     { url: '/analizador/',   nombre: 'Analizador',   icono: '📈' },
+    { url: '/carrera/',      nombre: 'Carrera',      icono: '🏁' },
   ];
 
   var CSS =

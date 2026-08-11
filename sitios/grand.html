@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gran Carrera de Reclutamiento</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { -webkit-font-smoothing: antialiased; font-family: sans-serif; }
+  #boot-status {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #67B3FF; color: #1B1B3A; text-align: center; padding: 24px; z-index: 99999;
+  }
+  #boot-status.hidden { display: none; }
+  #boot-status .box { background: #fff; border: 3px solid #1B1B3A; border-radius: 16px; padding: 24px 28px; max-width: 520px; box-shadow: 0 5px 0 #1B1B3A; }
+  #boot-status h2 { margin: 0 0 8px; font-size: 18px; }
+  #boot-status p { margin: 6px 0; font-size: 14px; line-height: 1.5; }
+  #boot-status ul { text-align: left; font-size: 13px; margin: 10px 0; padding-left: 20px; }
+  #boot-status code { background: #f1f1f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="boot-status">
+  <div class="box">
+    <h2>🏁 Cargando la carrera…</h2>
+    <p id="boot-msg">Si este mensaje no desaparece en unos segundos, algo no cargó correctamente.</p>
+    <ul id="boot-hints" style="display:none;">
+      <li>Verifica que tengas <strong>conexión a internet</strong> (esta página carga React, Tailwind y fuentes desde internet).</li>
+      <li>Si estás en una red de oficina/escuela, puede estar bloqueando <code>jsdelivr.net</code> o <code>fonts.googleapis.com</code>.</li>
+      <li>Desactiva temporalmente bloqueadores de anuncios/scripts para este archivo.</li>
+      <li>Abre la consola del navegador (F12 → "Console") para ver el error exacto.</li>
+    </ul>
+    <p id="boot-error" style="color:#C4211B; font-weight:bold; display:none;"></p>
+  </div>
+</div>
+<div id="root"></div>
+
+<script>
+  window.addEventListener('error', function (e) {
+    var box = document.getElementById('boot-error');
+    var hints = document.getElementById('boot-hints');
+    if (box) {
+      box.style.display = 'block';
+      box.textContent = 'Error: ' + (e.message || 'desconocido') +
+        (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '');
+    }
+    if (hints) hints.style.display = 'block';
+  });
+  setTimeout(function () {
+    var root = document.getElementById('root');
+    var status = document.getElementById('boot-status');
+    var hints = document.getElementById('boot-hints');
+    if (status && root && root.children.length === 0) {
+      hints.style.display = 'block';
+      document.getElementById('boot-msg').textContent = 'No se pudo cargar la carrera. Revisa lo siguiente:';
+    } else if (status) {
+      status.classList.add('hidden');
+    }
+  }, 4000);
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useCallback, useEffect, useRef } = React;
+
+/**
+ * DIRECCIÓN VISUAL: arcade retro. Pista única y relativa (sin meta fija:
+ * la posición de cada auto se calcula respecto al líder). Cada 5 altas
+ * totales cambia el "escenario" (cielo/decoración) con una transición
+ * animada. El piloto en último lugar lanza bombas cómicas al resto cada
+ * cierto tiempo. Jefe Yimi (personaje original, más musculoso) recorre
+ * los carriles uno por uno molestando a todos. Todo el arte es
+ * ilustración propia, sin personajes ni marcas de terceros.
+ */
+
+// ── ÍCONOS SVG PROPIOS ────────────────────────────────────────────────
+function Icon({ children, className, style, strokeWidth = 2, ...rest }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...rest}>
+      {children}
+    </svg>
+  );
+}
+const Star = ({ fill = 'none', ...props }) => (
+  <Icon {...props}><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76" fill={fill} /></Icon>
+);
+const Flag = (props) => (<Icon {...props}><path d="M4 21V4" /><path d="M4 4h13l-2.5 3.5L17 11H4" /></Icon>);
+const Plus = (props) => (<Icon {...props}><line x1="12" y1="4" x2="12" y2="20" /><line x1="4" y1="12" x2="20" y2="12" /></Icon>);
+const Trash2 = (props) => (
+  <Icon {...props}>
+    <path d="M4 7h16" /><path d="M9 7V4h6v3" />
+    <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+    <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+  </Icon>
+);
+const Trophy = (props) => (
+  <Icon {...props}>
+    <path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 5H5a3 3 0 0 0 3 4" /><path d="M16 5h3a3 3 0 0 1-3 4" />
+    <line x1="12" y1="13" x2="12" y2="17" /><path d="M10 17h4l.5 4h-5z" />
+  </Icon>
+);
+const Coins = (props) => (<Icon {...props}><circle cx="9" cy="9" r="5" /><circle cx="15" cy="15" r="5" /></Icon>);
+const AlertCircle = (props) => (
+  <Icon {...props}><circle cx="12" cy="12" r="9" /><line x1="12" y1="7.5" x2="12" y2="13" /><circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" /></Icon>
+);
+const Users = (props) => (
+  <Icon {...props}><circle cx="8.5" cy="8" r="3" /><path d="M2.5 20a6 6 0 0 1 12 0" /><circle cx="17" cy="9" r="2.6" /><path d="M14.5 20a5 5 0 0 1 8 0" /></Icon>
+);
+const Zap = (props) => (<Icon {...props}><polygon points="13 2 4 14 11 14 10 22 20 10 13 10 13 2" /></Icon>);
+
+// ── PALETA / TOKENS ──────────────────────────────────────────────────────
+const INK = '#1B1B3A';
+const COIN_GOLD = '#FFC312';
+const COIN_GOLD_DARK = '#E6A400';
+const TEAM_NAME = 'ACCESS PACK';
+const ROW_HEIGHT = 70;
+
+const RECRUITERS = [
+  { name: 'David', hex: '#29ABE2', dark: '#1C7DAE' },
+  { name: 'Arely', hex: '#FF4FA3', dark: '#C43078' },
+  { name: 'Jose', hex: '#4CD137', dark: '#2E9E1E' },
+  { name: 'Sharon', hex: '#FFC312', dark: '#D69C00' },
+  { name: 'Valentina', hex: '#9C6ADE', dark: '#6E44AE' },
+  { name: 'Sandra', hex: '#FF7F27', dark: '#D65E12' },
+];
+
+const PRIORITY_CONFIG = {
+  normal: { label: 'Normal', points: 1, bg: '#DDE3F0', fg: INK },
+  urgente: { label: '¡Urgente!', points: 2, bg: '#FFE29A', fg: '#7A4B00' },
+  critico: { label: '¡CRÍTICO!', points: 3, bg: '#FFC3C3', fg: '#8A1414' },
+};
+
+const YIMI_LINES = [
+  (n) => `¿Ya diste tu alta de hoy, ${n}?`,
+  (n) => `¡${n}, la meta no se cumple sola!`,
+  (n) => `Jefe Yimi está vigilando, ${n}…`,
+  (n) => `¡Más rápido, ${n}! 🏃`,
+  (n) => `${n}, ¿otra alta o seguimos platicando?`,
+  (n) => `¡Vamos ${n}, el auto no se mueve solo!`,
+  (n) => `${n}... te estoy viendo. 👀`,
+  (n) => `¡Reporte de avance YA, ${n}!`,
+  (n) => `${n}, ¡dame resultados no excusas!`,
+];
+
+const SCENARIOS = [
+  { name: 'Día despejado', skyTop: '#67B3FF', skyBottom: '#A8D8FF', decor: 'clouds', cloudTint: '#FFFFFF' },
+  { name: 'Atardecer de fuego', skyTop: '#FF7E5F', skyBottom: '#FFC371', decor: 'clouds', cloudTint: '#FFE3C2' },
+  { name: 'Noche estrellada', skyTop: '#0B1741', skyBottom: '#1B2A6B', decor: 'stars', cloudTint: '#FFFFFF' },
+  { name: 'Amanecer rosa', skyTop: '#FFD1E8', skyBottom: '#C9E7FF', decor: 'clouds', cloudTint: '#FFFFFF' },
+  { name: 'Tormenta eléctrica', skyTop: '#3B3B58', skyBottom: '#6B6B94', decor: 'storm', cloudTint: '#D8D8E8' },
+];
+
+function todayISO() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function makeId() {
+  return `alta-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ── FUENTES ──────────────────────────────────────────────────────────────
+function useArcadeFonts() {
+  useEffect(() => {
+    if (document.getElementById('arcade-fonts-link')) return;
+    const link = document.createElement('link');
+    link.id = 'arcade-fonts-link';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Baloo+2:wght@500;700;800&display=swap';
+    document.head.appendChild(link);
+  }, []);
+}
+const FONT_DISPLAY = "'Press Start 2P', monospace";
+const FONT_BODY = "'Baloo 2', ui-rounded, sans-serif";
+
+// ── CONFETI ──────────────────────────────────────────────────────────────
+let confettiLoadPromise = null;
+function loadConfettiLib() {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  if (window.confetti) return Promise.resolve(window.confetti);
+  if (confettiLoadPromise) return confettiLoadPromise;
+  confettiLoadPromise = new Promise((resolve) => {
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js';
+      script.async = true;
+      const timeout = setTimeout(() => resolve(null), 2500);
+      script.onload = () => { clearTimeout(timeout); resolve(window.confetti || null); };
+      script.onerror = () => { clearTimeout(timeout); resolve(null); };
+      document.head.appendChild(script);
+    } catch (e) { resolve(null); }
+  });
+  return confettiLoadPromise;
+}
+function fallbackCoinBurst(colors) {
+  if (typeof document === 'undefined') return;
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed'; canvas.style.inset = '0';
+  canvas.style.width = '100vw'; canvas.style.height = '100vh';
+  canvas.style.pointerEvents = 'none'; canvas.style.zIndex = '9999';
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) { document.body.removeChild(canvas); return; }
+  const particles = [];
+  const spawn = (originX) => {
+    for (let i = 0; i < 46; i++) {
+      particles.push({
+        x: originX, y: canvas.height * (0.15 + Math.random() * 0.3),
+        vx: (originX === 0 ? 1 : -1) * (3 + Math.random() * 6), vy: -7 - Math.random() * 6,
+        gravity: 0.2 + Math.random() * 0.08, r: 5 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        spin: Math.random() * Math.PI, spinSpeed: (Math.random() - 0.5) * 0.35,
+      });
+    }
+  };
+  spawn(0); spawn(canvas.width);
+  let frame = 0; const maxFrames = 110;
+  function tick() {
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p) => {
+      p.vy += p.gravity; p.x += p.vx; p.y += p.vy; p.spin += p.spinSpeed;
+      ctx.save(); ctx.translate(p.x, p.y);
+      ctx.globalAlpha = Math.max(0, 1 - frame / maxFrames);
+      const squash = Math.max(0.15, Math.abs(Math.cos(p.spin)));
+      ctx.scale(squash, 1);
+      ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(27,27,58,0.55)'; ctx.stroke();
+      ctx.restore();
+    });
+    if (frame < maxFrames) requestAnimationFrame(tick);
+    else if (document.body.contains(canvas)) document.body.removeChild(canvas);
+  }
+  requestAnimationFrame(tick);
+}
+async function fireCoinBurst(colors) {
+  const lib = await loadConfettiLib();
+  if (lib) {
+    try {
+      lib({ particleCount: 55, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors, shapes: ['circle'], scalar: 1.1 });
+      lib({ particleCount: 55, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors, shapes: ['circle'], scalar: 1.1 });
+      return;
+    } catch (e) { /* cae al fallback */ }
+  }
+  fallbackCoinBurst(colors);
+}
+
+// ── ESTILOS COMPARTIDOS ───────────────────────────────────────────────────
+function comicOutline(color, size = 3) { return { WebkitTextStroke: `${size}px ${color}`, paintOrder: 'stroke fill' }; }
+function chunkyPanelStyle(bg = '#FFFFFF') { return { background: bg, border: `3px solid ${INK}`, borderRadius: '16px', boxShadow: `0 5px 0 ${INK}` }; }
+function chunkyButtonStyle(bg, pressed) {
+  return {
+    background: bg, border: `3px solid ${INK}`, borderRadius: '12px',
+    boxShadow: pressed ? `0 1px 0 ${INK}` : `0 4px 0 ${INK}`,
+    transform: pressed ? 'translateY(3px)' : 'translateY(0)',
+    transition: 'transform 0.08s ease, box-shadow 0.08s ease',
+  };
+}
+
+// ── FONDO (varía según el escenario) ──────────────────────────────────
+function ArcadeBackground({ scenario }) {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden="true" style={{ transition: 'background 1.2s ease' }}>
+      <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${scenario.skyTop} 0%, ${scenario.skyBottom} 70%)`, transition: 'background 1.2s ease' }} />
+
+      {scenario.decor === 'stars' && [
+        { top: '8%', left: '12%' }, { top: '15%', left: '70%' }, { top: '25%', left: '40%' },
+        { top: '35%', left: '85%' }, { top: '10%', left: '55%' }, { top: '45%', left: '20%' },
+      ].map((s, i) => (
+        <div key={i} className="absolute" style={{ top: s.top, left: s.left, animation: `twinkle ${2 + (i % 3)}s ease-in-out infinite` }}>
+          <Star className="w-3 h-3" fill="#FFF6BF" style={{ color: '#FFF6BF' }} />
+        </div>
+      ))}
+
+      {scenario.decor === 'storm' && [
+        { top: '10%', left: '20%', dur: '3.5s', delay: '0s' },
+        { top: '18%', left: '68%', dur: '4.2s', delay: '1.1s' },
+        { top: '30%', left: '45%', dur: '5s', delay: '2s' },
+      ].map((s, i) => (
+        <div key={i} className="absolute" style={{ top: s.top, left: s.left, animation: `lightning ${s.dur} ease-in-out infinite`, animationDelay: s.delay }}>
+          <Zap className="w-5 h-5" style={{ color: '#FFF176' }} />
+        </div>
+      ))}
+
+      {(scenario.decor === 'clouds') && [
+        { top: '6%', left: '8%', scale: 1, dur: '26s' },
+        { top: '14%', left: '62%', scale: 1.3, dur: '32s' },
+        { top: '28%', left: '32%', scale: 0.8, dur: '22s' },
+        { top: '40%', left: '80%', scale: 1.1, dur: '28s' },
+      ].map((c, i) => (
+        <div key={i} className="absolute opacity-90"
+          style={{ top: c.top, left: c.left, transform: `scale(${c.scale})`, animation: `drift ${c.dur} linear infinite` }}>
+          <svg width="90" height="46" viewBox="0 0 90 46">
+            <rect x="10" y="20" width="70" height="18" fill={scenario.cloudTint} stroke={INK} strokeWidth="3" rx="4" />
+            <rect x="20" y="8" width="30" height="18" fill={scenario.cloudTint} stroke={INK} strokeWidth="3" rx="4" />
+            <rect x="46" y="4" width="26" height="20" fill={scenario.cloudTint} stroke={INK} strokeWidth="3" rx="4" />
+          </svg>
+        </div>
+      ))}
+
+      <div className="absolute bottom-0 left-0 right-0 h-8 flex">
+        {Array.from({ length: 40 }).map((_, i) => (
+          <div key={i} className="flex-1" style={{ background: i % 2 === 0 ? '#C97A3D' : '#8B4E22', borderTop: `3px solid ${INK}`, borderRight: `2px solid ${INK}` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScenarioBanner({ scenario, visible }) {
+  if (!visible) return null;
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2" style={{ ...chunkyPanelStyle('#FFF7DA'), animation: 'bannerPop 3s ease-in-out forwards' }}>
+      <span style={{ fontFamily: FONT_BODY, fontWeight: 800, fontSize: '13px', color: INK }}>
+        🌍 ¡Nuevo escenario: {scenario.name}!
+      </span>
+    </div>
+  );
+}
+
+// ── SUBCOMPONENTES DE UI ───────────────────────────────────────────────
+function CoinCounter({ total }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5" style={chunkyButtonStyle('#FFF7DA', false)}>
+      <Coins className="w-4 h-4" style={{ color: COIN_GOLD_DARK }} />
+      <span style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: INK }}>{String(total).padStart(3, '0')}</span>
+    </div>
+  );
+}
+
+function AppHeader({ totalAltas }) {
+  return (
+    <header className="relative z-10 border-b-4" style={{ borderColor: INK, background: 'linear-gradient(180deg, #3B6FE0 0%, #2C55B8 100%)' }}>
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: COIN_GOLD, border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}` }}>
+            <Flag className="w-6 h-6" style={{ color: INK }} />
+          </div>
+          <div>
+            <h1 className="text-base md:text-xl leading-relaxed" style={{ fontFamily: FONT_DISPLAY, color: COIN_GOLD, ...comicOutline(INK, 2), textShadow: `3px 3px 0 ${INK}` }}>
+              GRAN CARRERA DE RECLUTAMIENTO
+            </h1>
+            <p className="text-xs md:text-sm text-blue-100 mt-1" style={{ fontFamily: FONT_BODY, fontWeight: 700 }}>Equipo {TEAM_NAME} · ¡sin límite, el que se apura va ganando! 🏁</p>
+          </div>
+        </div>
+        <CoinCounter total={totalAltas} />
+      </div>
+    </header>
+  );
+}
+
+function LeaderStar() {
+  return (
+    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10" style={{ animation: 'starSpin 2.2s linear infinite' }}>
+      <Star className="w-5 h-5" fill={COIN_GOLD} style={{ color: INK }} strokeWidth={2.5} />
+    </div>
+  );
+}
+
+// ── AUTO REALISTA CON CALCA DE EQUIPO ────────────────────────────────────
+function RaceCar({ hex, dark, isLeader, pulse, shaken }) {
+  return (
+    <div className="relative" style={{ width: 66, height: 34 }}>
+      {isLeader && <LeaderStar />}
+      <div style={{ animation: shaken ? 'carWiggle 0.3s ease-in-out infinite' : 'none' }}>
+        <svg viewBox="0 0 66 32" width="66" height="32"
+          style={{
+            filter: pulse ? `drop-shadow(0 0 6px ${hex})` : 'none',
+            transform: pulse ? 'scale(1.1)' : 'scale(1)',
+            transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}>
+          <ellipse cx="33" cy="28.5" rx="27" ry="2.2" fill="rgba(27,27,58,0.22)" />
+          <path
+            d="M7 21 C7 16 11 13 17 12 L23 7 C25 5.3 28 4.5 31 4.5 L41 4.5 C44 4.5 46.3 5.7 47.3 7.8 L51 12 C57 13 60 16 60 20 L60 21 C60 23.2 58 24 55.5 24 L11.5 24 C8.5 24 7 23 7 21 Z"
+            fill={hex} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M24 12 L28 8 C29.5 6.7 31.5 6.3 33.5 6.3 L40 6.3 C42 6.3 43.6 7.4 44.6 9 L47 12 Z" fill="#BFE4FF" stroke={INK} strokeWidth="1.4" />
+          <rect x="10.5" y="17" width="45" height="4.6" fill="#FFFFFF" stroke={INK} strokeWidth="1" />
+          <text x="33" y="20.6" textAnchor="middle" fontFamily="Baloo 2, sans-serif" fontWeight="800" fontSize="4" fill={INK} letterSpacing="0.15">{TEAM_NAME}</text>
+          <rect x="53.5" y="6.5" width="3" height="7.5" fill={dark} stroke={INK} strokeWidth="1.2" />
+          <rect x="50.5" y="4.8" width="9.5" height="3.1" rx="0.6" fill={dark} stroke={INK} strokeWidth="1.2" />
+          <ellipse cx="9.5" cy="17" rx="2" ry="1.6" fill="#FFF6BF" stroke={INK} strokeWidth="1" />
+          <g style={{ transformOrigin: '16px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
+            <circle cx="16" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
+            <circle cx="16" cy="25" r="2.2" fill="#C9C9D6" />
+            <line x1="16" y1="20.2" x2="16" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
+            <line x1="11.2" y1="25" x2="20.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
+          </g>
+          <g style={{ transformOrigin: '49px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
+            <circle cx="49" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
+            <circle cx="49" cy="25" r="2.2" fill="#C9C9D6" />
+            <line x1="49" y1="20.2" x2="49" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
+            <line x1="44.2" y1="25" x2="53.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ── JEFE YIMI: musculoso, camina carril por carril molestando a todos ───
+function JefeYimi({ message }) {
+  return (
+    <div className="absolute z-30 pointer-events-none" style={{ right: '4%', bottom: '2px', animation: 'bossStep 0.65s ease-in-out forwards' }}>
+      <div className="relative flex flex-col items-end">
+        <div className="mb-1 px-2.5 py-1.5 rounded-lg whitespace-nowrap" style={{ background: '#fff', border: `2px solid ${INK}`, boxShadow: `0 3px 0 ${INK}` }}>
+          <span style={{ fontFamily: FONT_BODY, fontWeight: 800, fontSize: '10px', color: INK }}>{message}</span>
+        </div>
+        <svg width="46" height="54" viewBox="0 0 52 60">
+          {/* torso ancho / musculoso */}
+          <path d="M4 60 L4 42 C4 30 12 24 26 24 C40 24 48 30 48 42 L48 60 Z" fill="#2C3E6B" stroke={INK} strokeWidth="2.2" />
+          {/* pectorales marcados */}
+          <path d="M16 30 C19 34 24 34 26 31" stroke="#1c2a4d" strokeWidth="1.4" fill="none" opacity="0.6" />
+          <path d="M36 30 C33 34 28 34 26 31" stroke="#1c2a4d" strokeWidth="1.4" fill="none" opacity="0.6" />
+          {/* corbata */}
+          <path d="M23 25 L29 25 L27.2 34 L24.8 34 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+          {/* brazo izquierdo (bicep) */}
+          <ellipse cx="8" cy="35" rx="6.5" ry="8" fill="#2C3E6B" stroke={INK} strokeWidth="2" />
+          <ellipse cx="7" cy="34" rx="3.5" ry="5" fill="#1c2a4d" opacity="0.35" />
+          {/* brazo derecho (señalando, musculoso, manga arremangada) */}
+          <path d="M42 33 C50 30 52 22 48 16" stroke="#F2C08C" strokeWidth="9" strokeLinecap="round" fill="none" />
+          <path d="M42 33 C48 31 50 25 47.5 20" stroke="#2C3E6B" strokeWidth="10" strokeLinecap="round" fill="none" strokeDasharray="0 14 20" />
+          <circle cx="48" cy="15" r="3.6" fill="#F2C08C" stroke={INK} strokeWidth="1.4" />
+          {/* cabeza ancha, mandibula cuadrada */}
+          <path d="M12 16 C12 7 18 2 26 2 C34 2 40 7 40 16 C40 24 35 28 26 28 C17 28 12 24 12 16 Z" fill="#F2C08C" stroke={INK} strokeWidth="2.2" />
+          {/* pelo peinado hacia atras */}
+          <path d="M13 12 C13 4 19 0 26 0 C33 0 39 4 39 12 C35 8 31 7 26 7 C21 7 17 8 13 12 Z" fill="#3A2E26" stroke={INK} strokeWidth="1.4" />
+          {/* cejas fruncidas */}
+          <path d="M15 13.5 L21 15" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M37 13.5 L31 15" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+          {/* lentes oscuros */}
+          <rect x="14.5" y="15.5" width="8" height="5" rx="1" fill="#1B1B3A" opacity="0.9" />
+          <rect x="27.5" y="15.5" width="8" height="5" rx="1" fill="#1B1B3A" opacity="0.9" />
+          <line x1="22.5" y1="17.5" x2="27.5" y2="17.5" stroke={INK} strokeWidth="1.4" />
+          {/* bigote grueso */}
+          <path d="M17 23.5 C20.5 26.5 31.5 26.5 35 23.5 C32.5 27.5 19.5 27.5 17 23.5 Z" fill="#3A2E26" />
+          {/* mandibula marcada */}
+          <path d="M16 22 C19 25.5 33 25.5 36 22" stroke={INK} strokeWidth="1" fill="none" opacity="0.5" />
+        </svg>
+        <div className="mt-0.5 px-1.5 py-0.5 rounded" style={{ background: COIN_GOLD, border: `1.5px solid ${INK}`, fontFamily: FONT_DISPLAY, fontSize: '7px', color: INK }}>
+          JEFE YIMI
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BOMBA (ataque del último lugar) ──────────────────────────────────────
+function BombIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 26 26">
+      <circle cx="13" cy="16" r="8" fill="#232332" stroke={INK} strokeWidth="1.6" />
+      <circle cx="10" cy="13" r="2" fill="#5a5a6e" opacity="0.6" />
+      <path d="M14 8 C14 5.5 16 4 18.5 4" stroke="#8a6a3a" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <circle cx="19" cy="3.5" r="1.8" fill="#FFC312" stroke={INK} strokeWidth="1" style={{ animation: 'sparkle 0.4s ease-in-out infinite' }} />
+    </svg>
+  );
+}
+function BombBurst() {
+  return (
+    <div style={{ animation: 'popBurst 0.5s ease-out forwards' }}>
+      <svg width="46" height="46" viewBox="0 0 46 46">
+        <polygon points="23,2 27,16 41,12 30,22 41,32 27,28 23,44 19,28 5,32 16,22 5,12 19,16"
+          fill={COIN_GOLD} stroke={INK} strokeWidth="1.6" />
+        <text x="23" y="27" textAnchor="middle" fontFamily="Baloo 2, sans-serif" fontWeight="800" fontSize="9" fill={INK}>POP!</text>
+      </svg>
+    </div>
+  );
+}
+function BombProjectile({ attackerIdx, targetIdx, onArrive, onDone }) {
+  const [flying, setFlying] = useState(false);
+  const [exploded, setExploded] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setFlying(true)));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const startTop = attackerIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+  const endTop = targetIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+  return (
+    <div
+      className="absolute z-40 pointer-events-none"
+      style={{
+        top: flying ? endTop : startTop,
+        left: flying ? '58%' : '14%',
+        transform: 'translate(-50%, -50%)',
+        transition: 'top 0.8s cubic-bezier(0.32,0.62,0.34,1), left 0.8s cubic-bezier(0.32,0.62,0.34,1)',
+      }}
+      onTransitionEnd={() => {
+        if (!exploded) {
+          setExploded(true);
+          onArrive && onArrive();
+          setTimeout(onDone, 480);
+        }
+      }}
+    >
+      {exploded ? <BombBurst /> : <BombIcon />}
+    </div>
+  );
+}
+
+// ── PISTA ÚNICA COMPARTIDA (posición relativa, sin meta fija) ───────────
+function TrackRow({ recruiter, stats, maxCount, isLeader, shaken, bossMessage, isLast }) {
+  const pct = maxCount > 0 ? (stats.totalCount / maxCount) * 100 : 0;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const travel = clamped * 0.9;
+  const [pulse, setPulse] = useState(false);
+  const prevCount = useRef(stats.totalCount);
+
+  useEffect(() => {
+    if (stats.totalCount !== prevCount.current) {
+      setPulse(true);
+      const t = setTimeout(() => setPulse(false), 420);
+      prevCount.current = stats.totalCount;
+      return () => clearTimeout(t);
+    }
+  }, [stats.totalCount]);
+
+  return (
+    <div className="relative grid items-stretch" style={{ height: ROW_HEIGHT, gridTemplateColumns: '148px 1fr', borderBottom: isLast ? 'none' : '2px dashed rgba(255,255,255,0.35)' }}>
+      <div className="px-2.5 flex items-center gap-2 min-w-0" style={{ background: isLeader ? 'rgba(255,195,18,0.15)' : 'rgba(15,23,42,0.04)' }}>
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0" style={{ background: recruiter.hex, border: `2px solid ${INK}`, color: '#fff', fontFamily: FONT_BODY }}>
+          {recruiter.name.charAt(0)}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="text-xs truncate" style={{ fontFamily: FONT_BODY, fontWeight: 800, color: INK }}>{recruiter.name}</span>
+            {isLeader && <Trophy className="w-3 h-3 shrink-0" style={{ color: COIN_GOLD_DARK }} />}
+          </div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: recruiter.dark }}>{stats.totalCount}</div>
+        </div>
+      </div>
+
+      <div className="relative overflow-hidden" style={{ background: 'repeating-linear-gradient(90deg, #5b5b6b 0px, #5b5b6b 18px, #4d4d5c 18px, #4d4d5c 36px)' }}>
+        <div className="absolute left-0 right-0" style={{ top: '50%', height: '3px', transform: 'translateY(-50%)', backgroundImage: 'repeating-linear-gradient(90deg, #fff 0px, #fff 10px, transparent 10px, transparent 20px)', opacity: 0.75 }} />
+        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${travel}%`, transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+          <RaceCar hex={recruiter.hex} dark={recruiter.dark} isLeader={isLeader} pulse={pulse} shaken={shaken} />
+        </div>
+        {bossMessage && <JefeYimi message={bossMessage} />}
+      </div>
+
+      <div className="absolute left-0 bottom-0 h-1" style={{ width: `${clamped}%`, background: recruiter.hex, transition: 'width 0.7s ease-out' }} />
+    </div>
+  );
+}
+
+function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, scenarioName }) {
+  const maxCount = Math.max(0, ...recruiterStats.map((s) => s.totalCount));
+  return (
+    <section className="p-4 md:p-5" style={chunkyPanelStyle('#EAF3FF')}>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5" style={{ color: COIN_GOLD_DARK }} />
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '13px', color: INK }}>PISTA EN VIVO</h2>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#3B4A6B', background: '#fff', border: `2px solid ${INK}` }}>
+          🌍 {scenarioName}
+        </div>
+      </div>
+
+      <div className="relative rounded-xl overflow-hidden" style={{ border: `3px solid ${INK}` }}>
+        <div className="absolute top-0 bottom-0 right-0" style={{ width: '12px', backgroundImage: 'repeating-conic-gradient(#0b0b16 0% 25%, #fff 0% 50%)', backgroundSize: '8px 8px', borderLeft: `2px solid ${INK}`, zIndex: 5 }} />
+
+        {attackEvent && (
+          <BombProjectile attackerIdx={attackEvent.attackerIdx} targetIdx={attackEvent.targetIdx} onArrive={attackEvent.onArrive} onDone={attackEvent.onDone} />
+        )}
+
+        {RECRUITERS.map((r, idx) => {
+          const stats = recruiterStats.find((s) => s.name === r.name);
+          const isLeader = leaderNames.includes(r.name);
+          const bossHere = !!(bossState && bossState.laneIndex === idx);
+          const hitHere = !!(attackEvent && attackEvent.hit && attackEvent.targetIdx === idx);
+          return (
+            <TrackRow
+              key={r.name}
+              recruiter={r}
+              stats={stats}
+              maxCount={maxCount}
+              isLeader={isLeader}
+              shaken={bossHere || hitHere}
+              bossMessage={bossHere ? bossState.message : null}
+              isLast={idx === RECRUITERS.length - 1}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function PriorityBadge({ priority }) {
+  const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.normal;
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px]" style={{ background: cfg.bg, color: cfg.fg, border: `2px solid ${INK}`, fontFamily: FONT_BODY, fontWeight: 800 }}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function RegistrationForm({ onSubmit }) {
+  const [form, setForm] = useState({ recruiter: '', altaName: '', clientStore: '', driverName: '', priority: 'normal', date: todayISO() });
+  const [touched, setTouched] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
+  const errors = useMemo(() => {
+    const e = {};
+    if (!form.recruiter) e.recruiter = 'Selecciona un piloto';
+    if (!form.driverName || !form.driverName.trim()) e.driverName = 'Nombre del chofer requerido';
+    return e;
+  }, [form.recruiter, form.driverName]);
+
+  const isValid = Object.keys(errors).length === 0;
+
+  const update = (field) => (e) => {
+    const value = e && e.target ? e.target.value : e;
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = useCallback(() => {
+    setTouched(true);
+    if (!isValid) return;
+    const record = {
+      id: makeId(),
+      recruiter: form.recruiter,
+      altaName: (form.altaName || '').trim() || 'Sin nombre',
+      clientStore: (form.clientStore || '').trim() || '—',
+      driverName: form.driverName.trim(),
+      priority: form.priority,
+      points: PRIORITY_CONFIG[form.priority].points,
+      date: form.date || todayISO(),
+      timestamp: Date.now(),
+    };
+    onSubmit(record);
+    setPressed(true);
+    setTimeout(() => setPressed(false), 160);
+    setForm({ recruiter: form.recruiter, altaName: '', clientStore: '', driverName: '', priority: 'normal', date: todayISO() });
+    setTouched(false);
+  }, [form, isValid, onSubmit]);
+
+  const inputStyle = { fontFamily: FONT_BODY, fontWeight: 600, background: '#FFFFFF', border: `2.5px solid ${INK}`, borderRadius: '10px' };
+  const labelStyle = { fontFamily: FONT_BODY, fontWeight: 800, color: '#3B4A6B', fontSize: '11px' };
+
+  return (
+    <section className="p-4 md:p-5 h-fit" style={chunkyPanelStyle('#FFFFFF')}>
+      <div className="flex items-center gap-2 mb-4">
+        <Plus className="w-5 h-5" style={{ color: '#2E9E1E' }} strokeWidth={3} />
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '12px', color: INK }}>REGISTRAR ALTA</h2>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block mb-1" style={labelStyle}>PILOTO *</label>
+          <select value={form.recruiter} onChange={update('recruiter')} className="w-full px-3 py-2 text-sm outline-none" style={inputStyle}>
+            <option value="">Selecciona…</option>
+            {RECRUITERS.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+          </select>
+          {touched && errors.recruiter && (
+            <p className="mt-1 text-[11px] flex items-center gap-1" style={{ color: '#C4211B', fontFamily: FONT_BODY, fontWeight: 700 }}>
+              <AlertCircle className="w-3 h-3" /> {errors.recruiter}
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block mb-1" style={labelStyle}>NOMBRE DEL ALTA</label>
+          <input type="text" value={form.altaName} onChange={update('altaName')} placeholder="LIVERPOOL, AMAZON…" className="w-full px-3 py-2 text-sm outline-none" style={inputStyle} />
+        </div>
+        <div>
+          <label className="block mb-1" style={labelStyle}>CLIENTE / TIENDA</label>
+          <input type="text" value={form.clientStore} onChange={update('clientStore')} placeholder="Sucursal Interlomas" className="w-full px-3 py-2 text-sm outline-none" style={inputStyle} />
+        </div>
+        <div>
+          <label className="block mb-1" style={labelStyle}>CHOFER / CANDIDATO *</label>
+          <input type="text" value={form.driverName} onChange={update('driverName')} placeholder="Nombre completo" className="w-full px-3 py-2 text-sm outline-none" style={inputStyle} />
+          {touched && errors.driverName && (
+            <p className="mt-1 text-[11px] flex items-center gap-1" style={{ color: '#C4211B', fontFamily: FONT_BODY, fontWeight: 700 }}>
+              <AlertCircle className="w-3 h-3" /> {errors.driverName}
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block mb-1" style={labelStyle}>PRIORIDAD</label>
+            <select value={form.priority} onChange={update('priority')} className="w-full px-3 py-2 text-sm outline-none" style={inputStyle}>
+              {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
+                <option key={key} value={key}>{cfg.label} ({cfg.points} pt{cfg.points > 1 ? 's' : ''})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block mb-1" style={labelStyle}>FECHA</label>
+            <input type="date" value={form.date} onChange={update('date')} className="w-full px-3 py-2 text-sm outline-none" style={inputStyle} />
+          </div>
+        </div>
+        <button type="button" onClick={handleSubmit} disabled={!isValid} className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 text-sm"
+          style={{ ...chunkyButtonStyle(isValid ? COIN_GOLD : '#D9D9E3', pressed), fontFamily: FONT_BODY, fontWeight: 800, color: isValid ? INK : '#9494a6', cursor: isValid ? 'pointer' : 'not-allowed' }}>
+          <Plus className="w-4 h-4" strokeWidth={3} />
+          ¡REGISTRAR ALTA!
+        </button>
+        {!isValid && touched && (
+          <p className="text-[11px] text-center" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#8a7a5c' }}>
+            Completa los campos obligatorios para arrancar motores.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LeaderboardPanel({ recruiterStats, leaderNames }) {
+  const ranked = useMemo(() => [...recruiterStats].sort((a, b) => b.totalPoints - a.totalPoints || b.totalCount - a.totalCount), [recruiterStats]);
+  const medalBg = ['#FFC312', '#D9D9E3', '#C97A3D'];
+
+  return (
+    <section className="p-4 md:p-5" style={chunkyPanelStyle('#FFF7EE')}>
+      <div className="flex items-center gap-2 mb-4">
+        <Trophy className="w-5 h-5" style={{ color: COIN_GOLD_DARK }} />
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '12px', color: INK }}>CLASIFICACIÓN</h2>
+      </div>
+      <div className="space-y-2">
+        {ranked.map((s, idx) => {
+          const recruiter = RECRUITERS.find((r) => r.name === s.name);
+          const isLeader = leaderNames.includes(s.name);
+          return (
+            <div key={s.name} className="flex items-center gap-3 px-3 py-2" style={chunkyPanelStyle('#FFFFFF')}>
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] shrink-0" style={{ background: idx < 3 ? medalBg[idx] : '#EDEDF4', border: `2px solid ${INK}`, fontFamily: FONT_DISPLAY, color: INK }}>
+                {idx + 1}
+              </span>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs shrink-0" style={{ background: recruiter.hex, border: `2.5px solid ${INK}`, color: '#fff', fontFamily: FONT_BODY, fontWeight: 800 }}>
+                {s.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm truncate" style={{ fontFamily: FONT_BODY, fontWeight: 800, color: INK }}>{s.name}</span>
+                  {isLeader && <Star className="w-3.5 h-3.5 shrink-0" fill={COIN_GOLD} style={{ color: INK }} />}
+                </div>
+                <div className="text-[10px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#7c7c94' }}>{s.totalCount} altas</div>
+              </div>
+              <div className="text-right shrink-0" style={{ fontFamily: FONT_DISPLAY }}>
+                <div className="text-sm" style={{ color: recruiter.dark }}>{s.totalPoints}</div>
+                <div className="text-[8px] text-slate-500">PTS</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function HistoryTable({ records, onRemove }) {
+  return (
+    <section className="p-4 md:p-5" style={chunkyPanelStyle('#FFFFFF')}>
+      <div className="flex items-center gap-2 mb-4">
+        <Users className="w-5 h-5" style={{ color: '#29ABE2' }} />
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '12px', color: INK }}>HISTORIAL DE ALTAS</h2>
+        <span className="text-xs" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#9494a6' }}>({records.length})</span>
+      </div>
+      {records.length === 0 ? (
+        <div className="text-center py-10" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#9494a6' }}>
+          Aún no hay altas registradas. ¡Enciende motores! 🏁
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[10px] sticky top-0" style={{ fontFamily: FONT_BODY, fontWeight: 800, color: '#3B4A6B', background: '#F5F7FF', borderBottom: `3px solid ${INK}` }}>
+                  <th className="py-2 px-2">PILOTO</th>
+                  <th className="py-2 px-2">CLIENTE / TIENDA</th>
+                  <th className="py-2 px-2">CHOFER</th>
+                  <th className="py-2 px-2">PRIORIDAD</th>
+                  <th className="py-2 px-2">FECHA</th>
+                  <th className="py-2 px-2 text-right">ACCIÓN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((rec) => {
+                  const recruiter = RECRUITERS.find((r) => r.name === rec.recruiter);
+                  return (
+                    <tr key={rec.id} style={{ borderBottom: '2px solid #E7E7F2' }}>
+                      <td className="py-2 px-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: recruiter ? recruiter.hex : '#94a3b8', border: `1.5px solid ${INK}` }} />
+                          <span style={{ fontFamily: FONT_BODY, fontWeight: 800, color: INK }}>{rec.recruiter}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 px-2" style={{ fontFamily: FONT_BODY, fontWeight: 600 }}>
+                        <div className="truncate max-w-[10rem]">{rec.clientStore}</div>
+                        <div className="text-[10px] text-slate-500 truncate max-w-[10rem]">{rec.altaName}</div>
+                      </td>
+                      <td className="py-2 px-2 truncate max-w-[10rem]" style={{ fontFamily: FONT_BODY, fontWeight: 600 }}>{rec.driverName}</td>
+                      <td className="py-2 px-2"><PriorityBadge priority={rec.priority} /></td>
+                      <td className="py-2 px-2 text-xs" style={{ fontFamily: FONT_BODY, fontWeight: 600, color: '#7c7c94' }}>{rec.date}</td>
+                      <td className="py-2 px-2 text-right">
+                        <button type="button" onClick={() => onRemove(rec.id)} className="inline-flex items-center gap-1 px-2 py-1 text-xs"
+                          style={{ fontFamily: FONT_BODY, fontWeight: 800, color: '#C4211B', background: '#FFE3E3', border: `2px solid ${INK}`, borderRadius: '8px' }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Quitar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── APP PRINCIPAL ─────────────────────────────────────────────────────────
+function RecruitingGrandPrix() {
+  useArcadeFonts();
+  const [records, setRecords] = useState([]);
+  const [bossState, setBossState] = useState(null);
+  const [attackEvent, setAttackEvent] = useState(null);
+  const [bannerVisible, setBannerVisible] = useState(false);
+
+  const statsRef = useRef([]);
+
+  const recruiterStats = useMemo(() => {
+    return RECRUITERS.map((r) => {
+      const recs = records.filter((x) => x.recruiter === r.name);
+      const totalPoints = recs.reduce((sum, x) => sum + (x.points || 0), 0);
+      return { name: r.name, hex: r.hex, totalPoints, totalCount: recs.length };
+    });
+  }, [records]);
+
+  useEffect(() => { statsRef.current = recruiterStats; }, [recruiterStats]);
+
+  const leaderNames = useMemo(() => {
+    const maxPoints = Math.max(0, ...recruiterStats.map((s) => s.totalPoints));
+    if (maxPoints <= 0) return [];
+    return recruiterStats.filter((s) => s.totalPoints === maxPoints).map((s) => s.name);
+  }, [recruiterStats]);
+
+  const sortedRecords = useMemo(() => [...records].sort((a, b) => b.timestamp - a.timestamp), [records]);
+
+  // ── escenario: cambia cada 5 altas totales ──────────────────────────
+  const scenarioIndex = Math.floor(records.length / 5) % SCENARIOS.length;
+  const scenario = SCENARIOS[scenarioIndex];
+  const prevScenarioIdx = useRef(scenarioIndex);
+  useEffect(() => {
+    if (prevScenarioIdx.current !== scenarioIndex) {
+      prevScenarioIdx.current = scenarioIndex;
+      setBannerVisible(true);
+      fireCoinBurst([scenario.skyTop, scenario.skyBottom, COIN_GOLD, '#FF4FA3', '#4CD137']);
+      const t = setTimeout(() => setBannerVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [scenarioIndex]);
+
+  // ── Jefe Yimi: recorre todos los carriles molestando a cada quien ───
+  useEffect(() => {
+    const timers = [];
+    function scheduleYimi() {
+      const delay = 10000 + Math.random() * 8000;
+      const id = setTimeout(() => {
+        let i = 0;
+        function step() {
+          if (i >= RECRUITERS.length) { setBossState(null); return; }
+          const name = RECRUITERS[i].name;
+          setBossState({ laneIndex: i, message: pick(YIMI_LINES)(name) });
+          i++;
+          const stepId = setTimeout(step, 620);
+          timers.push(stepId);
+        }
+        step();
+        scheduleYimi();
+      }, delay);
+      timers.push(id);
+    }
+    scheduleYimi();
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  // ── ataques del último lugar: le lanza bombas al resto ──────────────
+  useEffect(() => {
+    let timeoutId;
+    function scheduleAttack() {
+      const delay = 9000 + Math.random() * 9000;
+      timeoutId = setTimeout(() => {
+        const stats = statsRef.current;
+        if (stats.length > 1) {
+          const minCount = Math.min(...stats.map((s) => s.totalCount));
+          const lastIdxs = stats.map((s, i) => (s.totalCount === minCount ? i : -1)).filter((i) => i >= 0);
+          const attackerIdx = pick(lastIdxs);
+          let targetIdx = Math.floor(Math.random() * RECRUITERS.length);
+          let attempts = 0;
+          while (targetIdx === attackerIdx && attempts < 10) { targetIdx = Math.floor(Math.random() * RECRUITERS.length); attempts++; }
+          if (targetIdx !== attackerIdx) {
+            setAttackEvent({
+              attackerIdx, targetIdx, hit: false,
+              onArrive: () => setAttackEvent((prev) => (prev ? { ...prev, hit: true } : prev)),
+              onDone: () => setAttackEvent(null),
+            });
+          }
+        }
+        scheduleAttack();
+      }, delay);
+    }
+    scheduleAttack();
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  const handleAddRecord = useCallback((record) => {
+    setRecords((prev) => [record, ...prev]);
+    const recruiter = RECRUITERS.find((r) => r.name === record.recruiter);
+    fireCoinBurst([recruiter ? recruiter.hex : COIN_GOLD, COIN_GOLD, '#FF4FA3', '#4CD137', '#29ABE2']);
+  }, []);
+
+  const handleRemoveRecord = useCallback((id) => {
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  return (
+    <div className="min-h-screen relative" style={{ fontFamily: FONT_BODY }}>
+      <style>{`
+        @keyframes drift { 0% { transform: translateX(0) } 50% { transform: translateX(24px) } 100% { transform: translateX(0) } }
+        @keyframes starSpin {
+          from { transform: translateX(-50%) rotate(0deg); filter: hue-rotate(0deg) drop-shadow(0 0 6px #FFC312); }
+          to { transform: translateX(-50%) rotate(360deg); filter: hue-rotate(360deg) drop-shadow(0 0 6px #FFC312); }
+        }
+        @keyframes wheelSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes carWiggle {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          25% { transform: translateX(-2px) rotate(-4deg); }
+          75% { transform: translateX(2px) rotate(4deg); }
+        }
+        @keyframes bossStep {
+          0% { transform: translateY(30px) scale(0.7); opacity: 0; }
+          30% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        @keyframes lightning { 0%, 92%, 100% { opacity: 0; } 94% { opacity: 1; } 96% { opacity: 0.2; } 98% { opacity: 1; } }
+        @keyframes sparkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+        @keyframes popBurst { 0% { transform: scale(0.3); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+        @keyframes bannerPop {
+          0% { transform: translate(-50%, -20px) scale(0.8); opacity: 0; }
+          12% { transform: translate(-50%, 0) scale(1.05); opacity: 1; }
+          20% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+          85% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, -20px) scale(0.8); opacity: 0; }
+        }
+      `}</style>
+      <ArcadeBackground scenario={scenario} />
+      <ScenarioBanner scenario={scenario} visible={bannerVisible} />
+      <AppHeader totalAltas={records.length} />
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-6 relative z-10">
+        <UnifiedTrack recruiterStats={recruiterStats} leaderNames={leaderNames} bossState={bossState} attackEvent={attackEvent} scenarioName={scenario.name} />
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+          <RegistrationForm onSubmit={handleAddRecord} />
+          <LeaderboardPanel recruiterStats={recruiterStats} leaderNames={leaderNames} />
+        </div>
+        <HistoryTable records={sortedRecords} onRemove={handleRemoveRecord} />
+      </main>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<RecruitingGrandPrix />);
+
+const bootStatus = document.getElementById('boot-status');
+if (bootStatus) bootStatus.classList.add('hidden');
+</script>
+</body>
+</html>
