@@ -820,6 +820,7 @@ function HistoryTable({ records, onRemove }) {
 function RecruitingGrandPrix() {
   useArcadeFonts();
   const [records, setRecords] = useState([]);
+  useSincronizacionCarrera(records, setRecords);  // memoria compartida
   const [bossState, setBossState] = useState(null);
   const [attackEvent, setAttackEvent] = useState(null);
   const [bannerVisible, setBannerVisible] = useState(false);
@@ -973,6 +974,7 @@ root.render(<RecruitingGrandPrix />);
 const bootStatus = document.getElementById('boot-status');
 if (bootStatus) bootStatus.classList.add('hidden');
 </script>
+<script src="/sync-carrera.js"></script>
 <script src="/nav.js"></script>
 </body>
 </html>

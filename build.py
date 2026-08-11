@@ -37,7 +37,8 @@ OTRAS = [
      ["/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",        []),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
-    ("grand",              "carrera",      "Gran Carrera de Reclutamiento", []),
+    ("grand",              "carrera",      "Gran Carrera de Reclutamiento",
+     ["/sync-carrera.js"]),
 ]
 
 # Proyecto de Supabase (mascotas). La clave es la publicable: es normal que
@@ -400,8 +401,8 @@ html = html[:i] + (
 (WEB / "index.html").write_text(
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
-(WEB / "sync-clasificador.js").write_text(
-    con_supabase((SRC / "sync-clasificador.js").read_text(encoding="utf-8")), encoding="utf-8")
+for js in ("sync-clasificador.js", "sync-carrera.js"):
+    (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
 print(f"✔ web/despacho/index.html             {len(html)/1024:.0f} KB")
@@ -423,6 +424,20 @@ for prefijo, destino, nombre, extra in OTRAS:
     fuente = encontrados[0]
     (WEB / destino).mkdir(parents=True, exist_ok=True)
     contenido = sin_credenciales(fuente.read_text(encoding="utf-8"), fuente.name, fuente)
+
+    # La Carrera es React: no hay dónde engancharse desde fuera, así que se
+    # llama al hook dentro del componente. `records` es su única fuente de
+    # verdad — marcador, clasificación y escenario se derivan de ahí.
+    if destino == "carrera":
+        contenido = sustituir(
+            contenido,
+            "  const [records, setRecords] = useState([]);\n"
+            "  const [bossState, setBossState] = useState(null);",
+            "  const [records, setRecords] = useState([]);\n"
+            "  useSincronizacionCarrera(records, setRecords);  // memoria compartida\n"
+            "  const [bossState, setBossState] = useState(null);",
+            "enganche de sincronización de la Carrera")
+
     contenido = con_barra(contenido, fuente.name, extra)
     (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")
     print(f"✔ web/{destino}/index.html".ljust(38) + f"{len(contenido)/1024:.0f} KB  ← {fuente.name}")
