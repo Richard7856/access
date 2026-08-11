@@ -37,7 +37,9 @@ OTRAS = [
      ["/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",        []),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
-    ("grand",              "carrera",      "Gran Carrera de Reclutamiento",
+    # Claude no siempre nombra igual el archivo de la carrera, así que se
+    # aceptan los dos prefijos que ha usado.
+    (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",
      ["/sync-carrera.js"]),
 ]
 
@@ -411,12 +413,14 @@ print("✔ web/despacho/conexion.js")
 print("✔ web/despacho/actualizar/index.html")
 
 # ══════════════════════════════════════════════════════════════════
-# 4 · Las otras tres herramientas (sitios/) — se copian con la barra
+# 4 · Las demás herramientas (sitios/) — se copian con la barra
 # ══════════════════════════════════════════════════════════════════
 for prefijo, destino, nombre, extra in OTRAS:
-    encontrados = sorted(SITIOS.glob(f"{prefijo}*.html")) if SITIOS.is_dir() else []
+    prefijos = (prefijo,) if isinstance(prefijo, str) else prefijo
+    encontrados = sorted({f for p in prefijos for f in (SITIOS.glob(f"{p}*.html") if SITIOS.is_dir() else [])})
     if not encontrados:
-        morir(f"No encontré ningún archivo «{prefijo}*.html» en sitios/ para «{nombre}»")
+        morir(f"No encontré ningún archivo «{' o '.join(p + '*.html' for p in prefijos)}» "
+              f"en sitios/ para «{nombre}»")
     if len(encontrados) > 1:
         morir(f"Hay {len(encontrados)} versiones de «{nombre}» en sitios/: "
               + ", ".join(f.name for f in encontrados)
