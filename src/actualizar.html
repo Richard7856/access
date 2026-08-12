@@ -415,8 +415,11 @@ function abrirEditor(id){
       <div><label>Esquema</label><select data-c="esquema">
         ${ESQUEMAS.map(x=>`<option${x===t.esquema?' selected':''}>${esc(x)}</option>`).join('')}
       </select></div>
-      <div style="grid-column:1/-1"><label>Dirección (calle, colonia, alcaldía…) o pega “19.4326, -99.1332” de Google Maps</label>
+      <div style="grid-column:1/-1"><label>Dirección — es la que ve el equipo bajo el nombre de la tienda</label>
         <input data-c="direccion" value="${esc(t.direccion||'')}" placeholder="Av. Insurgentes Sur 1234, Del Valle, CDMX"></div>
+      <div style="grid-column:1/-1"><label>Punto en el mapa (opcional) — pega “19.4326, -99.1332” de Google Maps</label>
+        <input data-c="coords" value="${t.lat!=null?t.lat+', '+t.lng:''}"
+               data-orig="${t.lat!=null?t.lat+', '+t.lng:''}" placeholder="lo llena solo al ubicar la dirección"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <button class="btn mini" data-buscar="${id}">📍 Ubicar esta dirección</button>
@@ -436,25 +439,51 @@ function leerEditor(id){
   return v;
 }
 
-/* Acepta "lat, lng" pegado de Google Maps; si no, busca la dirección. */
+const RE_COORD=/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/;
+
+function ponerCoords(t,lat,lng){
+  t.lat=+(+lat).toFixed(5); t.lng=+(+lng).toFixed(5);
+  t.aprox=false; t.dirManual=true;
+}
+
+/* Busca el punto en el mapa. La dirección escrita NO se toca: es la que
+   ve el equipo, y cambiarla por números sería peor que dejarla imprecisa. */
 async function buscarEnEditor(id){
   const tr=$('editor-'+id), v=leerEditor(id);
   if(!tr||!v) return;
   const msg=tr.querySelector('[data-msg]');
   const t=propuesta.find(x=>String(x.id)===String(id));
-  const coord=(v.direccion||'').match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/);
-  if(coord){
-    t.lat=+(+coord[1]).toFixed(5); t.lng=+(+coord[2]).toFixed(5);
-    t.aprox=false; t.dirManual=true;
-    msg.textContent=`✓ Coordenadas puestas: ${t.lat}, ${t.lng}`;
+  const campoCoords=tr.querySelector('[data-c=coords]');
+  const campoDir=tr.querySelector('[data-c=direccion]');
+
+  // Si pegaron las coordenadas en el campo de la dirección (es lo natural),
+  // se pasan solas al campo correcto y se devuelve la dirección anterior.
+  const enDireccion=(v.direccion||'').match(RE_COORD);
+  if(enDireccion){
+    campoCoords.value=v.direccion.trim();
+    campoDir.value=t.direccion||'';
+    v.coords=v.direccion; v.direccion=campoDir.value;
+  }
+
+  // El botón dice "ubicar esta dirección", así que la dirección manda. Antes
+  // ganaba el campo de coordenadas —que viene prellenado con el punto viejo—
+  // y escribir una dirección nueva no hacía nada.
+  if((v.direccion||'').trim()){
+    msg.textContent='Buscando…';
+    const r=await ubicarDireccion(v.direccion);
+    if(!r){ msg.textContent='✖ No encontré esa dirección. Prueba con calle y alcaldía, o pega las coordenadas de Google Maps.'; return; }
+    ponerCoords(t,r.lat,r.lng);
+    campoCoords.value=t.lat+', '+t.lng;
+    msg.textContent=`✓ Ubicada en ${t.lat}, ${t.lng}${r.local?' (por zona conocida — es el centro de esa zona, no la calle)':''}`;
     return;
   }
-  if(!(v.direccion||'').trim()){ msg.textContent='Escribe una dirección primero.'; return; }
-  msg.textContent='Buscando…';
-  const r=await ubicarDireccion(v.direccion);
-  if(!r){ msg.textContent='✖ No encontré esa dirección. Prueba con calle y alcaldía, o pega las coordenadas de Google Maps.'; return; }
-  t.lat=r.lat; t.lng=r.lng; t.aprox=false; t.dirManual=true;
-  msg.textContent=`✓ Ubicada en ${r.lat}, ${r.lng}${r.local?' (por zona conocida)':''}`;
+  const coord=(v.coords||'').match(RE_COORD);
+  if(coord){
+    ponerCoords(t,coord[1],coord[2]);
+    msg.textContent=`✓ Punto puesto en ${t.lat}, ${t.lng}`;
+    return;
+  }
+  msg.textContent='Escribe una dirección o pega las coordenadas.';
 }
 
 async function ubicarDireccion(texto){
@@ -475,18 +504,32 @@ async function guardarEditor(id){
   const tr=$('editor-'+id), msg=tr.querySelector('[data-msg]');
   if(!(v.nombre||'').trim()){ msg.textContent='La tienda necesita un nombre.'; return; }
 
-  const dirCambio=(v.direccion||'').trim()!==(t.direccion||'').trim();
   t.nombre=v.nombre.trim().toUpperCase();
   t.vacantes=parseInt(v.vacantes)||0;
   t.urgencia=v.urgencia; t.esquema=v.esquema;
-  if(dirCambio){ t.direccion=(v.direccion||'').trim(); t.dirManual=true; }
 
-  // Si cambió la dirección y no la ubicó, se intenta antes de publicar:
-  // publicar sin coordenadas la deja fuera de las búsquedas por cercanía.
-  if(dirCambio && t.direccion && !/^\s*-?\d+\.\d+\s*,/.test(t.direccion)){
-    msg.textContent='Ubicando la dirección nueva…';
+  // Coordenadas pegadas en el campo de la dirección: van al mapa, no al texto.
+  let dirEscrita=(v.direccion||'').trim();
+  const enDireccion=dirEscrita.match(RE_COORD);
+  if(enDireccion){ ponerCoords(t,enDireccion[1],enDireccion[2]); dirEscrita=t.direccion||''; }
+
+  const dirCambio = dirEscrita !== (t.direccion||'').trim();
+  if(dirCambio){ t.direccion=dirEscrita; t.dirManual=true; }
+
+  const campoCoords=tr.querySelector('[data-c=coords]');
+  const puntoTocado=(v.coords||'').trim()!==(campoCoords.dataset.orig||'').trim();
+  const coord=(v.coords||'').match(RE_COORD);
+  if(coord) ponerCoords(t,coord[1],coord[2]);
+  else if(!(v.coords||'').trim()){ t.lat=null; t.lng=null; }
+
+  // Cambió la dirección y nadie tocó el punto: se reubica sola, para que no
+  // se guarde una dirección nueva con el punto viejo.
+  if(dirCambio && !puntoTocado){ t.lat=null; t.lng=null; }
+
+  if(t.lat==null && t.direccion){
+    msg.textContent='Ubicando la dirección…';
     const r=await ubicarDireccion(t.direccion);
-    if(r){ t.lat=r.lat; t.lng=r.lng; t.aprox=false; }
+    if(r) ponerCoords(t,r.lat,r.lng);
   }
   if(t.lat==null){
     const c=coordConocida(t.nombre);
