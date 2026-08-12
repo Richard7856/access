@@ -156,6 +156,13 @@ te vuelve a pedir que la crees.
    Descarta inactivas, combina duplicados, `URGENTE` → urgencia Alta.
 3. Revisas la vista previa: cuántas tiendas, cuántas vacantes, cuáles son nuevas
    y cuáles van a desaparecer.
+   - **Editar** en cualquier renglón corrige nombre, vacantes, urgencia, esquema
+     y **dirección**. Al escribir una dirección la ubica sola; también acepta
+     que pegues `19.4326, -99.1332` de Google Maps.
+   - **＋ Agregar tienda a mano** mete una que no venga en el Excel.
+   - Ambas cosas **se conservan en las cargas siguientes**: la dirección
+     corregida no la pisa el Excel del día siguiente, y las tiendas agregadas a
+     mano se vuelven a traer aunque no aparezcan en el archivo.
 4. **Publicar**. El equipo lo ve al recargar.
 
 ## Detalles que conviene saber

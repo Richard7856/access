@@ -58,6 +58,12 @@ td{padding:6px;border-bottom:1px solid #EDF0F4}
 .barra{height:6px;background:#E4E8EE;border-radius:3px;overflow:hidden;margin-top:8px}
 .barra i{display:block;height:100%;background:var(--ruta);width:0;transition:width .2s}
 .oculto{display:none}
+tr.edit td{background:#F8F9FB;border-bottom:2px solid var(--line)}
+.edit-rej{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px}
+.edit-rej label{display:block;font-size:11.5px;color:var(--ink-2);margin-bottom:3px;font-weight:600}
+.edit-rej input,.edit-rej select{width:100%;padding:6px 8px;border:1.5px solid var(--line);border-radius:5px;
+  font-size:13px;font-family:'Inter';background:#fff}
+.tag.manual{background:#EDE7FB;color:#5B3FA8}
 </style>
 </head>
 <body>
@@ -143,8 +149,12 @@ td{padding:6px;border-bottom:1px solid #EDF0F4}
   <div class="card">
     <div class="kpis" id="previaKpis"></div>
     <div id="previaAvisos"></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn sec mini" id="btnAgregarTienda">＋ Agregar tienda a mano</button>
+      <span class="hint">…o usa <b>Editar</b> en cualquier renglón para corregir su dirección.</span>
+    </div>
     <div class="scroll"><table>
-      <thead><tr><th>Tienda</th><th>Vac.</th><th>Urgencia</th><th>Esquema</th><th>Ubicación</th></tr></thead>
+      <thead><tr><th>Tienda</th><th>Vac.</th><th>Urgencia</th><th>Esquema</th><th>Ubicación</th><th></th></tr></thead>
       <tbody id="previaBody"></tbody>
     </table></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center">
@@ -274,15 +284,29 @@ async function leer(file){
     return;
   }
 
-  let reutilizadas=0;
+  let reutilizadas=0, conservadas=0;
   if($('conservarUbic').checked&&actuales.length){
-    // Solo las ubicaciones exactas (las de "solo ciudad" se recalculan igual de rápido).
+    // Solo lo exacto: lo de "solo ciudad" se recalcula igual de rápido.
     const mapa=new Map(actuales.filter(t=>t.lat!=null&&!t.aprox).map(t=>[norm(t.nombre),t]));
     for(const t of r.tiendas){
-      if(t.lat==null){
-        const v=mapa.get(norm(t.nombre));
-        if(v){ t.lat=v.lat; t.lng=v.lng; reutilizadas++; }
-      }
+      const v=mapa.get(norm(t.nombre));
+      if(!v) continue;
+      let toco=false;
+      if(t.lat==null){ t.lat=v.lat; t.lng=v.lng; toco=true; }
+      // La dirección escrita a mano también se conserva: el Excel del día
+      // siguiente vuelve a traer solo la ciudad y la borraría.
+      if(v.dirManual){ t.direccion=v.direccion; t.dirManual=true; t.aprox=false; toco=true; }
+      if(toco) reutilizadas++;
+    }
+
+    // Las tiendas agregadas a mano no vienen en ningún Excel: si no se
+    // arrastran, desaparecen en la siguiente carga.
+    const enExcel=new Set(r.tiendas.map(t=>norm(t.nombre)));
+    let siguiente=Math.max(0,...r.tiendas.map(t=>+t.id||0));
+    for(const v of actuales){
+      if(!v.manual||enExcel.has(norm(v.nombre))) continue;
+      r.tiendas.push(Object.assign({},v,{id:++siguiente}));
+      conservadas++;
     }
   }
 
@@ -293,10 +317,10 @@ async function leer(file){
   });
   progreso('');
   propuesta=r.tiendas;
-  pintarPrevia(r,ub,reutilizadas);
+  pintarPrevia(r,ub,reutilizadas,conservadas);
 }
 
-function pintarPrevia(r,ub,reutilizadas){
+function pintarPrevia(r,ub,reutilizadas,conservadas,soloRepintar){
   const vac=propuesta.reduce((a,t)=>a+(+t.vacantes||0),0);
   const antes=new Set(actuales.map(t=>norm(t.nombre)));
   const ahora=new Set(propuesta.map(t=>norm(t.nombre)));
@@ -311,11 +335,23 @@ function pintarPrevia(r,ub,reutilizadas){
     `<div class="kpi"><b style="color:var(--alta)">${urgentes}</b><span>urgencia alta</span></div>`+
     `<div class="kpi"><b>${nuevas.length}</b><span>nuevas</span></div>`;
 
-  let avisos='';
-  if(r.esReporte) avisos+='<div class="msg ok">Detecté el <b>Reporte de urgencias</b>: URGENTE → urgencia Alta, sin prioridad → Baja.</div>';
-  if(r.omitidasInactivas) avisos+=`<div class="msg warn">Descarté <b>${r.omitidasInactivas}</b> tienda(s) marcadas como inactivas o cerradas.</div>`;
-  if(reutilizadas) avisos+=`<div class="msg ok">Conservé la ubicación corregida a mano de <b>${reutilizadas}</b> tienda(s).</div>`;
-  if(ub.aproximadas) avisos+=`<div class="msg warn"><b>${ub.aproximadas}</b> tienda(s) quedaron en el <b>centro de su ciudad</b>: el reporte solo trae la ciudad, no la dirección. Salen en el mapa y en las búsquedas, pero la distancia que ve el chofer es aproximada. Para afinarlas, usa “Corregir” en la sección 3 del despacho (queda guardado y se respeta en las siguientes cargas).</div>`;
+  // Los avisos de la lectura del Excel (formato, inactivas, ubicaciones
+  // reutilizadas) se calculan una vez y se recuerdan: al repintar tras una
+  // edición siguen siendo ciertos, pero ya no se pueden recalcular.
+  let fijos = $('previaAvisos').dataset.fijos || '';
+  if(!soloRepintar){
+    fijos='';
+    if(r.esReporte) fijos+='<div class="msg ok">Detecté el <b>Reporte de urgencias</b>: URGENTE \u2192 urgencia Alta, sin prioridad \u2192 Baja.</div>';
+    if(r.omitidasInactivas) fijos+=`<div class="msg warn">Descarté <b>${r.omitidasInactivas}</b> tienda(s) marcadas como inactivas o cerradas.</div>`;
+    if(reutilizadas) fijos+=`<div class="msg ok">Conservé lo que ya habías corregido a mano en <b>${reutilizadas}</b> tienda(s).</div>`;
+    if(conservadas) fijos+=`<div class="msg ok">Traje <b>${conservadas}</b> tienda(s) que agregaste a mano y no vienen en el Excel.</div>`;
+    $('previaAvisos').dataset.fijos = fijos;
+  }
+
+  // Estos cambian conforme editas, así que se recalculan siempre.
+  let avisos = fijos;
+  const aprox = propuesta.filter(t=>t.aprox).length;
+  if(aprox) avisos+=`<div class="msg warn"><b>${aprox}</b> tienda(s) quedaron en el <b>centro de su ciudad</b>: el Excel solo trae la ciudad, no la calle. Salen en el mapa, pero la distancia que ve el chofer es aproximada. Corrígelas con <b>Editar</b> aquí mismo — queda guardado y se respeta en las siguientes cargas.</div>`;
   if(sinUb) avisos+=`<div class="msg warn"><b>${sinUb}</b> tienda(s) sin ubicación: aparecerán en la lista, pero no en las búsquedas por cercanía.</div>`;
   if(salen.length) avisos+=`<div class="msg warn">Van a <b>desaparecer ${salen.length}</b> tienda(s) que hoy están publicadas: ${salen.slice(0,8).map(t=>esc(t.nombre)).join(', ')}${salen.length>8?'…':''}</div>`;
   $('previaAvisos').innerHTML=avisos;
@@ -323,14 +359,160 @@ function pintarPrevia(r,ub,reutilizadas){
   const orden={Alta:0,Media:1,Baja:2};
   const lista=[...propuesta].sort((a,b)=>(orden[a.urgencia]??3)-(orden[b.urgencia]??3)||(b.vacantes-a.vacantes));
   $('previaBody').innerHTML=lista.map(t=>
-    `<tr><td>${esc(t.nombre)} ${!antes.has(norm(t.nombre))?'<span class="tag nueva">nueva</span>':''}</td>`+
+    `<tr data-fila="${t.id}"><td>${esc(t.nombre)} `+
+      `${t.manual?'<span class="tag manual">a mano</span>':(!antes.has(norm(t.nombre))?'<span class="tag nueva">nueva</span>':'')}</td>`+
     `<td>${t.vacantes}</td>`+
     `<td><span class="flag ${t.urgencia}">${(t.urgencia||'').toUpperCase()}</span></td>`+
     `<td><span class="tag">${esc(t.esquema)}</span></td>`+
-    `<td class="hint">${t.lat==null?'— sin ubicar':(t.aprox?'📍 solo ciudad':'📍 en el mapa')}</td></tr>`).join('');
+    `<td class="hint">${ubicacionTxt(t)}</td>`+
+    `<td style="text-align:right"><button class="btn sec mini" data-editar="${t.id}">Editar</button></td></tr>`).join('');
 
   mostrar('secPrevia',true);
   $('secPrevia').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function ubicacionTxt(t){
+  if(t.lat==null) return '— sin ubicar';
+  if(t.dirManual) return '📍 corregida a mano';
+  return t.aprox?'📍 solo ciudad':'📍 en el mapa';
+}
+
+/* ── Editar un renglón de la propuesta ──────────────────────── */
+$('previaBody').addEventListener('click',async e=>{
+  const btnEd=e.target.closest('[data-editar]');
+  if(btnEd) return abrirEditor(btnEd.dataset.editar);
+  const btnG=e.target.closest('[data-guardar]');
+  if(btnG) return guardarEditor(btnG.dataset.guardar);
+  const btnC=e.target.closest('[data-cancelar]');
+  if(btnC){ const tr=$('editor-'+btnC.dataset.cancelar); if(tr) tr.remove(); return; }
+  const btnB=e.target.closest('[data-buscar]');
+  if(btnB) return buscarEnEditor(btnB.dataset.buscar);
+  const btnQ=e.target.closest('[data-quitar]');
+  if(btnQ){
+    const t=propuesta.find(x=>String(x.id)===btnQ.dataset.quitar);
+    if(t&&confirm(`¿Quitar "${t.nombre}" de esta publicación?`)){
+      propuesta=propuesta.filter(x=>String(x.id)!==btnQ.dataset.quitar);
+      repintar();
+    }
+  }
+});
+
+function abrirEditor(id){
+  const t=propuesta.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  const fila=$('previaBody').querySelector(`tr[data-fila="${id}"]`);
+  if(!fila||$('editor-'+id)) return;
+  const tr=document.createElement('tr');
+  tr.id='editor-'+id; tr.className='edit';
+  tr.innerHTML=`<td colspan="6">
+    <div class="edit-rej">
+      <div style="grid-column:1/-1"><label>Nombre de la tienda</label>
+        <input data-c="nombre" value="${esc(t.nombre)}"></div>
+      <div><label>Vacantes</label><input data-c="vacantes" type="number" min="0" value="${+t.vacantes||0}"></div>
+      <div><label>Urgencia</label><select data-c="urgencia">
+        ${['Alta','Media','Baja'].map(u=>`<option${u===t.urgencia?' selected':''}>${u}</option>`).join('')}
+      </select></div>
+      <div><label>Esquema</label><select data-c="esquema">
+        ${ESQUEMAS.map(x=>`<option${x===t.esquema?' selected':''}>${esc(x)}</option>`).join('')}
+      </select></div>
+      <div style="grid-column:1/-1"><label>Dirección (calle, colonia, alcaldía…) o pega “19.4326, -99.1332” de Google Maps</label>
+        <input data-c="direccion" value="${esc(t.direccion||'')}" placeholder="Av. Insurgentes Sur 1234, Del Valle, CDMX"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button class="btn mini" data-buscar="${id}">📍 Ubicar esta dirección</button>
+      <button class="btn ok mini" data-guardar="${id}">Guardar</button>
+      <button class="btn sec mini" data-cancelar="${id}">Cancelar</button>
+      <button class="btn sec mini" data-quitar="${id}" style="margin-left:auto;color:var(--no);border-color:var(--no)">Quitar</button>
+      <span class="hint" data-msg style="flex-basis:100%">${t.lat!=null?`Ahora en ${t.lat}, ${t.lng}`:'Sin ubicación todavía.'}</span>
+    </div></td>`;
+  fila.after(tr);
+  tr.querySelector('[data-c=nombre]').focus();
+}
+
+function leerEditor(id){
+  const tr=$('editor-'+id); if(!tr) return null;
+  const v={};
+  tr.querySelectorAll('[data-c]').forEach(el=>{ v[el.dataset.c]=el.value; });
+  return v;
+}
+
+/* Acepta "lat, lng" pegado de Google Maps; si no, busca la dirección. */
+async function buscarEnEditor(id){
+  const tr=$('editor-'+id), v=leerEditor(id);
+  if(!tr||!v) return;
+  const msg=tr.querySelector('[data-msg]');
+  const t=propuesta.find(x=>String(x.id)===String(id));
+  const coord=(v.direccion||'').match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/);
+  if(coord){
+    t.lat=+(+coord[1]).toFixed(5); t.lng=+(+coord[2]).toFixed(5);
+    t.aprox=false; t.dirManual=true;
+    msg.textContent=`✓ Coordenadas puestas: ${t.lat}, ${t.lng}`;
+    return;
+  }
+  if(!(v.direccion||'').trim()){ msg.textContent='Escribe una dirección primero.'; return; }
+  msg.textContent='Buscando…';
+  const r=await ubicarDireccion(v.direccion);
+  if(!r){ msg.textContent='✖ No encontré esa dirección. Prueba con calle y alcaldía, o pega las coordenadas de Google Maps.'; return; }
+  t.lat=r.lat; t.lng=r.lng; t.aprox=false; t.dirManual=true;
+  msg.textContent=`✓ Ubicada en ${r.lat}, ${r.lng}${r.local?' (por zona conocida)':''}`;
+}
+
+async function ubicarDireccion(texto){
+  const local=buscarLocal(texto);
+  if(local) return {lat:+local.lat.toFixed(5), lng:+local.lng.toFixed(5), local:true};
+  try{
+    const q=encodeURIComponent(texto+', México');
+    const resp=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&q='+q);
+    const d=await resp.json();
+    if(d&&d.length) return {lat:+(+d[0].lat).toFixed(5), lng:+(+d[0].lon).toFixed(5)};
+  }catch(e){}
+  return null;
+}
+
+async function guardarEditor(id){
+  const v=leerEditor(id); if(!v) return;
+  const t=propuesta.find(x=>String(x.id)===String(id)); if(!t) return;
+  const tr=$('editor-'+id), msg=tr.querySelector('[data-msg]');
+  if(!(v.nombre||'').trim()){ msg.textContent='La tienda necesita un nombre.'; return; }
+
+  const dirCambio=(v.direccion||'').trim()!==(t.direccion||'').trim();
+  t.nombre=v.nombre.trim().toUpperCase();
+  t.vacantes=parseInt(v.vacantes)||0;
+  t.urgencia=v.urgencia; t.esquema=v.esquema;
+  if(dirCambio){ t.direccion=(v.direccion||'').trim(); t.dirManual=true; }
+
+  // Si cambió la dirección y no la ubicó, se intenta antes de publicar:
+  // publicar sin coordenadas la deja fuera de las búsquedas por cercanía.
+  if(dirCambio && t.direccion && !/^\s*-?\d+\.\d+\s*,/.test(t.direccion)){
+    msg.textContent='Ubicando la dirección nueva…';
+    const r=await ubicarDireccion(t.direccion);
+    if(r){ t.lat=r.lat; t.lng=r.lng; t.aprox=false; }
+  }
+  if(t.lat==null){
+    const c=coordConocida(t.nombre);
+    if(c){ t.lat=c[0]; t.lng=c[1]; t.aprox=false; }
+  }
+  tr.remove();
+  repintar();
+}
+
+/* ── Agregar una tienda que no viene en el Excel ─────────────── */
+$('btnAgregarTienda').addEventListener('click',()=>{
+  if(!propuesta) return;
+  const id=Math.max(0,...propuesta.map(t=>+t.id||0))+1;
+  propuesta.unshift({id, nombre:'', vacantes:1, urgencia:'Alta', esquema:'Alta',
+                     direccion:'', lat:null, lng:null, manual:true, dirManual:true});
+  repintar();
+  abrirEditor(id);
+  $('previaBody').querySelector(`#editor-${id}`).scrollIntoView({block:'center'});
+});
+
+/* Repinta la vista previa con la propuesta ya modificada. */
+function repintar(){
+  const ub={intentadas:0, ubicadas:0,
+            aproximadas:propuesta.filter(t=>t.aprox).length,
+            sinUbicar:propuesta.filter(t=>t.lat==null).length};
+  pintarPrevia({esReporte:false, omitidasInactivas:0, tiendas:propuesta}, ub, 0, 0, true);
 }
 function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
