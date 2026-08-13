@@ -69,13 +69,15 @@
 const { useState, useMemo, useCallback, useEffect, useRef } = React;
 
 /**
- * DIRECCIÓN VISUAL: arcade retro. Pista única y relativa (sin meta fija:
- * la posición de cada auto se calcula respecto al líder). Cada 5 altas
- * totales cambia el "escenario" (cielo/decoración) con una transición
- * animada. El piloto en último lugar lanza bombas cómicas al resto cada
- * cierto tiempo. Jefe Yimi (personaje original, más musculoso) recorre
- * los carriles uno por uno molestando a todos. Todo el arte es
- * ilustración propia, sin personajes ni marcas de terceros.
+ * DIRECCIÓN VISUAL: arcade retro. Pista única y relativa (sin meta fija).
+ * Autos orientados hacia el frente. El más adelantado lleva nitro.
+ * Eventos aleatorios: plátanos, plantita carnívora original, Sasha
+ * cruzando, arcoíris/neblina. Jefe Yimi recorre los carriles y el
+ * último lugar lanza bombas. Los datos se guardan en el navegador
+ * (localStorage) y hay un panel para que cualquier visitante dispare
+ * los eventos manualmente y haga sonar el claxon de cada auto.
+ * Todo el arte es ilustración propia, sin personajes ni marcas de
+ * terceros.
  */
 
 // ── ÍCONOS SVG PROPIOS ────────────────────────────────────────────────
@@ -113,6 +115,9 @@ const Users = (props) => (
   <Icon {...props}><circle cx="8.5" cy="8" r="3" /><path d="M2.5 20a6 6 0 0 1 12 0" /><circle cx="17" cy="9" r="2.6" /><path d="M14.5 20a5 5 0 0 1 8 0" /></Icon>
 );
 const Zap = (props) => (<Icon {...props}><polygon points="13 2 4 14 11 14 10 22 20 10 13 10 13 2" /></Icon>);
+const Sparkles = (props) => (
+  <Icon {...props}><path d="M12 3l1.6 4.8L18 9l-4.4 1.2L12 15l-1.6-4.8L6 9l4.4-1.2Z" /><path d="M19 15l0.8 2.2L22 18l-2.2 0.8L19 21l-0.8-2.2L16 18l2.2-0.8Z" /></Icon>
+);
 
 // ── PALETA / TOKENS ──────────────────────────────────────────────────────
 const INK = '#1B1B3A';
@@ -120,6 +125,7 @@ const COIN_GOLD = '#FFC312';
 const COIN_GOLD_DARK = '#E6A400';
 const TEAM_NAME = 'ACCESS PACK';
 const ROW_HEIGHT = 70;
+const STORAGE_KEY = 'access-pack-grand-prix-records-v1';
 
 const RECRUITERS = [
   { name: 'David', hex: '#29ABE2', dark: '#1C7DAE' },
@@ -136,21 +142,8 @@ const PRIORITY_CONFIG = {
   critico: { label: '¡CRÍTICO!', points: 3, bg: '#FFC3C3', fg: '#8A1414' },
 };
 
-const YIMI_LINES = [
-  (n) => `¿Ya diste tu alta de hoy, ${n}?`,
-  (n) => `¡${n}, la meta no se cumple sola!`,
-  (n) => `Jefe Yimi está vigilando, ${n}…`,
-  (n) => `¡Más rápido, ${n}! 🏃`,
-  (n) => `${n}, ¿otra alta o seguimos platicando?`,
-  (n) => `¡Vamos ${n}, el auto no se mueve solo!`,
-  (n) => `${n}... te estoy viendo. 👀`,
-  (n) => `¡Reporte de avance YA, ${n}!`,
-  (n) => `${n}, ¡dame resultados no excusas!`,
-];
-
 // Salón de la Fama: agrega aquí un objeto por cada mes que quieras
-// reconocer, con { month, name, count }. "name" debe coincidir con
-// alguno de RECRUITERS para heredar su color; si no, usa dorado.
+// reconocer, con { month, name, count }.
 const HALL_OF_FAME = [
   { month: 'Julio', name: 'Jose', count: 11 },
 ];
@@ -163,6 +156,18 @@ const SCENARIOS = [
   { name: 'Tormenta eléctrica', skyTop: '#3B3B58', skyBottom: '#6B6B94', decor: 'storm', cloudTint: '#D8D8E8' },
 ];
 
+const YIMI_LINES = [
+  (n) => `¿Ya diste tu alta de hoy, ${n}?`,
+  (n) => `¡${n}, la meta no se cumple sola!`,
+  (n) => `Jefe Yimi está vigilando, ${n}…`,
+  (n) => `¡Más rápido, ${n}! 🏃`,
+  (n) => `${n}, ¿otra alta o seguimos platicando?`,
+  (n) => `¡Vamos ${n}, el auto no se mueve solo!`,
+  (n) => `${n}... te estoy viendo. 👀`,
+  (n) => `¡Reporte de avance YA, ${n}!`,
+  (n) => `${n}, ¡dame resultados no excusas!`,
+];
+
 function todayISO() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -172,6 +177,16 @@ function makeId() {
   return `alta-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(n) { return Math.floor(Math.random() * n); }
+
+function loadStoredRecords() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) { return []; }
+}
 
 // ── FUENTES ──────────────────────────────────────────────────────────────
 function useArcadeFonts() {
@@ -373,6 +388,37 @@ function LeaderStar() {
   );
 }
 
+// ── PANEL DE DIVERSIÓN (interactivo para cualquier visitante) ───────────
+function FunControlsPanel({ onBanana, onYimi, onSasha, onSurprise, onCelebrate }) {
+  const [pressedKey, setPressedKey] = useState(null);
+  const handle = (key, fn) => () => {
+    fn();
+    setPressedKey(key);
+    setTimeout(() => setPressedKey((k) => (k === key ? null : k)), 160);
+  };
+  const btnStyle = (bg, key) => ({
+    ...chunkyButtonStyle(bg, pressedKey === key),
+    fontFamily: FONT_BODY, fontWeight: 800, fontSize: '11px', color: INK,
+    padding: '9px 12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap',
+  });
+  return (
+    <section className="p-3 md:p-4" style={chunkyPanelStyle('#FFF7EE')}>
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="w-4 h-4" style={{ color: COIN_GOLD_DARK }} />
+        <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: INK }}>PANEL DE DIVERSIÓN</h2>
+        <span className="text-[10px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#9494a6' }}>— ¡tócalos!</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={handle('banana', onBanana)} style={btnStyle('#FFF3C2', 'banana')}>🍌 Lanzar plátano</button>
+        <button type="button" onClick={handle('yimi', onYimi)} style={btnStyle('#DCE4FF', 'yimi')}>👔 Llamar a Jefe Yimi</button>
+        <button type="button" onClick={handle('sasha', onSasha)} style={btnStyle('#F0DCC2', 'sasha')}>🐕 Llamar a Sasha</button>
+        <button type="button" onClick={handle('surprise', onSurprise)} style={btnStyle('#E3D6FF', 'surprise')}>🌈 Sorpresa</button>
+        <button type="button" onClick={handle('celebrate', onCelebrate)} style={btnStyle('#D2F5D2', 'celebrate')}>🎉 Festejo</button>
+      </div>
+    </section>
+  );
+}
+
 // ── SALÓN DE LA FAMA: muñeco saludando + medalla del mes ────────────────
 function WavingChampion({ hex }) {
   return (
@@ -446,39 +492,54 @@ function HallOfFame({ entries }) {
   );
 }
 
-// ── AUTO REALISTA CON CALCA DE EQUIPO ────────────────────────────────────
-function RaceCar({ hex, dark, isLeader, pulse, shaken }) {
+// ── AUTO REALISTA, ORIENTADO HACIA EL FRENTE + NITRO + CLAXON ───────────
+function RaceCar({ hex, dark, isLeader, hasNitro, pulse, shaken, slipping, honking, onHonk }) {
+  const motion = honking ? 'honkBounce 0.3s ease-in-out 2' : slipping ? 'carSpinOut 0.6s ease-in-out' : shaken ? 'carWiggle 0.3s ease-in-out infinite' : 'none';
   return (
     <div className="relative" style={{ width: 66, height: 34 }}>
       {isLeader && <LeaderStar />}
-      <div style={{ animation: shaken ? 'carWiggle 0.3s ease-in-out infinite' : 'none' }}>
+      {honking && (
+        <div className="absolute -top-8 left-1/2 z-30 pointer-events-none" style={{ transform: 'translateX(-50%)', animation: 'honkPop 0.7s ease-out forwards' }}>
+          <div className="px-2 py-1 rounded-md whitespace-nowrap" style={{ background: '#fff', border: `2px solid ${INK}`, boxShadow: `0 2px 0 ${INK}`, fontFamily: FONT_DISPLAY, fontSize: '8px', color: INK }}>
+            ¡BEEP!
+          </div>
+        </div>
+      )}
+      <div onClick={onHonk} title="¡Toca el claxon!" style={{ animation: motion, cursor: onHonk ? 'pointer' : 'default' }}>
         <svg viewBox="0 0 66 32" width="66" height="32"
           style={{
             filter: pulse ? `drop-shadow(0 0 6px ${hex})` : 'none',
             transform: pulse ? 'scale(1.1)' : 'scale(1)',
             transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            overflow: 'visible',
           }}>
+          {hasNitro && (
+            <g style={{ transformOrigin: '5px 20px', animation: 'nitroFlicker 0.22s ease-in-out infinite alternate' }}>
+              <path d="M6 13 C-1 16 -3 21 2 26 C3 22 3 19 7 17 C7 21 6 23 9 25 C11 20 9 15 6 13 Z" fill="#FF7A18" stroke={INK} strokeWidth="1" />
+              <path d="M6 17 C3 19 3 22 5.5 24 C6 22 6.5 20 8 19 Z" fill="#FFD23F" />
+            </g>
+          )}
           <ellipse cx="33" cy="28.5" rx="27" ry="2.2" fill="rgba(27,27,58,0.22)" />
           <path
-            d="M7 21 C7 16 11 13 17 12 L23 7 C25 5.3 28 4.5 31 4.5 L41 4.5 C44 4.5 46.3 5.7 47.3 7.8 L51 12 C57 13 60 16 60 20 L60 21 C60 23.2 58 24 55.5 24 L11.5 24 C8.5 24 7 23 7 21 Z"
+            d="M59 21 C59 16 55 13 49 12 L43 7 C41 5.3 38 4.5 35 4.5 L25 4.5 C22 4.5 19.7 5.7 18.7 7.8 L15 12 C9 13 6 16 6 20 L6 21 C6 23.2 8 24 10.5 24 L54.5 24 C57.5 24 59 23 59 21 Z"
             fill={hex} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
-          <path d="M24 12 L28 8 C29.5 6.7 31.5 6.3 33.5 6.3 L40 6.3 C42 6.3 43.6 7.4 44.6 9 L47 12 Z" fill="#BFE4FF" stroke={INK} strokeWidth="1.4" />
+          <path d="M42 12 L38 8 C36.5 6.7 34.5 6.3 32.5 6.3 L26 6.3 C24 6.3 22.4 7.4 21.4 9 L19 12 Z" fill="#BFE4FF" stroke={INK} strokeWidth="1.4" />
           <rect x="10.5" y="17" width="45" height="4.6" fill="#FFFFFF" stroke={INK} strokeWidth="1" />
           <text x="33" y="20.6" textAnchor="middle" fontFamily="Baloo 2, sans-serif" fontWeight="800" fontSize="4" fill={INK} letterSpacing="0.15">{TEAM_NAME}</text>
-          <rect x="53.5" y="6.5" width="3" height="7.5" fill={dark} stroke={INK} strokeWidth="1.2" />
-          <rect x="50.5" y="4.8" width="9.5" height="3.1" rx="0.6" fill={dark} stroke={INK} strokeWidth="1.2" />
-          <ellipse cx="9.5" cy="17" rx="2" ry="1.6" fill="#FFF6BF" stroke={INK} strokeWidth="1" />
-          <g style={{ transformOrigin: '16px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
-            <circle cx="16" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
-            <circle cx="16" cy="25" r="2.2" fill="#C9C9D6" />
-            <line x1="16" y1="20.2" x2="16" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
-            <line x1="11.2" y1="25" x2="20.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
+          <rect x="9.5" y="6.5" width="3" height="7.5" fill={dark} stroke={INK} strokeWidth="1.2" />
+          <rect x="6" y="4.8" width="9.5" height="3.1" rx="0.6" fill={dark} stroke={INK} strokeWidth="1.2" />
+          <ellipse cx="56.5" cy="17" rx="2" ry="1.6" fill="#FFF6BF" stroke={INK} strokeWidth="1" />
+          <g style={{ transformOrigin: '50px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
+            <circle cx="50" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
+            <circle cx="50" cy="25" r="2.2" fill="#C9C9D6" />
+            <line x1="50" y1="20.2" x2="50" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
+            <line x1="45.2" y1="25" x2="54.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
           </g>
-          <g style={{ transformOrigin: '49px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
-            <circle cx="49" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
-            <circle cx="49" cy="25" r="2.2" fill="#C9C9D6" />
-            <line x1="49" y1="20.2" x2="49" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
-            <line x1="44.2" y1="25" x2="53.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
+          <g style={{ transformOrigin: '17px 25px', animation: pulse ? 'wheelSpin 0.4s linear' : 'none' }}>
+            <circle cx="17" cy="25" r="5.6" fill="#232332" stroke={INK} strokeWidth="1.6" />
+            <circle cx="17" cy="25" r="2.2" fill="#C9C9D6" />
+            <line x1="17" y1="20.2" x2="17" y2="29.8" stroke="#8a8a9c" strokeWidth="1" />
+            <line x1="12.2" y1="25" x2="21.8" y2="25" stroke="#8a8a9c" strokeWidth="1" />
           </g>
         </svg>
       </div>
@@ -495,34 +556,23 @@ function JefeYimi({ message }) {
           <span style={{ fontFamily: FONT_BODY, fontWeight: 800, fontSize: '10px', color: INK }}>{message}</span>
         </div>
         <svg width="46" height="54" viewBox="0 0 52 60">
-          {/* torso ancho / musculoso */}
           <path d="M4 60 L4 42 C4 30 12 24 26 24 C40 24 48 30 48 42 L48 60 Z" fill="#2C3E6B" stroke={INK} strokeWidth="2.2" />
-          {/* pectorales marcados */}
           <path d="M16 30 C19 34 24 34 26 31" stroke="#1c2a4d" strokeWidth="1.4" fill="none" opacity="0.6" />
           <path d="M36 30 C33 34 28 34 26 31" stroke="#1c2a4d" strokeWidth="1.4" fill="none" opacity="0.6" />
-          {/* corbata */}
           <path d="M23 25 L29 25 L27.2 34 L24.8 34 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
-          {/* brazo izquierdo (bicep) */}
           <ellipse cx="8" cy="35" rx="6.5" ry="8" fill="#2C3E6B" stroke={INK} strokeWidth="2" />
           <ellipse cx="7" cy="34" rx="3.5" ry="5" fill="#1c2a4d" opacity="0.35" />
-          {/* brazo derecho (señalando, musculoso, manga arremangada) */}
           <path d="M42 33 C50 30 52 22 48 16" stroke="#F2C08C" strokeWidth="9" strokeLinecap="round" fill="none" />
           <path d="M42 33 C48 31 50 25 47.5 20" stroke="#2C3E6B" strokeWidth="10" strokeLinecap="round" fill="none" strokeDasharray="0 14 20" />
           <circle cx="48" cy="15" r="3.6" fill="#F2C08C" stroke={INK} strokeWidth="1.4" />
-          {/* cabeza ancha, mandibula cuadrada */}
           <path d="M12 16 C12 7 18 2 26 2 C34 2 40 7 40 16 C40 24 35 28 26 28 C17 28 12 24 12 16 Z" fill="#F2C08C" stroke={INK} strokeWidth="2.2" />
-          {/* pelo peinado hacia atras */}
           <path d="M13 12 C13 4 19 0 26 0 C33 0 39 4 39 12 C35 8 31 7 26 7 C21 7 17 8 13 12 Z" fill="#3A2E26" stroke={INK} strokeWidth="1.4" />
-          {/* cejas fruncidas */}
           <path d="M15 13.5 L21 15" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
           <path d="M37 13.5 L31 15" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
-          {/* lentes oscuros */}
           <rect x="14.5" y="15.5" width="8" height="5" rx="1" fill="#1B1B3A" opacity="0.9" />
           <rect x="27.5" y="15.5" width="8" height="5" rx="1" fill="#1B1B3A" opacity="0.9" />
           <line x1="22.5" y1="17.5" x2="27.5" y2="17.5" stroke={INK} strokeWidth="1.4" />
-          {/* bigote grueso */}
           <path d="M17 23.5 C20.5 26.5 31.5 26.5 35 23.5 C32.5 27.5 19.5 27.5 17 23.5 Z" fill="#3A2E26" />
-          {/* mandibula marcada */}
           <path d="M16 22 C19 25.5 33 25.5 36 22" stroke={INK} strokeWidth="1" fill="none" opacity="0.5" />
         </svg>
         <div className="mt-0.5 px-1.5 py-0.5 rounded" style={{ background: COIN_GOLD, border: `1.5px solid ${INK}`, fontFamily: FONT_DISPLAY, fontSize: '7px', color: INK }}>
@@ -586,12 +636,146 @@ function BombProjectile({ attackerIdx, targetIdx, onArrive, onDone }) {
   );
 }
 
+// ── CÁSCARA DE PLÁTANO (hace patinar al auto) ────────────────────────────
+function BananaPeel() {
+  return (
+    <div style={{ animation: 'bananaDrop 0.3s ease-out' }}>
+      <svg width="24" height="20" viewBox="0 0 24 20">
+        <path d="M12 10 L4 4" stroke="#F4D35E" strokeWidth="4" strokeLinecap="round" />
+        <path d="M12 10 L20 4" stroke="#F4D35E" strokeWidth="4" strokeLinecap="round" />
+        <path d="M12 10 L6 17" stroke="#F4D35E" strokeWidth="4" strokeLinecap="round" />
+        <path d="M12 10 L18 17" stroke="#F4D35E" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="12" cy="10" r="3" fill="#8B4E22" stroke={INK} strokeWidth="1.2" />
+      </svg>
+    </div>
+  );
+}
+
+// ── PLANTITA CARNÍVORA (personaje original, sin tubería) ────────────────
+function CarnivorousPlant() {
+  return (
+    <div className="absolute bottom-0 z-25 pointer-events-none" style={{ right: '6%', animation: 'plantPopUp 2.6s ease-in-out forwards' }}>
+      <svg width="30" height="42" viewBox="0 0 30 42">
+        <ellipse cx="15" cy="40" rx="13" ry="4" fill="#6b4423" stroke={INK} strokeWidth="1.4" />
+        <path d="M9 39 C7 37 8 35 10 36" stroke="#4CD137" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M21 39 C23 37 22 35 20 36" stroke="#4CD137" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M15 38 C15 28 15 20 15 16" stroke="#2E9E1E" strokeWidth="4" strokeLinecap="round" />
+        <path d="M15 26 C9 24 6 28 8 32" fill="#4CD137" stroke={INK} strokeWidth="1.2" />
+        <path d="M15 22 C21 20 24 24 22 28" fill="#4CD137" stroke={INK} strokeWidth="1.2" />
+        <g style={{ transformOrigin: '15px 11px', animation: 'chomp 0.5s ease-in-out infinite' }}>
+          <path d="M15 15 C6 15 4 5 15 3 C26 5 24 15 15 15 Z" fill="#C43078" stroke={INK} strokeWidth="1.8" />
+          <path d="M8 10 L11 13 L14 9 L17 13 L20 9 L22 10" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+// ── SASHA (perrita que cruza la pista de vez en cuando) ──────────────────
+function SashaDog({ top, onPet, petted }) {
+  return (
+    <div className="absolute z-25" style={{ top, animation: 'sashaRun 4.2s linear forwards', pointerEvents: 'auto' }}>
+      <div onClick={onPet} style={{ cursor: 'pointer' }} title="¡Acaríciala!">
+        <svg width="52" height="34" viewBox="0 0 54 34">
+          <path d="M4 16 C0 12 0 20 4 20" stroke="#7a4a26" strokeWidth="4" strokeLinecap="round" fill="none" style={{ transformOrigin: '4px 16px', animation: petted ? 'tailWag 0.12s ease-in-out infinite alternate' : 'tailWag 0.3s ease-in-out infinite alternate' }} />
+          <ellipse cx="26" cy="18" rx="16" ry="8" fill="#8a5a32" stroke={INK} strokeWidth="1.8" />
+          <rect x="14" y="24" width="4" height="8" rx="2" fill="#6b4423" style={{ animation: 'legRun 0.28s linear infinite' }} />
+          <rect x="22" y="24" width="4" height="8" rx="2" fill="#6b4423" style={{ animation: 'legRun 0.28s linear infinite', animationDelay: '0.14s' }} />
+          <rect x="30" y="24" width="4" height="8" rx="2" fill="#6b4423" style={{ animation: 'legRun 0.28s linear infinite', animationDelay: '0.07s' }} />
+          <rect x="38" y="24" width="4" height="8" rx="2" fill="#6b4423" style={{ animation: 'legRun 0.28s linear infinite', animationDelay: '0.21s' }} />
+          <circle cx="42" cy="13" r="8" fill="#8a5a32" stroke={INK} strokeWidth="1.8" />
+          <path d="M46 6 L50 0 L48 8 Z" fill="#6b4423" stroke={INK} strokeWidth="1.2" />
+          <circle cx="45" cy="12" r="1.2" fill={INK} />
+          <ellipse cx="49" cy="15" rx="2" ry="1.4" fill="#3A2E26" />
+          <path d="M43 16 C45 18 47 18 48 16" stroke={INK} strokeWidth="1.2" fill="none" />
+        </svg>
+      </div>
+      {petted && (
+        <div className="absolute -top-4 left-1/2 pointer-events-none" style={{ transform: 'translateX(-50%)', animation: 'honkPop 0.7s ease-out forwards' }}>
+          <span style={{ fontSize: '14px' }}>💕</span>
+        </div>
+      )}
+      <div className="text-center mt-0.5" style={{ fontFamily: FONT_DISPLAY, fontSize: '7px', color: INK, background: '#fff', border: `1.5px solid ${INK}`, borderRadius: '4px', padding: '1px 3px' }}>SASHA</div>
+    </div>
+  );
+}
+
+// ── EFECTOS AMBIENTALES ESPORÁDICOS: arcoíris / neblina ──────────────────
+function RainbowOverlay() {
+  return (
+    <div className="absolute inset-x-0 top-0 z-20 pointer-events-none flex justify-center overflow-hidden" style={{ height: 0, animation: 'rainbowFade 4.2s ease-in-out forwards' }}>
+      <svg width="320" height="80" viewBox="0 0 320 80" style={{ marginTop: '-36px', overflow: 'visible' }}>
+        <path d="M10 80 A150 150 0 0 1 310 80" stroke="#FF4FA3" strokeWidth="9" fill="none" />
+        <path d="M27 80 A133 133 0 0 1 293 80" stroke="#FFC312" strokeWidth="9" fill="none" />
+        <path d="M44 80 A116 116 0 0 1 276 80" stroke="#4CD137" strokeWidth="9" fill="none" />
+        <path d="M61 80 A99 99 0 0 1 259 80" stroke="#29ABE2" strokeWidth="9" fill="none" />
+        <path d="M78 80 A82 82 0 0 1 242 80" stroke="#9C6ADE" strokeWidth="9" fill="none" />
+      </svg>
+    </div>
+  );
+}
+function FogOverlay() {
+  return (
+    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden" style={{ animation: 'fogFade 4.2s ease-in-out forwards' }}>
+      <div className="absolute inset-y-0" style={{ left: '-30%', width: '160%', background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%)', animation: 'fogDrift 3.8s ease-in-out infinite', filter: 'blur(3px)' }} />
+    </div>
+  );
+}
+function SnowOverlay() {
+  const flakes = useMemo(() => Array.from({ length: 16 }).map(() => ({
+    left: Math.random() * 100,
+    delay: Math.random() * 2.2,
+    dur: 2.4 + Math.random() * 1.8,
+    size: 4 + Math.random() * 4,
+  })), []);
+  return (
+    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden" style={{ animation: 'fogFade 4.2s ease-in-out forwards' }}>
+      {flakes.map((f, i) => (
+        <div key={i} className="absolute rounded-full" style={{ left: `${f.left}%`, top: '-10px', width: f.size, height: f.size, background: '#fff', opacity: 0.9, boxShadow: '0 0 3px rgba(255,255,255,0.8)', animation: `snowFall ${f.dur}s linear ${f.delay}s infinite` }} />
+      ))}
+    </div>
+  );
+}
+function MeteorOverlay() {
+  return (
+    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+      <div className="absolute" style={{ top: '-5%', left: '-12%', animation: 'meteorFly 1.6s ease-in forwards' }}>
+        <svg width="70" height="18" viewBox="0 0 70 18">
+          <defs>
+            <linearGradient id="meteorTrail" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#FFD23F" stopOpacity="0" />
+              <stop offset="100%" stopColor="#FFD23F" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="6" width="55" height="6" fill="url(#meteorTrail)" />
+          <circle cx="60" cy="9" r="7" fill="#FF7A18" stroke={INK} strokeWidth="1.4" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+function UfoOverlay() {
+  return (
+    <div className="absolute z-25 pointer-events-none" style={{ top: '6%', animation: 'ufoFly 4.6s linear forwards' }}>
+      <svg width="60" height="34" viewBox="0 0 60 34">
+        <polygon points="20,26 40,26 52,58 8,58" fill="#FFF6BF" opacity="0.3" />
+        <ellipse cx="30" cy="20" rx="26" ry="8" fill="#9C6ADE" stroke={INK} strokeWidth="2" />
+        <ellipse cx="30" cy="12" rx="14" ry="10" fill="#BFE4FF" stroke={INK} strokeWidth="1.8" />
+        <circle cx="12" cy="21" r="2.4" fill="#FFC312" stroke={INK} strokeWidth="1" style={{ animation: 'sparkle 0.6s ease-in-out infinite' }} />
+        <circle cx="30" cy="24" r="2.4" fill="#FF4FA3" stroke={INK} strokeWidth="1" style={{ animation: 'sparkle 0.6s ease-in-out infinite', animationDelay: '0.2s' }} />
+        <circle cx="48" cy="21" r="2.4" fill="#4CD137" stroke={INK} strokeWidth="1" style={{ animation: 'sparkle 0.6s ease-in-out infinite', animationDelay: '0.4s' }} />
+      </svg>
+    </div>
+  );
+}
+
 // ── PISTA ÚNICA COMPARTIDA (posición relativa, sin meta fija) ───────────
-function TrackRow({ recruiter, stats, maxCount, isLeader, shaken, bossMessage, isLast }) {
+function TrackRow({ recruiter, stats, maxCount, isLeader, hasNitro, shaken, slipping, bananaLeftPct, plantHere, bossMessage, isLast }) {
   const pct = maxCount > 0 ? (stats.totalCount / maxCount) * 100 : 0;
   const clamped = Math.max(0, Math.min(100, pct));
   const travel = clamped * 0.9;
   const [pulse, setPulse] = useState(false);
+  const [honking, setHonking] = useState(false);
   const prevCount = useRef(stats.totalCount);
 
   useEffect(() => {
@@ -602,6 +786,11 @@ function TrackRow({ recruiter, stats, maxCount, isLeader, shaken, bossMessage, i
       return () => clearTimeout(t);
     }
   }, [stats.totalCount]);
+
+  const handleHonk = () => {
+    setHonking(true);
+    setTimeout(() => setHonking(false), 700);
+  };
 
   return (
     <div className="relative grid items-stretch" style={{ height: ROW_HEIGHT, gridTemplateColumns: '148px 1fr', borderBottom: isLast ? 'none' : '2px dashed rgba(255,255,255,0.35)' }}>
@@ -621,8 +810,14 @@ function TrackRow({ recruiter, stats, maxCount, isLeader, shaken, bossMessage, i
       <div className="relative overflow-hidden" style={{ background: 'repeating-linear-gradient(90deg, #5b5b6b 0px, #5b5b6b 18px, #4d4d5c 18px, #4d4d5c 36px)' }}>
         <div className="absolute left-0 right-0" style={{ top: '50%', height: '3px', transform: 'translateY(-50%)', backgroundImage: 'repeating-linear-gradient(90deg, #fff 0px, #fff 10px, transparent 10px, transparent 20px)', opacity: 0.75 }} />
         <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${travel}%`, transition: 'left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-          <RaceCar hex={recruiter.hex} dark={recruiter.dark} isLeader={isLeader} pulse={pulse} shaken={shaken} />
+          <RaceCar hex={recruiter.hex} dark={recruiter.dark} isLeader={isLeader} hasNitro={hasNitro} pulse={pulse} shaken={shaken} slipping={slipping} honking={honking} onHonk={handleHonk} />
         </div>
+        {bananaLeftPct != null && (
+          <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${bananaLeftPct}%` }}>
+            <BananaPeel />
+          </div>
+        )}
+        {plantHere && <CarnivorousPlant />}
         {bossMessage && <JefeYimi message={bossMessage} />}
       </div>
 
@@ -631,8 +826,10 @@ function TrackRow({ recruiter, stats, maxCount, isLeader, shaken, bossMessage, i
   );
 }
 
-function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, scenarioName }) {
+function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, trackEvent, sashaTop, onPetSasha, sashaPetted, scenarioName }) {
   const maxCount = Math.max(0, ...recruiterStats.map((s) => s.totalCount));
+  const furthestNames = maxCount > 0 ? recruiterStats.filter((s) => s.totalCount === maxCount).map((s) => s.name) : [];
+
   return (
     <section className="p-4 md:p-5" style={chunkyPanelStyle('#EAF3FF')}>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -645,8 +842,15 @@ function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, sce
         </div>
       </div>
 
-      <div className="relative rounded-xl overflow-hidden" style={{ border: `3px solid ${INK}` }}>
+      <div className="relative rounded-xl overflow-hidden" style={{ border: `3px solid ${INK}`, animation: trackEvent && trackEvent.type === 'earthquake' ? 'trackShake 0.55s ease-in-out 2' : 'none' }}>
         <div className="absolute top-0 bottom-0 right-0" style={{ width: '12px', backgroundImage: 'repeating-conic-gradient(#0b0b16 0% 25%, #fff 0% 50%)', backgroundSize: '8px 8px', borderLeft: `2px solid ${INK}`, zIndex: 5 }} />
+
+        {trackEvent && trackEvent.type === 'rainbow' && <RainbowOverlay />}
+        {trackEvent && trackEvent.type === 'fog' && <FogOverlay />}
+        {trackEvent && trackEvent.type === 'snow' && <SnowOverlay />}
+        {trackEvent && trackEvent.type === 'meteor' && <MeteorOverlay />}
+        {trackEvent && trackEvent.type === 'ufo' && <UfoOverlay />}
+        {sashaTop != null && <SashaDog top={sashaTop} onPet={onPetSasha} petted={sashaPetted} />}
 
         {attackEvent && (
           <BombProjectile attackerIdx={attackEvent.attackerIdx} targetIdx={attackEvent.targetIdx} onArrive={attackEvent.onArrive} onDone={attackEvent.onDone} />
@@ -655,8 +859,12 @@ function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, sce
         {RECRUITERS.map((r, idx) => {
           const stats = recruiterStats.find((s) => s.name === r.name);
           const isLeader = leaderNames.includes(r.name);
+          const hasNitro = furthestNames.includes(r.name);
           const bossHere = !!(bossState && bossState.laneIndex === idx);
           const hitHere = !!(attackEvent && attackEvent.hit && attackEvent.targetIdx === idx);
+          const bananaHere = trackEvent && trackEvent.type === 'banana' && trackEvent.laneIndex === idx;
+          const slipping = !!(bananaHere && trackEvent.phase === 'slip');
+          const plantHere = !!(trackEvent && trackEvent.type === 'plant' && trackEvent.laneIndex === idx);
           return (
             <TrackRow
               key={r.name}
@@ -664,7 +872,11 @@ function UnifiedTrack({ recruiterStats, leaderNames, bossState, attackEvent, sce
               stats={stats}
               maxCount={maxCount}
               isLeader={isLeader}
+              hasNitro={hasNitro}
               shaken={bossHere || hitHere}
+              slipping={slipping}
+              bananaLeftPct={bananaHere ? trackEvent.leftPct : null}
+              plantHere={plantHere}
               bossMessage={bossHere ? bossState.message : null}
               isLast={idx === RECRUITERS.length - 1}
             />
@@ -899,12 +1111,20 @@ function HistoryTable({ records, onRemove }) {
 // ── APP PRINCIPAL ─────────────────────────────────────────────────────────
 function RecruitingGrandPrix() {
   useArcadeFonts();
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState(loadStoredRecords);
   const [bossState, setBossState] = useState(null);
   const [attackEvent, setAttackEvent] = useState(null);
+  const [trackEvent, setTrackEvent] = useState(null);
+  const [sashaTop, setSashaTop] = useState(null);
+  const [sashaPetted, setSashaPetted] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(false);
 
   const statsRef = useRef([]);
+
+  // persistencia local: guarda las altas en el navegador
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch (e) { /* almacenamiento no disponible */ }
+  }, [records]);
 
   const recruiterStats = useMemo(() => {
     return RECRUITERS.map((r) => {
@@ -938,58 +1158,112 @@ function RecruitingGrandPrix() {
     }
   }, [scenarioIndex]);
 
-  // ── Jefe Yimi: recorre todos los carriles molestando a cada quien ───
-  useEffect(() => {
-    const timers = [];
-    function scheduleYimi() {
-      const delay = 10000 + Math.random() * 8000;
-      const id = setTimeout(() => {
-        let i = 0;
-        function step() {
-          if (i >= RECRUITERS.length) { setBossState(null); return; }
-          const name = RECRUITERS[i].name;
-          setBossState({ laneIndex: i, message: pick(YIMI_LINES)(name) });
-          i++;
-          const stepId = setTimeout(step, 620);
-          timers.push(stepId);
-        }
-        step();
-        scheduleYimi();
-      }, delay);
-      timers.push(id);
+  // ── funciones disparables (por temporizador aleatorio o por botón) ──
+  const triggerYimi = useCallback(() => {
+    let i = 0;
+    function step() {
+      if (i >= RECRUITERS.length) { setBossState(null); return; }
+      setBossState({ laneIndex: i, message: pick(YIMI_LINES)(RECRUITERS[i].name) });
+      i++;
+      setTimeout(step, 620);
     }
-    scheduleYimi();
-    return () => timers.forEach(clearTimeout);
+    step();
   }, []);
 
-  // ── ataques del último lugar: le lanza bombas al resto ──────────────
+  const triggerAttack = useCallback(() => {
+    const stats = statsRef.current;
+    if (!stats.length || stats.length < 2) return;
+    const minCount = Math.min(...stats.map((s) => s.totalCount));
+    const lastIdxs = stats.map((s, i) => (s.totalCount === minCount ? i : -1)).filter((i) => i >= 0);
+    const attackerIdx = pick(lastIdxs);
+    let targetIdx = randInt(RECRUITERS.length);
+    let attempts = 0;
+    while (targetIdx === attackerIdx && attempts < 10) { targetIdx = randInt(RECRUITERS.length); attempts++; }
+    if (targetIdx === attackerIdx) return;
+    setAttackEvent({
+      attackerIdx, targetIdx, hit: false,
+      onArrive: () => setAttackEvent((prev) => (prev ? { ...prev, hit: true } : prev)),
+      onDone: () => setAttackEvent(null),
+    });
+  }, []);
+
+  const triggerTrackEvent = useCallback((forcedType) => {
+    const type = forcedType || pick(['banana', 'plant', 'rainbow', 'fog', 'snow', 'meteor', 'earthquake', 'ufo']);
+    if (type === 'banana') {
+      const laneIndex = randInt(RECRUITERS.length);
+      const leftPct = 18 + Math.random() * 55;
+      setTrackEvent({ type, laneIndex, leftPct, phase: 'sitting' });
+      setTimeout(() => {
+        setTrackEvent((prev) => (prev && prev.type === 'banana' ? { ...prev, phase: 'slip' } : prev));
+        setTimeout(() => setTrackEvent(null), 650);
+      }, 2200);
+    } else if (type === 'plant') {
+      const laneIndex = randInt(RECRUITERS.length);
+      setTrackEvent({ type, laneIndex });
+      setTimeout(() => setTrackEvent(null), 2600);
+    } else {
+      const durations = { rainbow: 4200, fog: 4200, snow: 4200, meteor: 1800, ufo: 4700, earthquake: 1300 };
+      setTrackEvent({ type });
+      setTimeout(() => setTrackEvent(null), durations[type] || 4200);
+    }
+  }, []);
+
+  const triggerSasha = useCallback(() => {
+    const rowIdx = randInt(RECRUITERS.length);
+    setSashaPetted(false);
+    setSashaTop(`${rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - 17}px`);
+    setTimeout(() => setSashaTop(null), 4300);
+  }, []);
+
+  const handleCelebrate = useCallback(() => {
+    fireCoinBurst([COIN_GOLD, '#FF4FA3', '#4CD137', '#29ABE2', '#9C6ADE']);
+  }, []);
+
+  const handlePetSasha = useCallback(() => {
+    setSashaPetted(true);
+    setTimeout(() => setSashaPetted(false), 900);
+  }, []);
+
+  // ── temporizadores automáticos ───────────────────────────────────────
   useEffect(() => {
     let timeoutId;
-    function scheduleAttack() {
-      const delay = 9000 + Math.random() * 9000;
-      timeoutId = setTimeout(() => {
-        const stats = statsRef.current;
-        if (stats.length > 1) {
-          const minCount = Math.min(...stats.map((s) => s.totalCount));
-          const lastIdxs = stats.map((s, i) => (s.totalCount === minCount ? i : -1)).filter((i) => i >= 0);
-          const attackerIdx = pick(lastIdxs);
-          let targetIdx = Math.floor(Math.random() * RECRUITERS.length);
-          let attempts = 0;
-          while (targetIdx === attackerIdx && attempts < 10) { targetIdx = Math.floor(Math.random() * RECRUITERS.length); attempts++; }
-          if (targetIdx !== attackerIdx) {
-            setAttackEvent({
-              attackerIdx, targetIdx, hit: false,
-              onArrive: () => setAttackEvent((prev) => (prev ? { ...prev, hit: true } : prev)),
-              onDone: () => setAttackEvent(null),
-            });
-          }
-        }
-        scheduleAttack();
-      }, delay);
+    function schedule() {
+      const delay = 10000 + Math.random() * 8000;
+      timeoutId = setTimeout(() => { triggerYimi(); schedule(); }, delay);
     }
-    scheduleAttack();
+    schedule();
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [triggerYimi]);
+
+  useEffect(() => {
+    let timeoutId;
+    function schedule() {
+      const delay = 9000 + Math.random() * 9000;
+      timeoutId = setTimeout(() => { triggerAttack(); schedule(); }, delay);
+    }
+    schedule();
+    return () => clearTimeout(timeoutId);
+  }, [triggerAttack]);
+
+  useEffect(() => {
+    let timeoutId;
+    function schedule() {
+      const delay = 8000 + Math.random() * 8000;
+      timeoutId = setTimeout(() => { triggerTrackEvent(); schedule(); }, delay);
+    }
+    schedule();
+    return () => clearTimeout(timeoutId);
+  }, [triggerTrackEvent]);
+
+  useEffect(() => {
+    let timeoutId;
+    function schedule() {
+      const delay = 14000 + Math.random() * 12000;
+      timeoutId = setTimeout(() => { triggerSasha(); schedule(); }, delay);
+    }
+    schedule();
+    return () => clearTimeout(timeoutId);
+  }, [triggerSasha]);
 
   const handleAddRecord = useCallback((record) => {
     setRecords((prev) => [record, ...prev]);
@@ -1015,20 +1289,73 @@ function RecruitingGrandPrix() {
           25% { transform: translateX(-2px) rotate(-4deg); }
           75% { transform: translateX(2px) rotate(4deg); }
         }
+        @keyframes carSpinOut {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(200deg) scale(0.85); }
+          100% { transform: rotate(360deg) scale(1); }
+        }
+        @keyframes honkBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes honkPop {
+          0% { transform: translate(-50%, 10px) scale(0.6); opacity: 0; }
+          30% { transform: translate(-50%, 0) scale(1.1); opacity: 1; }
+          70% { opacity: 1; }
+          100% { transform: translate(-50%, -10px) scale(0.8); opacity: 0; }
+        }
+        @keyframes nitroFlicker { from { transform: scaleX(1) scaleY(1); opacity: 1; } to { transform: scaleX(1.25) scaleY(0.85); opacity: 0.75; } }
         @keyframes bossStep {
           0% { transform: translateY(30px) scale(0.7); opacity: 0; }
           30% { transform: translateY(0) scale(1); opacity: 1; }
           100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        @keyframes lightning { 0%, 92%, 100% { opacity: 0; } 94% { opacity: 1; } 96% { opacity: 0.2; } 98% { opacity: 1; } }
+        @keyframes sparkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+        @keyframes popBurst { 0% { transform: scale(0.3); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+        @keyframes bananaDrop { from { transform: translateY(-14px) scale(0.6); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes chomp { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.65); } }
+        @keyframes plantPopUp {
+          0% { transform: translateY(30px) scale(0.5); opacity: 0; }
+          20% { transform: translateY(0) scale(1.05); opacity: 1; }
+          30% { transform: translateY(0) scale(1); opacity: 1; }
+          85% { opacity: 1; }
+          100% { transform: translateY(10px) scale(0.6); opacity: 0; }
+        }
+        @keyframes sashaRun { from { left: -16%; } to { left: 112%; } }
+        @keyframes legRun { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        @keyframes tailWag { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+        @keyframes rainbowFade {
+          0% { opacity: 0; transform: translateY(-10px); }
+          15% { opacity: 1; transform: translateY(0); }
+          85% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-10px); }
+        }
+        @keyframes fogFade { 0% { opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes fogDrift { 0% { transform: translateX(-15%); } 50% { transform: translateX(15%); } 100% { transform: translateX(-15%); } }
+        @keyframes snowFall {
+          0% { transform: translateY(-10px) translateX(0); opacity: 0.9; }
+          100% { transform: translateY(420px) translateX(14px); opacity: 0.2; }
+        }
+        @keyframes meteorFly {
+          0% { top: -5%; left: -12%; opacity: 1; }
+          100% { top: 92%; left: 108%; opacity: 0; }
+        }
+        @keyframes ufoFly {
+          0% { left: -16%; }
+          50% { left: 48%; }
+          100% { left: 112%; }
+        }
+        @keyframes trackShake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px) rotate(-0.4deg); }
+          40% { transform: translateX(6px) rotate(0.4deg); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
         }
         @keyframes wave {
           0%, 100% { transform: rotate(0deg); }
           25% { transform: rotate(-20deg); }
           75% { transform: rotate(12deg); }
         }
-        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-        @keyframes lightning { 0%, 92%, 100% { opacity: 0; } 94% { opacity: 1; } 96% { opacity: 0.2; } 98% { opacity: 1; } }
-        @keyframes sparkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.4); } }
-        @keyframes popBurst { 0% { transform: scale(0.3); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
         @keyframes bannerPop {
           0% { transform: translate(-50%, -20px) scale(0.8); opacity: 0; }
           12% { transform: translate(-50%, 0) scale(1.05); opacity: 1; }
@@ -1042,7 +1369,24 @@ function RecruitingGrandPrix() {
       <AppHeader totalAltas={records.length} />
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-6 relative z-10">
         <HallOfFame entries={HALL_OF_FAME} />
-        <UnifiedTrack recruiterStats={recruiterStats} leaderNames={leaderNames} bossState={bossState} attackEvent={attackEvent} scenarioName={scenario.name} />
+        <FunControlsPanel
+          onBanana={() => triggerTrackEvent('banana')}
+          onYimi={triggerYimi}
+          onSasha={triggerSasha}
+          onSurprise={() => triggerTrackEvent(pick(['plant', 'rainbow', 'fog', 'snow', 'meteor', 'earthquake', 'ufo']))}
+          onCelebrate={handleCelebrate}
+        />
+        <UnifiedTrack
+          recruiterStats={recruiterStats}
+          leaderNames={leaderNames}
+          bossState={bossState}
+          attackEvent={attackEvent}
+          trackEvent={trackEvent}
+          sashaTop={sashaTop}
+          onPetSasha={handlePetSasha}
+          sashaPetted={sashaPetted}
+          scenarioName={scenario.name}
+        />
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
           <RegistrationForm onSubmit={handleAddRecord} />
           <LeaderboardPanel recruiterStats={recruiterStats} leaderNames={leaderNames} />

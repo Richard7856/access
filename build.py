@@ -433,14 +433,16 @@ for prefijo, destino, nombre, extra in OTRAS:
     # llama al hook dentro del componente. `records` es su única fuente de
     # verdad — marcador, clasificación y escenario se derivan de ahí.
     if destino == "carrera":
-        contenido = sustituir(
-            contenido,
-            "  const [records, setRecords] = useState([]);\n"
-            "  const [bossState, setBossState] = useState(null);",
-            "  const [records, setRecords] = useState([]);\n"
-            "  useSincronizacionCarrera(records, setRecords);  // memoria compartida\n"
-            "  const [bossState, setBossState] = useState(null);",
-            "enganche de sincronización de la Carrera")
+        # Por regex y no por texto exacto: el valor inicial cambia entre
+        # versiones (useState([]), useState(loadStoredRecords)…) y no vale la
+        # pena romper el build por eso.
+        contenido, n = re.subn(
+            r"(  const \[records, setRecords\] = useState\(.*?\);\n)",
+            r"\1  useSincronizacionCarrera(records, setRecords);  // memoria compartida\n",
+            contenido, count=1)
+        if n != 1:
+            morir("No encontré dónde declara la Carrera su estado «records» "
+                  "para engancharle la memoria compartida.")
 
     contenido = con_barra(contenido, fuente.name, extra)
     (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")

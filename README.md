@@ -35,6 +35,12 @@ reemplazarse**: si dos personas registran al mismo tiempo, no se pierde ninguna.
 Y lo que se borra a propósito se recuerda, para que la siguiente unión no lo
 resucite. Es lo que corresponde a una lista donde casi todo son altas nuevas.
 
+Desde la v7 la app trae además su propio `localStorage`. Los dos conviven bien:
+el navegador guarda una copia que pinta al instante y aguanta sin internet, y
+Supabase sigue siendo la lista del equipo — al abrir, lo compartido pisa lo
+local. El enganche se inserta **por expresión regular**, porque el valor inicial
+del estado cambia entre versiones (`useState([])`, `useState(loadStoredRecords)`).
+
 ## Cómo se comparte el Clasificador
 
 La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
