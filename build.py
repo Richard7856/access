@@ -138,6 +138,16 @@ def sin_credenciales(texto, etiqueta, archivo=None):
     return limpio
 
 
+def con_estilos_movil(texto, etiqueta):
+    """Cuelga movil.css al final del <head>: así gana sobre los estilos
+    propios de cada herramienta sin editarlas una por una."""
+    if "/movil.css" in texto:
+        return texto
+    if texto.count("</head>") != 1:
+        morir(f"«{etiqueta}»: esperaba un solo </head> y encontré {texto.count('</head>')}")
+    return texto.replace("</head>", '<link rel="stylesheet" href="/movil.css">\n</head>')
+
+
 def con_scripts(texto, etiqueta, rutas):
     """Inyecta scripts antes de </body>, después del código de la app."""
     if texto.count("</body>") != 1:
@@ -389,7 +399,8 @@ html = html[:i] + (
     'esas mismas tiendas alimentan el <b>speech de cierre de contratación</b> (sección 2).</p>'
 ) + html[j:]
 
-(DESPACHO / "index.html").write_text(con_barra(html, "despacho"), encoding="utf-8")
+(DESPACHO / "index.html").write_text(
+    con_barra(con_estilos_movil(html, "despacho"), "despacho"), encoding="utf-8")
 
 # ══════════════════════════════════════════════════════════════════
 # 3 · Archivos escritos a mano
@@ -403,6 +414,7 @@ html = html[:i] + (
 (WEB / "index.html").write_text(
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
+shutil.copy(SRC / "movil.css", WEB / "movil.css")
 for js in ("sync-clasificador.js", "sync-carrera.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
@@ -444,6 +456,7 @@ for prefijo, destino, nombre, extra in OTRAS:
             morir("No encontré dónde declara la Carrera su estado «records» "
                   "para engancharle la memoria compartida.")
 
+    contenido = con_estilos_movil(contenido, fuente.name)
     contenido = con_barra(contenido, fuente.name, extra)
     (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")
     print(f"✔ web/{destino}/index.html".ljust(38) + f"{len(contenido)/1024:.0f} KB  ← {fuente.name}")

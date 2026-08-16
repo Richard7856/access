@@ -1,0 +1,68 @@
+/* ═══════════════════════════════════════════════════════════════
+   Ajustes para celular, compartidos por las siete páginas.
+
+   Se inyecta al final del <head> de cada una, así que gana sobre sus
+   estilos propios sin tener que editarlas: cuando Claude entrega una
+   versión nueva de cualquier herramienta, los arreglos siguen puestos.
+
+   Medido en pantalla de 375 px: la Torre desbordaba a 686 px y el
+   Clasificador a 481 px. Las demás ya estaban bien y estas reglas no
+   les cambian nada.
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 760px) {
+
+  /* ── Nada más ancho que la pantalla ─────────────────────────── */
+  img, svg, video, iframe { max-width: 100%; height: auto; }
+
+  /* Las gráficas traen ancho fijo en el atributo del canvas. */
+  canvas { max-width: 100% !important; }
+
+  /* ── Botoneras y pestañas: envolver en vez de empujar ───────── */
+  .toolsel, .chart-toolbar, .tabs, .tabbar, .filters, .panel-h {
+    flex-wrap: wrap !important;
+    max-width: 100%;
+  }
+  .toolsel button, .tab-btn, .chart-toolbar button {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* ── Paneles y tarjetas con ancho mínimo fijo ───────────────── */
+  .panel, .card, .box, .kpi, .cfg-grid > *, .esq-card {
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  /* Rejillas de columnas fijas → una sola columna. */
+  .grid-2, .grid-3, .dos, .rejilla { grid-template-columns: 1fr !important; }
+
+  /* ── Tablas anchas: que scrollen dentro de su caja ──────────── */
+  .tabla-scroll, .scroll, .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Las que no vienen envueltas se vuelven su propio contenedor con
+     scroll. Comprobado que las columnas siguen alineadas: es preferible
+     deslizar la tabla a que empuje la página entera. */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* ── Dedos, no cursores ─────────────────────────────────────── */
+  button, .btn, select, input[type=file] + label { min-height: 38px; }
+
+  /* Evita que iOS haga zoom al enfocar un campo (pasa bajo 16px). */
+  input, select, textarea { font-size: max(16px, 1em); }
+}
+
+/* La barra de navegación ya envuelve sola, pero en pantallas muy
+   angostas conviene apretarla para que no se coma dos renglones. */
+@media (max-width: 420px) {
+  .apk-nav { gap: 2px; padding: 6px 10px; }
+  .apk-nav a { padding: 5px 8px; font-size: 12px; }
+}

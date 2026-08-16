@@ -65,6 +65,7 @@ tr.edit td{background:#F8F9FB;border-bottom:2px solid var(--line)}
   font-size:13px;font-family:'Inter';background:#fff}
 .tag.manual{background:#EDE7FB;color:#5B3FA8}
 </style>
+<link rel="stylesheet" href="/movil.css">
 </head>
 <body>
 <header><div class="wrap">
@@ -132,9 +133,22 @@ tr.edit td{background:#F8F9FB;border-bottom:2px solid var(--line)}
       Las tiendas <b>inactivas o cerradas</b> se descartan solas, los duplicados se combinan y
       <b>URGENTE</b> se convierte en urgencia Alta.
     </p>
+    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <p style="font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:6px">
+        ¿Qué hago con las tiendas que ya están publicadas y no vienen en este Excel?</p>
+      <label class="hint" style="display:block;margin-bottom:4px">
+        <input type="radio" name="modoExcel" value="excel" checked>
+        <b>Que mande el Excel</b> — la lista queda exactamente como el archivo. Las que no
+        vengan desaparecen, incluidas las que hayas agregado a mano otros días.
+      </label>
+      <label class="hint" style="display:block">
+        <input type="radio" name="modoExcel" value="sumar">
+        <b>Sumar a lo publicado</b> — se agregan las del Excel y se quedan las que ya estaban.
+      </label>
+    </div>
     <label class="hint" style="display:block;margin-top:10px">
       <input type="checkbox" id="conservarUbic" checked>
-      Conservar las ubicaciones que ya corregiste a mano para las tiendas que se repiten.
+      Conservar las direcciones y ubicaciones que ya corregiste a mano (aplica en los dos casos).
     </label>
     <div id="progreso" class="oculto" style="margin-top:14px">
       <p class="hint" id="progresoTxt"></p>
@@ -284,6 +298,7 @@ async function leer(file){
     return;
   }
 
+  const modo=(document.querySelector('input[name=modoExcel]:checked')||{}).value||'excel';
   let reutilizadas=0, conservadas=0;
   if($('conservarUbic').checked&&actuales.length){
     // Solo lo exacto: lo de "solo ciudad" se recalcula igual de rápido.
@@ -299,12 +314,16 @@ async function leer(file){
       if(toco) reutilizadas++;
     }
 
-    // Las tiendas agregadas a mano no vienen en ningún Excel: si no se
-    // arrastran, desaparecen en la siguiente carga.
+  }
+
+  // Modo "sumar": lo que ya estaba publicado y no viene en el Excel se
+  // queda. En modo "que mande el Excel" no se arrastra nada — ni siquiera
+  // lo agregado a mano — y la vista previa lo avisa como que desaparece.
+  if(modo==='sumar'&&actuales.length){
     const enExcel=new Set(r.tiendas.map(t=>norm(t.nombre)));
     let siguiente=Math.max(0,...r.tiendas.map(t=>+t.id||0));
     for(const v of actuales){
-      if(!v.manual||enExcel.has(norm(v.nombre))) continue;
+      if(enExcel.has(norm(v.nombre))) continue;
       r.tiendas.push(Object.assign({},v,{id:++siguiente}));
       conservadas++;
     }
@@ -344,7 +363,7 @@ function pintarPrevia(r,ub,reutilizadas,conservadas,soloRepintar){
     if(r.esReporte) fijos+='<div class="msg ok">Detecté el <b>Reporte de urgencias</b>: URGENTE \u2192 urgencia Alta, sin prioridad \u2192 Baja.</div>';
     if(r.omitidasInactivas) fijos+=`<div class="msg warn">Descarté <b>${r.omitidasInactivas}</b> tienda(s) marcadas como inactivas o cerradas.</div>`;
     if(reutilizadas) fijos+=`<div class="msg ok">Conservé lo que ya habías corregido a mano en <b>${reutilizadas}</b> tienda(s).</div>`;
-    if(conservadas) fijos+=`<div class="msg ok">Traje <b>${conservadas}</b> tienda(s) que agregaste a mano y no vienen en el Excel.</div>`;
+    if(conservadas) fijos+=`<div class="msg ok">Conservé <b>${conservadas}</b> tienda(s) que ya estaban publicadas y no vienen en el Excel.</div>`;
     $('previaAvisos').dataset.fijos = fijos;
   }
 

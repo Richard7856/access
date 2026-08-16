@@ -80,6 +80,8 @@ web/                            ← esto es lo que sirve Vercel
 ├── sync-clasificador.js       comparte el Clasificador
 └── sync-carrera.js             comparte la Carrera
 
+movil.css                 ajustes de celular, inyectada en las 7 páginas
+
 sitios/                   ← las otras cinco, tal como salen de Claude
 src/                      ← lo que edito a mano (nav, portada, conexión…)
 build.py                  genera web/ desde el HTML original + sitios/ + src/
@@ -166,10 +168,13 @@ te vuelve a pedir que la crees.
      y **dirección**. Al escribir una dirección la ubica sola; también acepta
      que pegues `19.4326, -99.1332` de Google Maps.
    - **＋ Agregar tienda a mano** mete una que no venga en el Excel.
-   - Ambas cosas **se conservan en las cargas siguientes**: la dirección
-     corregida no la pisa el Excel del día siguiente, y las tiendas agregadas a
-     mano se vuelven a traer aunque no aparezcan en el archivo.
-4. **Publicar**. El equipo lo ve al recargar.
+   - La dirección corregida **no la pisa el Excel del día siguiente**.
+4. Antes de soltar el archivo eliges qué pasa con lo ya publicado:
+   - **Que mande el Excel** *(por defecto)* — la lista queda exactamente como el
+     archivo. Lo que no venga desaparece, incluido lo agregado a mano.
+   - **Sumar a lo publicado** — se agregan las del Excel y se quedan las que ya
+     estaban.
+5. **Publicar**. El equipo lo ve al recargar.
 
 ## Detalles que conviene saber
 
