@@ -37,6 +37,7 @@ OTRAS = [
      ["/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",        []),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
+    ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes", []),
     # Claude no siempre nombra igual el archivo de la carrera, así que se
     # aceptan los dos prefijos que ha usado.
     (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",

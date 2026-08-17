@@ -1,17 +1,18 @@
 # Herramientas de reclutamiento · AccessPack
 
-Seis herramientas en un solo sitio. Estático + Supabase: sin servidor propio,
+Siete herramientas en un solo sitio. Estático + Supabase: sin servidor propio,
 sin PHP, sin instalación.
 
 | Dirección | Qué hace | Datos |
 |---|---|---|
-| `/` | portada con las seis | — |
+| `/` | portada con las siete | — |
 | `/despacho` | tiendas del día, cercanía y speech de cierre | **compartidos** (Supabase) |
 | `/despacho/actualizar` | subir el Excel del día · **con clave** | escribe los compartidos |
 | `/torre` | leads por día/semana/mes, embudo, estatus | tu archivo, en tu navegador |
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
 | `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
+| `/seguimiento` | choferes: pendientes, alta con carga, bajas | tu navegador, no se comparte |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
@@ -76,13 +77,14 @@ web/                            ← esto es lo que sirve Vercel
 ├── clasificador/index.html
 ├── expedientes/index.html
 ├── analizador/index.html
+├── seguimiento/index.html
 ├── carrera/index.html
 ├── sync-clasificador.js       comparte el Clasificador
 └── sync-carrera.js             comparte la Carrera
 
-movil.css                 ajustes de celular, inyectada en las 7 páginas
+movil.css                 ajustes de celular, inyectada en las 8 páginas
 
-sitios/                   ← las otras cinco, tal como salen de Claude
+sitios/                   ← las otras seis, tal como salen de Claude
 src/                      ← lo que edito a mano (nav, portada, conexión…)
 build.py                  genera web/ desde el HTML original + sitios/ + src/
 recursos/                 las 16 infografías y 2 videos ya subidos a Supabase
@@ -92,7 +94,7 @@ recursos/                 las 16 infografías y 2 videos ya subidos a Supabase
 `dashboard_4_6.html` junto al `_4_5` y el build te avisa que hay dos versiones,
 en lugar de elegir una en silencio. Borra la vieja y listo.
 
-La barra de navegación se inyecta sola en las siete páginas (`nav.js`), así que
+La barra de navegación se inyecta sola en las ocho páginas (`nav.js`), así que
 no hay que tocar el HTML de cada herramienta cuando cambie.
 
 Para regenerar `web/`:

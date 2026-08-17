@@ -1,0 +1,3100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Seguimiento · Choferes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F5F8;
+    --surface:#FFFFFF;
+    --ink:#152233;
+    --ink-soft:#5B6B7D;
+    --border:#E1E6EC;
+    --accent:#2F6FED;
+    --accent-soft:#E7EFFE;
+    --jaky:#1E9E5A; --jaky-soft:#E6F9EE;
+    --dani:#0284C7; --dani-soft:#E0F2FE;
+    --alta:#DC2626; --alta-soft:#FEE2E2;
+    --success:#1E9E5A; --success-soft:#E6F9EE;
+    --amber-soft:#FFF3DC; --amber-ink:#9A6B00; --amber:#D97706;
+    --danger:#DC4C4C; --danger-soft:#FDEBEB;
+    --cat-black:#161616; --cat-red:#e33b3b; --cat-red-dark:#b8261f;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(21,34,51,.06), 0 4px 14px rgba(21,34,51,.06);
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body); min-height:100vh; -webkit-font-smoothing:antialiased;}
+
+  /* Topbar */
+  .topbar{background:linear-gradient(135deg,#0F1B2C,#1B2F4A); color:#EAF0FA; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; box-shadow:0 2px 10px rgba(0,0,0,.15);}
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-mark{width:34px; height:34px; flex-shrink:0;}
+  .brand h1{font-family:var(--font-display); font-size:19px; font-weight:600; margin:0; letter-spacing:.2px;}
+  .brand p{margin:2px 0 0; font-size:11.5px; color:#9FB3CC; font-family:var(--font-mono);}
+  .header-clock{font-family:var(--font-mono); font-size:13px; color:#CBDCF3; background:rgba(255,255,255,.06); padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:9px;}
+  .header-clock::before{content:''; width:7px; height:7px; border-radius:50%; background:#3DDC84; box-shadow:0 0 0 0 rgba(61,220,132,.6); animation:pulse 2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5);}70%{box-shadow:0 0 0 6px rgba(61,220,132,0);}100%{box-shadow:0 0 0 0 rgba(61,220,132,0);}}
+  @keyframes pulse2{0%,100%{opacity:1;}50%{opacity:.3;}}
+  @media (prefers-reduced-motion:reduce){ .header-clock::before, .live-dot{animation:none;} }
+
+  main{max-width:1520px; margin:0 auto; padding:22px 24px 60px;}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:18px;}
+
+  /* Parser */
+  .parser-card summary{cursor:pointer; font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--ink); list-style:none; display:flex; align-items:center; gap:8px;}
+  .parser-card summary::before{content:'▸'; color:var(--accent); display:inline-block; transition:transform .15s;}
+  .parser-card[open] summary::before{transform:rotate(90deg);}
+  .parser-card summary::-webkit-details-marker{display:none;}
+  .parser-body{margin-top:14px;}
+  #parserInput{width:100%; resize:vertical; min-height:120px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:var(--font-mono); font-size:13px; color:var(--ink); background:#FBFCFE;}
+  #parserInput:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent;}
+  .parser-actions{display:flex; align-items:center; gap:14px; margin-top:12px; flex-wrap:wrap;}
+  .hint{font-size:12px; color:var(--ink-soft);}
+
+  /* Filters */
+  .filters-grid{display:flex; flex-wrap:wrap; gap:16px; align-items:end;}
+  .filters-grid label{display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--ink-soft); font-weight:500;}
+  .filters-grid input, .filters-grid select{font-family:var(--font-body); font-size:13px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:#FBFCFE; color:var(--ink); min-width:150px;}
+  .filters-grid input:focus, .filters-grid select:focus{outline:2px solid var(--accent); outline-offset:1px;}
+
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger{font-family:var(--font-body); font-weight:600; font-size:13px; padding:9px 16px; border-radius:7px; cursor:pointer; border:1px solid transparent; transition:transform .08s, background .15s;}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:#2159C9;}
+  .btn-secondary{background:var(--accent-soft); color:var(--accent);}
+  .btn-secondary:hover{background:#D8E6FE;}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border-color:var(--border);}
+  .btn-ghost:hover{background:#F1F3F6;}
+  .btn-danger{background:transparent; color:var(--danger); border-color:var(--danger-soft);}
+  .btn-danger:hover{background:var(--danger); color:#fff; border-color:var(--danger);}
+  .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active{transform:scale(.97);}
+
+  /* Table toolbar */
+  .table-toolbar{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;}
+  .stats{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{font-family:var(--font-mono); font-size:11.5px; padding:5px 10px; border-radius:20px; background:#F1F3F6; color:var(--ink-soft); border:1px solid var(--border);}
+  .chip-jaky{background:var(--jaky-soft); color:var(--jaky); border-color:transparent;}
+  .chip-dani{background:var(--dani-soft); color:var(--dani); border-color:transparent;}
+  .chip-alta{background:var(--alta-soft); color:var(--alta); border-color:transparent;}
+  .chip-dup{background:var(--danger-soft); color:var(--danger); border-color:transparent;}
+  .toolbar-actions{display:flex; gap:10px; flex-wrap:wrap;}
+
+  .import-batches{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .import-chip{display:inline-flex; align-items:center; gap:8px; background:var(--amber-soft); color:var(--amber-ink); border:1px solid transparent; border-radius:20px; padding:5px 6px 5px 12px; font-size:12px; font-family:var(--font-mono);}
+  .import-chip-del{background:rgba(0,0,0,.08); border:none; color:inherit; width:18px; height:18px; border-radius:50%; cursor:pointer; font-size:11px; line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .import-chip-del:hover{background:var(--danger); color:#fff;}
+
+  /* Table */
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); max-height:70vh; overflow-y:auto;}
+  table{border-collapse:collapse; width:100%; min-width:1440px;}
+  thead th{position:sticky; top:0; background:#F7F9FC; color:var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; text-align:left; padding:12px 12px; border-bottom:1px solid var(--border); z-index:1;}
+  tbody td{padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top;}
+  tbody tr.row:hover{background:#F7FAFF;}
+  tr.row-jaky{box-shadow:inset 3px 0 0 var(--jaky);}
+  tr.row-dani{box-shadow:inset 3px 0 0 var(--dani);}
+  tr.row-alta{box-shadow:inset 3px 0 0 var(--alta);}
+  tr.row-dup{box-shadow:inset 4px 0 0 var(--danger); background:var(--danger-soft);}
+  tr.row-dup:hover{background:#FBDCDC;}
+  .dup-flag{display:inline-block; margin-top:4px; font-size:10.5px; font-weight:600; color:var(--danger); border:1px dashed var(--danger); border-radius:5px; padding:2px 6px; white-space:nowrap;}
+
+  .cell-input{width:100%; border:1px solid transparent; background:transparent; font-family:var(--font-body); font-size:13px; color:var(--ink); padding:6px 7px; border-radius:6px;}
+  .cell-input:hover{background:#F5F7FA;}
+  .cell-input:focus{outline:none; border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px var(--accent-soft);}
+  .cell-input.mono{font-family:var(--font-mono); font-size:12.5px;}
+  select.cell-input{cursor:pointer;}
+
+  .sucursal-td.suc-pending{background:var(--amber-soft);}
+  .sucursal-td.suc-done{background:var(--success-soft);}
+
+  .fecha-td{font-size:12px; min-width:170px;}
+  .fecha-input{width:100%; border:1px solid transparent; background:transparent; font-family:var(--font-mono); font-size:12px; color:var(--ink); padding:5px 6px; border-radius:6px; color-scheme:light;}
+  .fecha-input:hover{background:#F5F7FA;}
+  .fecha-input:focus{outline:none; border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px var(--accent-soft);}
+  .fecha-alta-wrap{display:flex; align-items:center; gap:5px; margin-top:4px;}
+  .fecha-alta-label{color:var(--success); font-weight:600; font-size:11px; flex-shrink:0;}
+  .fecha-alta-input{color:var(--success); font-weight:600;}
+
+  .elapsed-wrap{display:inline-flex; align-items:center; gap:6px;}
+  .live-dot{width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pulse2 1.6s infinite; flex-shrink:0;}
+  .elapsed-cell{font-size:12.5px; color:var(--ink);}
+  /* Verde 0-7h59, Ámbar 8h-23h59, Rojo 24h+ */
+  .elapsed-wrap.elapsed-green .elapsed-cell{color:var(--success); font-weight:600;}
+  .elapsed-wrap.elapsed-green .live-dot{background:var(--success);}
+  .elapsed-wrap.elapsed-amber .elapsed-cell{color:var(--amber-ink); font-weight:600;}
+  .elapsed-wrap.elapsed-amber .live-dot{background:var(--amber);}
+  .elapsed-wrap.elapsed-red .elapsed-cell{color:var(--danger); font-weight:700;}
+  .elapsed-wrap.elapsed-red .live-dot{background:var(--danger);}
+
+  .select-status.status-Jaky{background:var(--jaky-soft); color:var(--jaky); font-weight:600; border-color:transparent;}
+  .select-status.status-Dani{background:var(--dani-soft); color:var(--dani); font-weight:600; border-color:transparent;}
+  .select-status.status-Alta{background:var(--alta-soft); color:var(--alta); font-weight:600; border-color:transparent;}
+  .select-status.status-none{color:var(--ink-soft);}
+
+  .carga-check{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11.5px; padding:5px 8px; border-radius:6px; cursor:pointer; width:fit-content;}
+  .carga-check.pending{background:var(--amber-soft); color:var(--amber-ink);}
+  .carga-check.done{background:var(--success-soft); color:var(--success);}
+  .carga-check input{accent-color:var(--alta); cursor:pointer;}
+
+  .discard-check{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11.5px; padding:5px 8px; border-radius:6px; cursor:pointer; width:fit-content; background:#F1F3F6; color:var(--ink-soft); border:1px dashed var(--border);}
+  .discard-check:hover{background:var(--danger-soft); color:var(--danger); border-color:var(--danger);}
+  .discard-check input{cursor:pointer; accent-color:var(--danger);}
+
+  .baja-check{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11.5px; padding:5px 8px; border-radius:6px; cursor:pointer; width:fit-content; background:#F1F3F6; color:var(--ink-soft); border:1px dashed var(--ink-soft);}
+  .baja-check:hover{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .baja-check input{cursor:pointer; accent-color:var(--ink);}
+
+  .btn-icon-del{background:transparent; border:1px solid transparent; color:var(--ink-soft); width:28px; height:28px; border-radius:6px; cursor:pointer; font-size:13px;}
+  .btn-icon-del:hover{background:var(--danger-soft); color:var(--danger);}
+
+  .empty-state{text-align:center; color:var(--ink-soft); padding:36px 12px; font-size:13px;}
+
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  dialog.modal-dialog{border:none; border-radius:12px; padding:0; box-shadow:0 20px 60px rgba(0,0,0,.25); width:min(560px,92vw);}
+  dialog.modal-dialog::backdrop{background:rgba(15,23,36,.55);}
+  .modal-form{padding:22px 24px;}
+  .modal-form h3{margin:0 0 16px; font-family:var(--font-display); font-size:17px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .form-grid label{display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--ink-soft); font-weight:500;}
+  .form-grid label.full{grid-column:1/-1;}
+  .form-grid input, .form-grid select{font-size:13px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; font-family:var(--font-body);}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+
+  /* Tabs */
+  .view-tabs{position:relative; display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:5px; width:fit-content; max-width:100%; box-shadow:var(--shadow);}
+  .view-tab{position:relative; overflow:hidden; font-family:var(--font-body); font-weight:600; font-size:13px; padding:8px 16px; border-radius:7px; border:none; background:transparent; color:var(--ink-soft); cursor:pointer;}
+  .view-tab.active{background:var(--accent); color:#fff;}
+  .view-tab:hover:not(.active){background:#F1F3F6;}
+  .tab-badge{display:inline-block; background:var(--danger); color:#fff; font-size:10px; font-family:var(--font-mono); font-weight:700; border-radius:10px; padding:1px 6px; margin-left:2px;}
+
+  /* Animación de "toque": onda expansiva + botón hundiéndose, como al presionarlo con el dedo */
+  .view-tab.tap-press{ animation: tab-press-anim .28s ease; }
+  @keyframes tab-press-anim{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(.91); }
+    100%{ transform:scale(1); }
+  }
+  .tap-ripple{
+    position:absolute;
+    border-radius:50%;
+    transform:scale(0);
+    pointer-events:none;
+    animation: tap-ripple-anim .55s ease-out forwards;
+  }
+  @keyframes tap-ripple-anim{
+    to{ transform:scale(2.6); opacity:0; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .view-tab.tap-press{ animation:none; }
+    .tap-ripple{ animation:none; display:none; }
+  }
+
+  /* ============ Gatito de escritorio (SVG interactivo) ============ */
+  .cat-pet{
+    position:fixed;
+    left:0; top:0;
+    width:104px; height:120px;
+    z-index:200;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.28));
+    will-change:left, top;
+    perspective:650px;
+  }
+  .cat-pet.dragging{ cursor:grabbing; filter:drop-shadow(0 10px 14px rgba(0,0,0,.35)); }
+  .cat-pet.facing-right{ transform:scaleX(-1); }
+  .cat-pet svg{ width:100%; height:100%; display:block; overflow:visible; }
+  .cat-pet .pose{ display:none; }
+  .cat-pet .pose.active{ display:block; }
+
+  .cat-pet .eyeInner{ transform-box:fill-box; transform-origin:50% 50%; transition:transform .1s ease; }
+  .cat-pet .eye.blinking .eyeInner{ transform:scaleY(.08); }
+  .cat-pet .eyeHappy{ display:none; }
+  .cat-pet .eye.happy .eyeInner{ display:none; }
+  .cat-pet .eye.happy .eyeHappy{ display:inline; }
+  .cat-pet .pupilGroup{ transition:transform .06s linear; }
+
+  @keyframes catLegSwingA{ 0%,100%{ transform:rotate(20deg); } 50%{ transform:rotate(-20deg); } }
+  @keyframes catLegSwingB{ 0%,100%{ transform:rotate(-20deg); } 50%{ transform:rotate(20deg); } }
+  @keyframes catWalkBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+  @keyframes catTailSwishWalk{ 0%,100%{ transform:rotate(-4deg); } 50%{ transform:rotate(6deg); } }
+  .cat-pet .legSwingA{ transform-box:fill-box; transform-origin:50% 0%; }
+  .cat-pet .legSwingB{ transform-box:fill-box; transform-origin:50% 0%; }
+  .cat-pet .pose-walk.walking .legSwingA{ animation:catLegSwingA .5s ease-in-out infinite; }
+  .cat-pet .pose-walk.walking .legSwingB{ animation:catLegSwingB .5s ease-in-out infinite; }
+  .cat-pet .pose-walk.walking .walkBobGroup{ animation:catWalkBob .5s ease-in-out infinite; }
+  .cat-pet .pose-walk .tailWalk{ transform-box:fill-box; transform-origin:0% 100%; animation:catTailSwishWalk 1.6s ease-in-out infinite; }
+
+  @keyframes catTailSwishSit{ 0%,100%{ transform:rotate(0deg); } 50%{ transform:rotate(5deg); } }
+  .cat-pet .pose-sit .tailSit{ transform-box:fill-box; transform-origin:22% 78%; animation:catTailSwishSit 2.4s ease-in-out infinite; }
+
+  @keyframes catScratchBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(6px); } }
+  .cat-pet .pose-scratch.scratching .scratchBobGroup{ animation:catScratchBob .42s ease-in-out infinite; }
+  @keyframes catScratchMarks{ 0%,100%{ opacity:.25; } 50%{ opacity:.75; } }
+  .cat-pet .pose-scratch .marks{ animation:catScratchMarks .42s ease-in-out infinite; }
+
+  @keyframes catHappyVibrate{
+    0%,100%{ transform:translate(0,0) rotate(0deg); }
+    20%{ transform:translate(-2px,0) rotate(-3deg); }
+    40%{ transform:translate(2px,0) rotate(3deg); }
+    60%{ transform:translate(-2px,0) rotate(-2deg); }
+    80%{ transform:translate(2px,0) rotate(2deg); }
+  }
+  .cat-pet.happy-vibrate .catInner{ animation:catHappyVibrate .4s ease-in-out; }
+  .cat-pet .catInner{ transform-box:fill-box; transform-style:preserve-3d; }
+
+  /* Doble clic: giro 3D "estilo Blender", con el contorno naranja de objeto seleccionado */
+  @keyframes catBlenderSpin{
+    0%   { transform:rotate3d(0,1,0,0deg)   rotate3d(1,0,0,0deg)   scale(1); }
+    18%  { transform:rotate3d(0,1,0,170deg) rotate3d(1,0,0,12deg)  scale(1.18); }
+    40%  { transform:rotate3d(0,1,0,360deg) rotate3d(1,0,0,-14deg) scale(.88); }
+    62%  { transform:rotate3d(0,1,0,540deg) rotate3d(1,0,0,16deg)  scale(1.14); }
+    85%  { transform:rotate3d(0,1,0,700deg) rotate3d(1,0,0,-6deg)  scale(.95); }
+    100% { transform:rotate3d(0,1,0,720deg) rotate3d(1,0,0,0deg)   scale(1); }
+  }
+  @keyframes catBlenderGlow{
+    0%, 100% { filter:drop-shadow(0 6px 8px rgba(0,0,0,.28)); }
+    15%, 85% { filter:drop-shadow(0 6px 8px rgba(0,0,0,.28)) drop-shadow(0 0 9px rgba(255,140,40,.85)); }
+  }
+  .cat-pet.spin-3d .catInner{ animation:catBlenderSpin 1.3s cubic-bezier(.45,.05,.35,1); }
+  .cat-pet.spin-3d{ animation:catBlenderGlow 1.3s ease-in-out; }
+
+  .cat-heart{
+    position:fixed;
+    font-size:18px;
+    pointer-events:none;
+    z-index:201;
+    animation:catHeartFloat 1s ease-out forwards;
+  }
+  @keyframes catHeartFloat{
+    0%   { opacity:0; transform:translate(-50%,-50%) scale(.4); }
+    15%  { opacity:1; transform:translate(-50%,-60%) scale(1); }
+    100% { opacity:0; transform:translate(-50%,-140%) scale(1.15); }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .cat-pet, .cat-pet *{ animation:none !important; transition:none !important; }
+  }
+
+  /* Descartados */
+  .discarded-table{width:100%; min-width:620px; border-collapse:collapse; font-size:12.5px;}
+  .discarded-table th{text-align:left; color:var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.03em; padding:10px; border-bottom:1px solid var(--border);}
+  .discarded-table td{padding:10px; border-bottom:1px solid var(--border); vertical-align:top;}
+  .discarded-table tr:last-child td{border-bottom:none;}
+  .discarded-table .mono{font-family:var(--font-mono); font-size:12px;}
+
+  /* Métricas */
+  .metrics-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; margin-bottom:18px;}
+  .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px;}
+  .kpi-value{font-family:var(--font-display); font-size:26px; font-weight:700; color:var(--ink); line-height:1.1;}
+  .kpi-label{font-size:12px; color:var(--ink-soft); margin-top:4px;}
+  .kpi-card.kpi-jaky .kpi-value{color:var(--jaky);}
+  .kpi-card.kpi-dani .kpi-value{color:var(--dani);}
+  .kpi-card.kpi-alta .kpi-value{color:var(--alta);}
+  .kpi-card.kpi-success .kpi-value{color:var(--success);}
+  .kpi-card.kpi-amber .kpi-value{color:var(--amber-ink);}
+  .kpi-card.kpi-red .kpi-value{color:var(--danger);}
+
+  /* Pendientes (tablero) */
+  .pending-board{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:16px; align-items:start;}
+  .pending-column{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; max-height:72vh; overflow-y:auto;}
+  .pending-column-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface);}
+  .pending-column-title{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--ink);}
+  .pending-column-count{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); background:#F1F3F6; padding:2px 8px; border-radius:10px; flex-shrink:0;}
+  .pending-card{border-radius:8px; padding:10px 12px; margin-bottom:8px; background:#FAFBFC; border:1px solid var(--border); border-left:4px solid var(--ink-soft);}
+  .pending-card.elapsed-green{border-left-color:var(--success); background:var(--success-soft);}
+  .pending-card.elapsed-amber{border-left-color:var(--amber); background:var(--amber-soft);}
+  .pending-card.elapsed-red{border-left-color:var(--danger); background:var(--danger-soft);}
+  .pending-card-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  .pending-name{font-weight:600; font-size:12.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pending-time{font-size:12px; font-weight:700; flex-shrink:0;}
+  .pending-card.elapsed-green .pending-time{color:var(--success);}
+  .pending-card.elapsed-amber .pending-time{color:var(--amber-ink);}
+  .pending-card.elapsed-red .pending-time{color:var(--danger);}
+  .pending-meta{font-size:11px; color:var(--ink-soft); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pending-note-input{
+    width:100%; margin-top:7px; padding:5px 8px; font-size:11px; font-family:var(--font-body);
+    border:1px dashed var(--border); border-radius:6px; background:rgba(255,255,255,.65); color:var(--ink);
+  }
+  .pending-note-input::placeholder{ color:var(--ink-soft); opacity:.75; }
+  .pending-note-input:focus{ outline:none; border-style:solid; border-color:var(--accent); background:#fff; box-shadow:0 0 0 2px var(--accent-soft); }
+
+  .metrics-cols{display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start;}
+  @media (max-width:900px){ .metrics-cols{grid-template-columns:1fr;} }
+
+  .metrics-section-title{font-family:var(--font-display); font-size:15px; font-weight:600; margin:0 0 14px;}
+
+  .rank-row{display:grid; grid-template-columns:110px 1fr 70px; align-items:center; gap:10px; margin-bottom:10px; font-size:12.5px;}
+  .rank-name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rank-track{background:#EEF1F5; border-radius:6px; height:10px; overflow:hidden;}
+  .rank-fill{height:100%; background:var(--accent); border-radius:6px;}
+  .rank-count{font-family:var(--font-mono); color:var(--ink-soft); text-align:right;}
+
+  .stage-stats{display:flex; flex-direction:column; gap:12px;}
+  .stage-stat-row{display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-radius:8px; background:#FAFBFC; border:1px solid var(--border);}
+  .stage-stat-label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--ink);}
+  .stage-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .stage-stat-value{font-family:var(--font-mono); font-size:13px; color:var(--ink-soft); font-weight:600;}
+
+  .table-scroll-x{width:100%; overflow-x:auto;}
+  .slow-table{width:100%; min-width:480px; border-collapse:collapse; font-size:12.5px;}
+  .slow-table th{text-align:left; color:var(--ink-soft); font-size:11px; text-transform:uppercase; letter-spacing:.03em; padding:8px 10px; border-bottom:1px solid var(--border);}
+  .slow-table td{padding:9px 10px; border-bottom:1px solid var(--border);}
+  .slow-table tr:last-child td{border-bottom:none;}
+  .slow-table .mono{font-family:var(--font-mono);}
+
+  .metrics-empty{text-align:center; color:var(--ink-soft); padding:40px 20px; font-size:13px;}
+
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  @media (max-width:720px){
+    .topbar{padding:14px 16px;}
+    main{padding:16px;}
+    .filters-grid{gap:10px;}
+    .filters-grid label{min-width:44%;}
+    .form-grid{grid-template-columns:1fr;}
+  }
+</style>
+<link rel="stylesheet" href="/movil.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">
+      <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="7" cy="26" r="4" fill="#3DDC84"/>
+        <circle cx="27" cy="8" r="4" fill="#5B8DEF"/>
+        <path d="M7 26 C 14 22, 20 12, 27 8" stroke="#7FA0C9" stroke-width="2" stroke-dasharray="3 4" fill="none"/>
+      </svg>
+    </span>
+    <div>
+      <h1>Panel de Seguimiento · Choferes</h1>
+      <p>Reclutamiento → Documentos → Onboarding → Alta</p>
+    </div>
+  </div>
+  <div class="header-clock" id="headerClock">—</div>
+</header>
+
+<main>
+
+  <div class="view-tabs">
+    <button id="tabTable" class="view-tab active" type="button">📋 Tabla</button>
+    <button id="tabPending" class="view-tab" type="button">⏳ Pendientes <span id="pendingCount"></span></button>
+    <button id="tabCompleted" class="view-tab" type="button">✅ Alta con carga <span id="completedCount"></span></button>
+    <button id="tabProjAmazon" class="view-tab" type="button">📦 Amazon <span id="projAmazonCount"></span></button>
+    <button id="tabProjLiverpool" class="view-tab" type="button">🛍️ Liverpool <span id="projLiverpoolCount"></span></button>
+    <button id="tabProjLacomer" class="view-tab" type="button">🛒 La Comer <span id="projLacomerCount"></span></button>
+    <button id="tabMetrics" class="view-tab" type="button">📊 Métricas</button>
+    <button id="tabBaja" class="view-tab" type="button">⛔ Baja <span id="bajaCount"></span></button>
+    <button id="tabDiscarded" class="view-tab" type="button">🗑 Descartados <span id="discardedCount"></span></button>
+  </div>
+
+  <div id="viewTable">
+
+  <details class="card parser-card" open>
+    <summary>Pegar texto y procesar automáticamente</summary>
+    <div class="parser-body">
+      <textarea id="parserInput" rows="6" placeholder="Pega aquí el mensaje. Ejemplo:
+Nombre: Juan Pérez
+Proyecto: LIVERPOOL TEPEYAC
+Teléfono: 55 1234 5678
+En revisión de documentos con Jaky"></textarea>
+      <div class="parser-actions">
+        <button id="btnProcess" class="btn-primary" type="button">Procesar y agregar</button>
+        <span class="hint">Detecta automáticamente el estatus (Jaky · validación de documentos, Dani · Onbording, Pre alta · proceso finalizado) y extrae nombre, teléfono, proyecto y sucursal. Si el nombre ya existe en la tabla, actualiza su estatus en vez de duplicarlo.</span>
+      </div>
+    </div>
+  </details>
+
+  <section class="card filters-card">
+    <div class="filters-grid">
+      <label>Reclutador
+        <select id="fReclutador"><option value="">Todos</option></select>
+      </label>
+      <label>Proyecto
+        <input id="fProyecto" list="dlProyectos" type="text" placeholder="Buscar proyecto…">
+        <datalist id="dlProyectos"></datalist>
+      </label>
+      <label>Sucursal
+        <input id="fSucursal" list="dlSucursales" type="text" placeholder="Buscar sucursal…">
+        <datalist id="dlSucursales"></datalist>
+      </label>
+      <label>Rango de fecha por
+        <select id="fDateType">
+          <option value="registro">Fecha de ingreso</option>
+          <option value="alta">Fecha de alta</option>
+        </select>
+      </label>
+      <label>Desde
+        <input id="fDateFrom" type="date">
+      </label>
+      <label>Hasta
+        <input id="fDateTo" type="date">
+      </label>
+      <button id="btnClearFilters" class="btn-ghost" type="button">Limpiar filtros</button>
+    </div>
+  </section>
+
+  <section class="card table-section">
+    <div class="table-toolbar">
+      <div class="stats" id="statsChips"></div>
+      <div class="toolbar-actions">
+        <button id="btnAddManual" class="btn-secondary" type="button">+ Agregar manualmente</button>
+        <button id="btnImport" class="btn-secondary" type="button">⇧ Importar Excel/CSV</button>
+        <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
+        <button id="btnExport" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        <button id="btnClearAll" class="btn-danger" type="button">🗑 Borrar todo</button>
+      </div>
+    </div>
+    <div class="import-batches" id="importBatches" style="display:none;"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:110px">Reclutador</th>
+            <th style="width:160px">Chofer</th>
+            <th style="width:130px">Teléfono</th>
+            <th style="width:140px">Proyecto</th>
+            <th style="width:150px">Sucursal</th>
+            <th style="width:150px">Fecha registro / alta</th>
+            <th style="width:200px">Nota</th>
+            <th style="width:130px">Tiempo transcurrido</th>
+            <th style="width:190px">Estatus / Asignación</th>
+            <th style="width:50px"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  </div>
+
+  <div id="viewPending" style="display:none;">
+    <div id="pendingContent"></div>
+  </div>
+
+  <div id="viewCompleted" style="display:none;">
+    <section class="card table-section">
+      <div class="table-toolbar">
+        <div class="stats" id="completedStats"></div>
+        <div class="toolbar-actions">
+          <button id="btnExportCompleted" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Reclutador</th>
+              <th style="width:160px">Chofer</th>
+              <th style="width:130px">Teléfono</th>
+              <th style="width:140px">Proyecto</th>
+              <th style="width:150px">Sucursal</th>
+              <th style="width:170px">Fecha registro / alta</th>
+              <th style="width:200px">Nota</th>
+              <th style="width:130px">Tiempo transcurrido</th>
+              <th style="width:190px">Estatus / Asignación</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyCompleted"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="viewProjAmazon" style="display:none;">
+    <section class="card table-section">
+      <div class="table-toolbar">
+        <div class="stats" id="projAmazonStats"></div>
+        <div class="toolbar-actions">
+          <button id="btnExportProjAmazon" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Reclutador</th>
+              <th style="width:160px">Chofer</th>
+              <th style="width:130px">Teléfono</th>
+              <th style="width:140px">Proyecto</th>
+              <th style="width:150px">Sucursal</th>
+              <th style="width:170px">Fecha registro / alta</th>
+              <th style="width:200px">Nota</th>
+              <th style="width:130px">Tiempo transcurrido</th>
+              <th style="width:190px">Estatus / Asignación</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyProjAmazon"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="viewProjLiverpool" style="display:none;">
+    <section class="card table-section">
+      <div class="table-toolbar">
+        <div class="stats" id="projLiverpoolStats"></div>
+        <div class="toolbar-actions">
+          <button id="btnExportProjLiverpool" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Reclutador</th>
+              <th style="width:160px">Chofer</th>
+              <th style="width:130px">Teléfono</th>
+              <th style="width:140px">Proyecto</th>
+              <th style="width:150px">Sucursal</th>
+              <th style="width:170px">Fecha registro / alta</th>
+              <th style="width:200px">Nota</th>
+              <th style="width:130px">Tiempo transcurrido</th>
+              <th style="width:190px">Estatus / Asignación</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyProjLiverpool"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="viewProjLacomer" style="display:none;">
+    <section class="card table-section">
+      <div class="table-toolbar">
+        <div class="stats" id="projLacomerStats"></div>
+        <div class="toolbar-actions">
+          <button id="btnExportProjLacomer" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">Reclutador</th>
+              <th style="width:160px">Chofer</th>
+              <th style="width:130px">Teléfono</th>
+              <th style="width:140px">Proyecto</th>
+              <th style="width:150px">Sucursal</th>
+              <th style="width:170px">Fecha registro / alta</th>
+              <th style="width:200px">Nota</th>
+              <th style="width:130px">Tiempo transcurrido</th>
+              <th style="width:190px">Estatus / Asignación</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyProjLacomer"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="viewMetrics" style="display:none;">
+    <div id="metricsContent"></div>
+  </div>
+
+  <div id="viewBaja" style="display:none;">
+    <div id="bajaContent"></div>
+  </div>
+
+  <div id="viewDiscarded" style="display:none;">
+    <div id="discardedContent"></div>
+  </div>
+
+</main>
+
+<dialog id="modalManual" class="modal-dialog">
+  <form id="formManual" class="modal-form">
+    <h3>Agregar chofer manualmente</h3>
+    <div class="form-grid">
+      <label>Reclutador
+        <select id="mReclutador"></select>
+      </label>
+      <label>Nombre del chofer
+        <input id="mNombre" type="text" required>
+      </label>
+      <label>Teléfono
+        <input id="mTelefono" type="text">
+      </label>
+      <label>Proyecto
+        <input id="mProyecto" type="text">
+      </label>
+      <label>Sucursal
+        <input id="mSucursal" type="text">
+      </label>
+      <label>Estatus
+        <select id="mEstatus">
+          <option value="">Sin estatus</option>
+          <option value="Jaky">Jaky · Revisión doc.</option>
+          <option value="Dani">Dani · Onboarding</option>
+          <option value="Alta">Pre alta · Coordinadores</option>
+        </select>
+      </label>
+      <label class="full">Nota
+        <input id="mNota" type="text">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="btnCancelManual" class="btn-ghost">Cancelar</button>
+      <button type="submit" class="btn-primary">Agregar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<!-- ================= Gatito de escritorio ================= -->
+<div class="cat-pet" id="catPet">
+  <div class="catInner">
+    <svg viewBox="0 0 260 300">
+
+      <!-- ===== POSE: PARADO / CAMINANDO ===== -->
+      <g class="pose pose-walk active" id="poseWalk">
+        <g class="walkBobGroup" transform="translate(0,60)">
+          <path class="tailWalk" d="M 205 110 C 240 100, 250 60, 225 40 C 218 35, 210 42, 216 50" fill="none" stroke="var(--cat-black)" stroke-width="15" stroke-linecap="round"/>
+          <rect class="legSwingA" x="168" y="120" width="16" height="55" rx="8" fill="var(--cat-black)"/>
+          <rect class="legSwingB" x="195" y="120" width="16" height="55" rx="8" fill="var(--cat-black)"/>
+          <rect class="legSwingB" x="55" y="115" width="16" height="55" rx="8" fill="var(--cat-black)"/>
+          <rect class="legSwingA" x="82" y="115" width="16" height="55" rx="8" fill="var(--cat-black)"/>
+          <path d="M 60 130 C 60 90, 90 65, 130 65 C 175 65, 205 85, 205 120 C 205 140, 185 140, 175 128 C 165 108, 140 95, 110 98 C 85 100, 70 112, 68 132 Z" fill="var(--cat-black)"/>
+          <ellipse cx="65" cy="75" rx="34" ry="31" fill="var(--cat-black)"/>
+          <polygon points="42,55 32,22 64,48" fill="var(--cat-black)"/>
+          <polygon points="88,55 98,22 66,48" fill="var(--cat-black)"/>
+          <g class="eye eyeL">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="52" cy="75" r="11.5" fill="#fff"/>
+              <circle cx="52" cy="75" r="11.5" fill="none" stroke="var(--cat-black)" stroke-width="1.6"/>
+              <g class="pupilGroup"><circle cx="52" cy="77" r="7.2" fill="var(--cat-black)"/><circle cx="54.3" cy="73.5" r="2" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 44 76 Q 52 66, 60 76" fill="none" stroke="var(--cat-black)" stroke-width="3.4" stroke-linecap="round"/>
+          </g>
+          <g class="eye eyeR">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="80" cy="75" r="11.5" fill="#fff"/>
+              <circle cx="80" cy="75" r="11.5" fill="none" stroke="var(--cat-black)" stroke-width="1.6"/>
+              <g class="pupilGroup"><circle cx="80" cy="77" r="7.2" fill="var(--cat-black)"/><circle cx="82.3" cy="73.5" r="2" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 72 76 Q 80 66, 88 76" fill="none" stroke="var(--cat-black)" stroke-width="3.4" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===== POSE: SENTADO (con lazo) ===== -->
+      <g class="pose pose-sit" id="poseSit">
+        <g transform="translate(30,45)">
+          <path class="tailSit" d="M 148 148 C 188 145, 198 95, 172 82 C 163 77, 157 87, 164 93 C 178 104, 176 132, 145 136" fill="none" stroke="var(--cat-black)" stroke-width="15" stroke-linecap="round"/>
+          <ellipse cx="100" cy="150" rx="52" ry="58" fill="var(--cat-black)"/>
+          <ellipse cx="78" cy="200" rx="13" ry="10" fill="var(--cat-black)"/>
+          <ellipse cx="122" cy="200" rx="13" ry="10" fill="var(--cat-black)"/>
+          <ellipse cx="100" cy="78" rx="44" ry="40" fill="var(--cat-black)"/>
+          <polygon points="62,52 48,8 90,42" fill="var(--cat-black)"/>
+          <polygon points="138,52 152,8 110,42" fill="var(--cat-black)"/>
+          <polygon points="100,112 78,100 78,124" fill="var(--cat-red)"/>
+          <polygon points="100,112 122,100 122,124" fill="var(--cat-red)"/>
+          <circle cx="100" cy="112" r="7" fill="var(--cat-red-dark)"/>
+          <g class="eye eyeL">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="80" cy="76" r="15" fill="#fff"/>
+              <circle cx="80" cy="76" r="15" fill="none" stroke="var(--cat-black)" stroke-width="2"/>
+              <g class="pupilGroup"><circle cx="80" cy="78" r="9.5" fill="var(--cat-black)"/><circle cx="83" cy="74" r="2.6" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 68 78 Q 80 65, 92 78" fill="none" stroke="var(--cat-black)" stroke-width="4.5" stroke-linecap="round"/>
+          </g>
+          <g class="eye eyeR">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="120" cy="76" r="15" fill="#fff"/>
+              <circle cx="120" cy="76" r="15" fill="none" stroke="var(--cat-black)" stroke-width="2"/>
+              <g class="pupilGroup"><circle cx="120" cy="78" r="9.5" fill="var(--cat-black)"/><circle cx="123" cy="74" r="2.6" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 108 78 Q 120 65, 132 78" fill="none" stroke="var(--cat-black)" stroke-width="4.5" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===== POSE: RASCAR / ESTIRAR (colgado) ===== -->
+      <g class="pose pose-scratch" id="poseScratch">
+        <g class="scratchBobGroup" transform="translate(63,20)">
+          <g class="marks" stroke="#9aa3ad" stroke-width="2.5" stroke-linecap="round" opacity="0.55">
+            <line x1="35" y1="10" x2="30" y2="55"/>
+            <line x1="48" y1="8" x2="44" y2="55"/>
+            <line x1="61" y1="10" x2="58" y2="55"/>
+          </g>
+          <path d="M 95 150 C 115 175, 110 210, 90 225 C 82 231, 76 224, 82 218" fill="none" stroke="var(--cat-black)" stroke-width="15" stroke-linecap="round"/>
+          <ellipse cx="75" cy="150" rx="34" ry="62" fill="var(--cat-black)"/>
+          <ellipse cx="58" cy="205" rx="12" ry="17" fill="var(--cat-black)"/>
+          <ellipse cx="92" cy="205" rx="12" ry="17" fill="var(--cat-black)"/>
+          <path d="M 58 110 C 50 80, 42 55, 38 35" fill="none" stroke="var(--cat-black)" stroke-width="15" stroke-linecap="round"/>
+          <path d="M 92 110 C 82 80, 68 55, 62 35" fill="none" stroke="var(--cat-black)" stroke-width="15" stroke-linecap="round"/>
+          <ellipse cx="36" cy="30" rx="9" ry="7" fill="var(--cat-black)"/>
+          <ellipse cx="60" cy="30" rx="9" ry="7" fill="var(--cat-black)"/>
+          <ellipse cx="75" cy="95" rx="30" ry="27" fill="var(--cat-black)"/>
+          <polygon points="55,78 46,50 72,72" fill="var(--cat-black)"/>
+          <polygon points="95,78 104,50 78,72" fill="var(--cat-black)"/>
+          <g class="eye eyeL">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="64" cy="94" r="9.5" fill="#fff"/>
+              <circle cx="64" cy="94" r="9.5" fill="none" stroke="var(--cat-black)" stroke-width="1.6"/>
+              <g class="pupilGroup"><circle cx="64" cy="96" r="6" fill="var(--cat-black)"/><circle cx="66" cy="92.5" r="1.7" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 57 95 Q 64 87, 71 95" fill="none" stroke="var(--cat-black)" stroke-width="2.8" stroke-linecap="round"/>
+          </g>
+          <g class="eye eyeR">
+            <g class="eyeInner">
+              <circle class="eyeWhite" cx="86" cy="94" r="9.5" fill="#fff"/>
+              <circle cx="86" cy="94" r="9.5" fill="none" stroke="var(--cat-black)" stroke-width="1.6"/>
+              <g class="pupilGroup"><circle cx="86" cy="96" r="6" fill="var(--cat-black)"/><circle cx="88" cy="92.5" r="1.7" fill="#fff"/></g>
+            </g>
+            <path class="eyeHappy" d="M 79 95 Q 86 87, 93 95" fill="none" stroke="var(--cat-black)" stroke-width="2.8" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+    </svg>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = 'driverTrackerData_v1';
+  const BATCHES_KEY = 'driverTrackerImportBatches_v1';
+  const DISCARDED_KEY = 'driverTrackerDiscarded_v1';
+  const BAJA_KEY = 'driverTrackerBaja_v1';
+  const RECRUITERS = ['Valentina','Sharon','Arely','David','Jose','Sandra','free'];
+  const STATUS_LABELS = { Jaky:'Jaky · Validación docs.', Dani:'Dani · Onboarding', Alta:'Pre alta · Coordinadores' };
+
+  let drivers = [];
+  let importBatches = []; // { id, fileName, count, importedAt } — solo filas NUEVAS creadas por cada importación
+  let discarded = []; // choferes marcados como "Descartado": se quitan de la tabla pero quedan archivados aquí
+  let baja = []; // choferes marcados como "Baja" (con motivo): se archivan aparte de los descartados
+
+  /* ---------- persistence ---------- */
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      drivers = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Error leyendo localStorage', e);
+      drivers = [];
+    }
+  }
+  function saveData(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(drivers)); }
+    catch(e){ console.error('Error guardando en localStorage', e); }
+  }
+
+  function loadBatches(){
+    try{
+      const raw = localStorage.getItem(BATCHES_KEY);
+      importBatches = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Error leyendo importaciones', e);
+      importBatches = [];
+    }
+  }
+  function saveBatches(){
+    try{ localStorage.setItem(BATCHES_KEY, JSON.stringify(importBatches)); }
+    catch(e){ console.error('Error guardando importaciones', e); }
+  }
+
+  function loadDiscarded(){
+    try{
+      const raw = localStorage.getItem(DISCARDED_KEY);
+      discarded = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Error leyendo descartados', e);
+      discarded = [];
+    }
+  }
+  function saveDiscarded(){
+    try{ localStorage.setItem(DISCARDED_KEY, JSON.stringify(discarded)); }
+    catch(e){ console.error('Error guardando descartados', e); }
+  }
+
+  function loadBaja(){
+    try{
+      const raw = localStorage.getItem(BAJA_KEY);
+      baja = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Error leyendo bajas', e);
+      baja = [];
+    }
+  }
+  function saveBaja(){
+    try{ localStorage.setItem(BAJA_KEY, JSON.stringify(baja)); }
+    catch(e){ console.error('Error guardando bajas', e); }
+  }
+
+  /* ---------- helpers ---------- */
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function formatDateTime(iso){
+    if(!iso) return '—';
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return '—';
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // Convierte una fecha ISO guardada a formato de <input type="datetime-local"> (hora local del navegador).
+  function toDatetimeLocalValue(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // Convierte el valor de un <input type="datetime-local"> de vuelta a ISO para guardarlo.
+  function fromDatetimeLocalValue(value){
+    if(!value) return null;
+    const d = new Date(value);
+    if(isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+
+  function formatElapsed(ms){
+    if(ms < 0) ms = 0;
+    let totalSec = Math.floor(ms/1000);
+    const days = Math.floor(totalSec/86400); totalSec %= 86400;
+    const hours = Math.floor(totalSec/3600); totalSec %= 3600;
+    const mins = Math.floor(totalSec/60);
+    const secs = totalSec % 60;
+    return (days > 0 ? days+'d ' : '') + pad(hours)+':'+pad(mins)+':'+pad(secs);
+  }
+
+  // Verde 0h-7h59, Ámbar 8h-23h59, Rojo 24h en adelante.
+  function elapsedColorClass(ms){
+    const hours = ms / 3600000;
+    if(hours < 8) return 'elapsed-green';
+    if(hours < 24) return 'elapsed-amber';
+    return 'elapsed-red';
+  }
+
+  function uid(){ return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+  function csvEscape(val){
+    val = String(val ?? '');
+    if(/[",\n]/.test(val)) val = '"'+val.replace(/"/g,'""')+'"';
+    return val;
+  }
+
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> t.classList.remove('show'), 2600);
+  }
+
+  /* ---------- data mutations ---------- */
+  function createDriverObject(data){
+    const fecha = new Date().toISOString();
+    const estatus = data.estatus || '';
+    return {
+      id: uid(),
+      reclutador: data.reclutador || 'free',
+      nombre: data.nombre || '',
+      telefono: data.telefono || '',
+      proyecto: data.proyecto || '',
+      sucursal: data.sucursal || '',
+      fechaRegistro: fecha,
+      nota: data.nota || '',
+      estatus: estatus,
+      cargaRealizada: false,
+      fechaAlta: null,
+      // Historial de cambios de estatus, usado para calcular tiempo por etapa en Métricas.
+      statusHistory: estatus ? [{ estatus, at: fecha }] : []
+    };
+  }
+
+  // Registra en el historial cuándo cambió el estatus (para las métricas de tiempo por etapa)
+  // y aplica el cambio. No hace nada si el nuevo valor es igual al actual.
+  function applyStatusChange(driver, newEstatus){
+    if(!driver.statusHistory) driver.statusHistory = [];
+    if(newEstatus && newEstatus !== driver.estatus){
+      driver.statusHistory.push({ estatus: newEstatus, at: new Date().toISOString() });
+    }
+    driver.estatus = newEstatus;
+  }
+
+  function findDriverByName(nombre){
+    const norm = (nombre || '').trim().toLowerCase();
+    if(!norm) return null;
+    return drivers.find(d => d.nombre.trim().toLowerCase() === norm) || null;
+  }
+
+  function addDriver(data){
+    const driver = createDriverObject(data);
+    drivers.unshift(driver);
+    saveData();
+    render();
+    return driver;
+  }
+
+  function updateField(id, field, value){
+    const d = drivers.find(x=>x.id===id);
+    if(!d) return;
+    d[field] = value;
+    // Si se edita la fecha de registro a mano, alinea también el primer punto del
+    // historial de estatus para que las métricas de tiempo por etapa sigan siendo correctas.
+    if(field === 'fechaRegistro' && d.statusHistory && d.statusHistory.length){
+      d.statusHistory[0].at = value;
+    }
+    saveData();
+    render();
+  }
+
+  function updateStatus(id, value){
+    const d = drivers.find(x=>x.id===id);
+    if(!d) return;
+    applyStatusChange(d, value);
+    saveData();
+    render();
+  }
+
+  function toggleCarga(id, checked){
+    const d = drivers.find(x=>x.id===id);
+    if(!d) return;
+    d.cargaRealizada = checked;
+    d.fechaAlta = checked ? new Date().toISOString() : null;
+    saveData();
+    render();
+  }
+
+  function deleteDriver(id){
+    const d = drivers.find(x=>x.id===id);
+    if(!d) return;
+    if(!confirm(`¿Eliminar el registro de "${d.nombre || 'sin nombre'}"?`)) return;
+    drivers = drivers.filter(x=>x.id!==id);
+    saveData();
+    render();
+  }
+
+  /* ---------- descartados ---------- */
+  // Marca a un chofer como Descartado: lo quita de la tabla activa pero lo guarda
+  // en el archivo de Descartados (no se pierde, se puede restaurar).
+  function discardDriver(id){
+    const idx = drivers.findIndex(x=>x.id===id);
+    if(idx === -1) return;
+    const [d] = drivers.splice(idx, 1);
+    d.discardedAt = new Date().toISOString();
+    discarded.unshift(d);
+    saveData();
+    saveDiscarded();
+    render();
+    toast(`"${d.nombre || 'Chofer'}" pasó a Descartados`);
+  }
+
+  function restoreDriver(id){
+    const idx = discarded.findIndex(x=>x.id===id);
+    if(idx === -1) return;
+    const [d] = discarded.splice(idx, 1);
+    delete d.discardedAt;
+    drivers.push(d);
+    saveData();
+    saveDiscarded();
+    render();
+    renderDiscarded();
+    toast(`"${d.nombre || 'Chofer'}" restaurado a la tabla`);
+  }
+
+  function deleteDiscardedForever(id){
+    const d = discarded.find(x=>x.id===id);
+    if(!d) return;
+    if(!confirm(`¿Borrar definitivamente a "${d.nombre || 'sin nombre'}"? Esto ya no se puede deshacer.`)) return;
+    discarded = discarded.filter(x=>x.id!==id);
+    saveDiscarded();
+    renderDiscarded();
+    toast('Borrado definitivamente');
+  }
+
+  /* ---------- baja ---------- */
+  // Marca a un chofer como Baja (pide motivo): lo quita de la tabla activa y lo
+  // archiva en la pestaña "Baja", junto con el motivo capturado.
+  function sendToBaja(id, chkEl){
+    const idx = drivers.findIndex(x=>x.id===id);
+    if(idx === -1) return;
+    const nombre = drivers[idx].nombre || 'este chofer';
+    const motivo = prompt(`Motivo de baja para "${nombre}":`, '');
+    if(motivo === null){
+      if(chkEl) chkEl.checked = false; // canceló: no se da de baja
+      return;
+    }
+    const [d] = drivers.splice(idx, 1);
+    d.motivoBaja = motivo.trim();
+    d.bajaAt = new Date().toISOString();
+    baja.unshift(d);
+    saveData();
+    saveBaja();
+    render();
+    toast(`"${d.nombre || 'Chofer'}" dado de baja`);
+  }
+
+  function restoreFromBaja(id){
+    const idx = baja.findIndex(x=>x.id===id);
+    if(idx === -1) return;
+    const [d] = baja.splice(idx, 1);
+    delete d.motivoBaja;
+    delete d.bajaAt;
+    drivers.push(d);
+    saveData();
+    saveBaja();
+    render();
+    renderBaja();
+    toast(`"${d.nombre || 'Chofer'}" restaurado a la tabla`);
+  }
+
+  function deleteBajaForever(id){
+    const d = baja.find(x=>x.id===id);
+    if(!d) return;
+    if(!confirm(`¿Borrar definitivamente a "${d.nombre || 'sin nombre'}"? Esto ya no se puede deshacer.`)) return;
+    baja = baja.filter(x=>x.id!==id);
+    saveBaja();
+    renderBaja();
+    toast('Borrado definitivamente');
+  }
+
+  function updateBajaMotivo(id, motivo){
+    const d = baja.find(x=>x.id===id);
+    if(!d) return;
+    d.motivoBaja = motivo;
+    saveBaja();
+  }
+
+  /* ---------- parser ---------- */
+  // Marcas/proyectos conocidos con nombre de dos o más palabras, para separar bien
+  // "PROYECTO: LA COMER -City Plaza Patria GDL" en proyecto="LA COMER" y sucursal="City Plaza Patria GDL".
+  const KNOWN_BRANDS = ['LIVERPOOL', 'LA COMER', 'AMAZON', 'FRESKO'];
+
+  function splitProyectoSucursal(text){
+    const trimmed = text.trim();
+    const upperNorm = trimmed.toUpperCase();
+    const brands = [...KNOWN_BRANDS].sort((a,b)=> b.length - a.length);
+    for(const brand of brands){
+      if(upperNorm.startsWith(brand)){
+        let rest = trimmed.slice(brand.length).trim();
+        rest = rest.replace(/^[-–—\s]+/, '').trim();
+        return { proyecto: brand, sucursal: rest };
+      }
+    }
+    const tokens = trimmed.split(/\s+/);
+    if(tokens.length > 1) return { proyecto: tokens[0], sucursal: tokens.slice(1).join(' ') };
+    return { proyecto: tokens[0] || '', sucursal: '' };
+  }
+
+  function normLabel(s){
+    return s.trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  // Captura cualquier línea "Etiqueta: valor" que no sea nombre/proyecto/sucursal/teléfono
+  // (CURP, NSS, correo, usuario, contraseña, etc.) para no perder esa información.
+  function extractExtraNotes(raw, handledLabels){
+    const notes = [];
+    raw.split('\n').forEach(line=>{
+      const m = line.match(/^\s*([A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ ]{1,30}?)\s*[:\-]\s*(.+)$/);
+      if(!m) return;
+      const label = m[1].trim();
+      const value = m[2].trim();
+      if(!value) return;
+      if(handledLabels.includes(normLabel(label))) return;
+      notes.push(`${label}: ${value}`);
+    });
+    return notes;
+  }
+
+  // Agrega a la nota existente solo las líneas nuevas, sin duplicar ni borrar notas manuales.
+  function mergeNotes(existingNota, newNotes){
+    if(!newNotes || newNotes.length === 0) return existingNota || '';
+    const parts = existingNota ? existingNota.split(' · ').map(s=>s.trim()).filter(Boolean) : [];
+    const seen = new Set(parts.map(s=>s.toLowerCase()));
+    newNotes.forEach(n=>{
+      if(!seen.has(n.toLowerCase())){ parts.push(n); seen.add(n.toLowerCase()); }
+    });
+    return parts.join(' · ');
+  }
+
+  const NOMBRE_LINE_RE = /nombre\s*[:\-]?\s*(.+)/i;
+  const PHONE_FALLBACK_EXCLUDED_LABELS = ['NOMBRE','PROYECTO','SUCURSAL','CURP','NSS','CORREO','EMAIL','USUARIO','CONTRASENA','ACCESOS'];
+
+  // Busca un teléfono "suelto" (sin etiqueta Teléfono:/Número:) línea por línea,
+  // ignorando líneas de CURP/NSS/correo/etc. para no confundir esos números con el teléfono.
+  function findFallbackPhone(raw){
+    const lines = raw.split('\n');
+    for(const line of lines){
+      const labelMatch = line.match(/^\s*([A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ ]{1,30}?)\s*[:\-]\s*(.+)$/);
+      if(labelMatch && PHONE_FALLBACK_EXCLUDED_LABELS.includes(normLabel(labelMatch[1]))) continue;
+      const digitMatch = line.match(/(\+?\d[\d\s\-]{8,14}\d)/);
+      if(digitMatch) return digitMatch[1].trim();
+    }
+    return '';
+  }
+
+  function parseBlock(raw){
+    const nombreMatch   = raw.match(NOMBRE_LINE_RE);
+    const proyectoMatch = raw.match(/proyecto\s*[:\-]?\s*(.+)/i);
+    const telMatch      = raw.match(/(?:tel[eé]fono|n[uú]mero)\s*[:\-]?\s*(.+)/i);
+    const sucursalMatch = raw.match(/sucursal\s*[:\-]?\s*(.+)/i);
+
+    let estatus = '';
+    if(/jaky|revisi[oó]n\s+de\s+documento|validaci[oó]n\s+de\s+documento/i.test(raw)) estatus = 'Jaky';
+    else if(/danni|dani|onbording|onboarding/i.test(raw)) estatus = 'Dani';
+    else if(/pre\s*alta|proceso\s+finalizado|accesos/i.test(raw)) estatus = 'Alta';
+
+    const nombre = nombreMatch ? nombreMatch[1].trim() : '';
+
+    let telefono = telMatch ? telMatch[1].trim() : '';
+    if(!telefono) telefono = findFallbackPhone(raw);
+
+    let proyecto = '', sucursal = '';
+    if(sucursalMatch){
+      sucursal = sucursalMatch[1].trim();
+      proyecto = proyectoMatch ? proyectoMatch[1].trim() : '';
+    } else if(proyectoMatch){
+      const split = splitProyectoSucursal(proyectoMatch[1]);
+      proyecto = split.proyecto;
+      sucursal = split.sucursal;
+    }
+
+    const notaExtra = extractExtraNotes(raw, ['NOMBRE','PROYECTO','SUCURSAL','TELEFONO','NUMERO']);
+
+    return { nombre, telefono, proyecto, sucursal, estatus, notaExtra };
+  }
+
+  // Une un bloque sin "Nombre:" (saludo + palabra clave) con el siguiente bloque
+  // que sí tiene datos, para no perder el estatus cuando el mensaje trae una línea
+  // en blanco entre el saludo y los datos del candidato.
+  function groupMessageBlocks(rawBlocks){
+    const blocks = [];
+    let pending = '';
+    rawBlocks.forEach(b=>{
+      if(NOMBRE_LINE_RE.test(b)){
+        blocks.push(pending ? pending + '\n' + b : b);
+        pending = '';
+      } else {
+        pending = pending ? pending + '\n' + b : b;
+      }
+    });
+    if(pending){
+      if(blocks.length > 0) blocks[blocks.length - 1] += '\n' + pending;
+      else blocks.push(pending);
+    }
+    return blocks;
+  }
+
+  function handleProcess(){
+    const textarea = document.getElementById('parserInput');
+    const raw = textarea.value.trim();
+    if(!raw){ toast('Pega un texto primero'); return; }
+
+    let rawBlocks = raw.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean);
+    if(rawBlocks.length === 0) rawBlocks = [raw];
+    const blocks = groupMessageBlocks(rawBlocks);
+
+    let added = 0, updated = 0;
+    blocks.forEach(block=>{
+      const parsed = parseBlock(block);
+      if(!parsed.nombre) return;
+
+      const existing = findDriverByName(parsed.nombre);
+      if(existing){
+        // Mismo candidato detectado de nuevo: actualiza su estatus y cualquier dato nuevo,
+        // sin crear un registro duplicado. La fecha/hora original de registro se conserva.
+        if(parsed.telefono) existing.telefono = parsed.telefono;
+        if(parsed.proyecto) existing.proyecto = parsed.proyecto;
+        if(parsed.sucursal) existing.sucursal = parsed.sucursal;
+        if(parsed.estatus) applyStatusChange(existing, parsed.estatus);
+        existing.nota = mergeNotes(existing.nota, parsed.notaExtra);
+        // Lo mueve al final: la tabla queda ordenada por lo último que pegaste.
+        drivers = drivers.filter(d => d.id !== existing.id);
+        drivers.push(existing);
+        updated++;
+      } else {
+        drivers.push(createDriverObject({ ...parsed, reclutador:'free', nota: parsed.notaExtra.join(' · ') }));
+        added++;
+      }
+    });
+
+    if(added === 0 && updated === 0){
+      toast('No se pudo extraer el nombre. Revisa el formato (usa "Nombre:") o agrega manualmente.');
+      return;
+    }
+
+    saveData();
+    render();
+
+    const parts = [];
+    if(added) parts.push(`${added} agregado${added===1?'':'s'}`);
+    if(updated) parts.push(`${updated} actualizado${updated===1?'':'s'}`);
+    textarea.value = '';
+    toast(parts.join(' · '));
+  }
+
+  /* ---------- filters ---------- */
+  function getFilteredDrivers(){
+    const rec = document.getElementById('fReclutador').value;
+    const proy = document.getElementById('fProyecto').value.trim().toLowerCase();
+    const suc = document.getElementById('fSucursal').value.trim().toLowerCase();
+    const dateType = document.getElementById('fDateType').value;
+    const from = document.getElementById('fDateFrom').value;
+    const to = document.getElementById('fDateTo').value;
+
+    return drivers.filter(d=>{
+      if(d.cargaRealizada) return false; // se muestran en la pestaña "Alta con carga"
+      if(rec && d.reclutador !== rec) return false;
+      if(proy && !d.proyecto.toLowerCase().includes(proy)) return false;
+      if(suc && !d.sucursal.toLowerCase().includes(suc)) return false;
+
+      const dateField = dateType === 'alta' ? d.fechaAlta : d.fechaRegistro;
+      if(from){
+        if(!dateField) return false;
+        if(new Date(dateField) < new Date(from+'T00:00:00')) return false;
+      }
+      if(to){
+        if(!dateField) return false;
+        if(new Date(dateField) > new Date(to+'T23:59:59')) return false;
+      }
+      return true;
+    });
+  }
+
+  function getCompletedDrivers(){
+    return drivers.filter(d=> d.cargaRealizada);
+  }
+
+  /* ---------- rendering ---------- */
+  /* ---------- duplicate detection (same name or same phone) ---------- */
+  function normName(n){ return String(n || '').trim().toLowerCase(); }
+  function normPhoneDigits(p){ return String(p || '').replace(/\D/g, ''); }
+
+  // Groups rows that share a name or a phone number so they sit one below the other,
+  // and flags every member of a group of 2+ so buildRow() can mark it with a red line.
+  function groupDuplicates(list){
+    const n = list.length;
+    const parent = Array.from({ length:n }, (_,i)=>i);
+    function find(x){ while(parent[x] !== x){ parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function union(a,b){ const ra=find(a), rb=find(b); if(ra!==rb) parent[ra]=rb; }
+
+    const nameMap = new Map();
+    const phoneMap = new Map();
+    list.forEach((d,i)=>{
+      const nn = normName(d.nombre);
+      if(nn){
+        if(nameMap.has(nn)) union(i, nameMap.get(nn));
+        else nameMap.set(nn, i);
+      }
+      const np = normPhoneDigits(d.telefono);
+      if(np && np.length >= 7){
+        if(phoneMap.has(np)) union(i, phoneMap.get(np));
+        else phoneMap.set(np, i);
+      }
+    });
+
+    const groups = new Map();
+    list.forEach((d,i)=>{
+      const r = find(i);
+      if(!groups.has(r)) groups.set(r, []);
+      groups.get(r).push(i);
+    });
+
+    const rootsInOrder = [...groups.keys()].sort((a,b)=> Math.min(...groups.get(a)) - Math.min(...groups.get(b)));
+
+    const orderedList = [];
+    const dupFlags = [];
+    rootsInOrder.forEach(r=>{
+      const idxs = groups.get(r);
+      const isDup = idxs.length > 1;
+      idxs.forEach(i=>{
+        orderedList.push(list[i]);
+        dupFlags.push(isDup);
+      });
+    });
+
+    return { orderedList, dupFlags };
+  }
+
+  function textCell(d, field, value, placeholder, mono){
+    const td = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'cell-input' + (mono ? ' mono' : '');
+    inp.value = value || '';
+    inp.placeholder = placeholder || '';
+    inp.addEventListener('change', ()=> updateField(d.id, field, inp.value));
+    td.appendChild(inp);
+    return td;
+  }
+
+  function buildRow(d, isDup){
+    const tr = document.createElement('tr');
+    tr.className = 'row';
+    if(d.estatus === 'Jaky') tr.classList.add('row-jaky');
+    else if(d.estatus === 'Dani') tr.classList.add('row-dani');
+    else if(d.estatus === 'Alta') tr.classList.add('row-alta');
+    if(isDup) tr.classList.add('row-dup');
+
+    // Reclutador
+    const tdRec = document.createElement('td');
+    const selRec = document.createElement('select');
+    selRec.className = 'cell-input';
+    RECRUITERS.forEach(r=>{
+      const opt = document.createElement('option');
+      opt.value = r; opt.textContent = r;
+      if(r === d.reclutador) opt.selected = true;
+      selRec.appendChild(opt);
+    });
+    selRec.addEventListener('change', ()=> updateField(d.id, 'reclutador', selRec.value));
+    tdRec.appendChild(selRec);
+    tr.appendChild(tdRec);
+
+    const tdNombre = textCell(d, 'nombre', d.nombre, 'Nombre del chofer');
+    if(isDup){
+      const flag = document.createElement('span');
+      flag.className = 'dup-flag';
+      flag.textContent = '⚠ Duplicado (nombre o tel.)';
+      tdNombre.appendChild(flag);
+    }
+    tr.appendChild(tdNombre);
+    tr.appendChild(textCell(d, 'telefono', d.telefono, 'Teléfono', true));
+    tr.appendChild(textCell(d, 'proyecto', d.proyecto, 'Proyecto'));
+
+    // Sucursal (con resaltado si Alta)
+    const tdSuc = document.createElement('td');
+    tdSuc.className = 'sucursal-td';
+    if(d.estatus === 'Alta') tdSuc.classList.add(d.cargaRealizada ? 'suc-done' : 'suc-pending');
+    const inpSuc = document.createElement('input');
+    inpSuc.type = 'text'; inpSuc.className = 'cell-input'; inpSuc.value = d.sucursal || ''; inpSuc.placeholder = 'Sucursal';
+    inpSuc.addEventListener('change', ()=> updateField(d.id, 'sucursal', inpSuc.value));
+    tdSuc.appendChild(inpSuc);
+    tr.appendChild(tdSuc);
+
+    // Fecha registro / alta (editables)
+    const tdFecha = document.createElement('td');
+    tdFecha.className = 'fecha-td';
+
+    const inpFecha = document.createElement('input');
+    inpFecha.type = 'datetime-local';
+    inpFecha.className = 'fecha-input';
+    inpFecha.title = 'Fecha de registro';
+    inpFecha.value = toDatetimeLocalValue(d.fechaRegistro);
+    inpFecha.addEventListener('change', ()=>{
+      const iso = fromDatetimeLocalValue(inpFecha.value);
+      if(iso) updateField(d.id, 'fechaRegistro', iso);
+      else inpFecha.value = toDatetimeLocalValue(d.fechaRegistro); // valor inválido: no se guarda
+    });
+    tdFecha.appendChild(inpFecha);
+
+    if(d.fechaAlta || d.estatus === 'Alta'){
+      const altaWrap = document.createElement('div');
+      altaWrap.className = 'fecha-alta-wrap';
+      const altaLabel = document.createElement('span');
+      altaLabel.className = 'fecha-alta-label';
+      altaLabel.textContent = 'Alta:';
+      const inpAlta = document.createElement('input');
+      inpAlta.type = 'datetime-local';
+      inpAlta.className = 'fecha-input fecha-alta-input';
+      inpAlta.title = 'Fecha de alta';
+      inpAlta.value = toDatetimeLocalValue(d.fechaAlta);
+      inpAlta.addEventListener('change', ()=>{
+        const iso = fromDatetimeLocalValue(inpAlta.value);
+        const target = drivers.find(x=>x.id===d.id);
+        if(!target) return;
+        target.fechaAlta = iso;
+        target.cargaRealizada = !!iso;
+        saveData();
+        render();
+      });
+      altaWrap.appendChild(altaLabel);
+      altaWrap.appendChild(inpAlta);
+      tdFecha.appendChild(altaWrap);
+    }
+    tr.appendChild(tdFecha);
+
+    tr.appendChild(textCell(d, 'nota', d.nota, 'Agregar nota…'));
+
+    // Tiempo transcurrido
+    const tdTime = document.createElement('td');
+    const wrap = document.createElement('span');
+    const elapsedMs = Date.now() - new Date(d.fechaRegistro).getTime();
+    wrap.className = 'elapsed-wrap ' + elapsedColorClass(elapsedMs);
+    const dot = document.createElement('span'); dot.className = 'live-dot';
+    const txt = document.createElement('span'); txt.className = 'elapsed-cell mono';
+    txt.dataset.id = d.id;
+    txt.textContent = formatElapsed(elapsedMs);
+    wrap.appendChild(dot); wrap.appendChild(txt);
+    tdTime.appendChild(wrap);
+    tr.appendChild(tdTime);
+
+    // Estatus / Asignación
+    const tdStatus = document.createElement('td');
+    tdStatus.className = 'status-td';
+    const selStatus = document.createElement('select');
+    selStatus.className = 'cell-input select-status status-' + (d.estatus || 'none');
+    [['', 'Sin estatus'], ['Jaky', STATUS_LABELS.Jaky], ['Dani', STATUS_LABELS.Dani], ['Alta', STATUS_LABELS.Alta]].forEach(([val,label])=>{
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = label;
+      if(val === d.estatus) opt.selected = true;
+      selStatus.appendChild(opt);
+    });
+    selStatus.addEventListener('change', ()=> updateStatus(d.id, selStatus.value));
+    tdStatus.appendChild(selStatus);
+
+    if(d.estatus === 'Alta'){
+      const label = document.createElement('label');
+      label.className = 'carga-check ' + (d.cargaRealizada ? 'done' : 'pending');
+      const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.checked = !!d.cargaRealizada;
+      chk.addEventListener('change', ()=> toggleCarga(d.id, chk.checked));
+      const span = document.createElement('span');
+      span.textContent = d.cargaRealizada ? 'Carga realizada' : 'Pendiente de carga';
+      label.appendChild(chk); label.appendChild(span);
+      tdStatus.appendChild(label);
+    }
+
+    // Descartado: lo quita de la tabla y lo guarda en la pestaña "Descartados".
+    const discardLabel = document.createElement('label');
+    discardLabel.className = 'discard-check';
+    const discardChk = document.createElement('input');
+    discardChk.type = 'checkbox';
+    discardChk.checked = false;
+    discardChk.addEventListener('change', ()=>{
+      if(discardChk.checked) discardDriver(d.id);
+    });
+    const discardSpan = document.createElement('span');
+    discardSpan.textContent = 'Descartado';
+    discardLabel.appendChild(discardChk);
+    discardLabel.appendChild(discardSpan);
+    tdStatus.appendChild(discardLabel);
+
+    // Baja: pide el motivo, quita al chofer de la tabla y lo guarda en la pestaña "Baja".
+    const bajaLabel = document.createElement('label');
+    bajaLabel.className = 'baja-check';
+    const bajaChk = document.createElement('input');
+    bajaChk.type = 'checkbox';
+    bajaChk.checked = false;
+    bajaChk.addEventListener('change', ()=>{
+      if(bajaChk.checked) sendToBaja(d.id, bajaChk);
+    });
+    const bajaSpan = document.createElement('span');
+    bajaSpan.textContent = 'Baja';
+    bajaLabel.appendChild(bajaChk);
+    bajaLabel.appendChild(bajaSpan);
+    tdStatus.appendChild(bajaLabel);
+
+    tr.appendChild(tdStatus);
+
+    // Acciones
+    const tdAcc = document.createElement('td');
+    const btnDel = document.createElement('button');
+    btnDel.type = 'button';
+    btnDel.className = 'btn-icon-del';
+    btnDel.title = 'Eliminar';
+    btnDel.textContent = '✕';
+    btnDel.addEventListener('click', ()=> deleteDriver(d.id));
+    tdAcc.appendChild(btnDel);
+    tr.appendChild(tdAcc);
+
+    return tr;
+  }
+
+  function renderStats(){
+    const el = document.getElementById('statsChips');
+    const total = drivers.length;
+    const jaky = drivers.filter(d=>d.estatus==='Jaky').length;
+    const dani = drivers.filter(d=>d.estatus==='Dani').length;
+    const alta = drivers.filter(d=>d.estatus==='Alta');
+    const altaPend = alta.filter(d=>!d.cargaRealizada).length;
+    const altaDone = alta.length - altaPend;
+    const dupCount = groupDuplicates(drivers).dupFlags.filter(Boolean).length;
+
+    el.innerHTML = '';
+    const chips = [
+      { label: `${total} registro${total===1?'':'s'}`, cls: '' },
+      { label: `${jaky} Jaky`, cls: 'chip-jaky' },
+      { label: `${dani} Dani`, cls: 'chip-dani' },
+      { label: `${alta.length} Alta (${altaPend} pend. · ${altaDone} listo)`, cls: 'chip-alta' }
+    ];
+    if(dupCount > 0) chips.push({ label: `⚠ ${dupCount} duplicado${dupCount===1?'':'s'}`, cls: 'chip-dup' });
+    chips.forEach(c=>{
+      const span = document.createElement('span');
+      span.className = 'chip ' + c.cls;
+      span.textContent = c.label;
+      el.appendChild(span);
+    });
+  }
+
+  function fillDatalist(id, arr){
+    const dl = document.getElementById(id);
+    dl.innerHTML = '';
+    arr.forEach(v=>{
+      const o = document.createElement('option');
+      o.value = v;
+      dl.appendChild(o);
+    });
+  }
+
+  function refreshDatalists(){
+    const proyectos = [...new Set(drivers.map(d=>d.proyecto).filter(Boolean))];
+    const sucursales = [...new Set(drivers.map(d=>d.sucursal).filter(Boolean))];
+    fillDatalist('dlProyectos', proyectos);
+    fillDatalist('dlSucursales', sucursales);
+  }
+
+  function render(){
+    const tbody = document.getElementById('tbody');
+    const filtered = getFilteredDrivers();
+    tbody.innerHTML = '';
+
+    if(filtered.length === 0){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 10;
+      td.className = 'empty-state';
+      td.textContent = drivers.length === 0
+        ? 'Aún no hay choferes registrados. Pega un mensaje arriba o agrega uno manualmente.'
+        : 'Ningún registro coincide con los filtros aplicados.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+      const { orderedList, dupFlags } = groupDuplicates(filtered);
+      orderedList.forEach((d,i)=> tbody.appendChild(buildRow(d, dupFlags[i])));
+    }
+
+    renderStats();
+    renderImportBatches();
+    refreshDatalists();
+    updateElapsedTimers();
+    updateDiscardedTabBadge();
+    updateCompletedTabBadge();
+    updatePendingTabBadge();
+    updateBajaTabBadge();
+    updateProjectTabBadges();
+    if(currentView === 'pending') renderPendingView();
+    if(currentView === 'completed') renderCompletedView();
+    if(currentView === 'projAmazon') renderProjectView(PROJECT_TABS[0]);
+    if(currentView === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
+    if(currentView === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
+    if(currentView === 'metrics') renderMetrics();
+    if(currentView === 'baja') renderBaja();
+  }
+
+  function updateElapsedTimers(){
+    document.querySelectorAll('.elapsed-cell').forEach(el=>{
+      const d = drivers.find(x=>x.id === el.dataset.id);
+      if(!d) return;
+      const ms = Date.now() - new Date(d.fechaRegistro).getTime();
+      el.textContent = formatElapsed(ms);
+      const wrap = el.closest('.elapsed-wrap');
+      if(wrap){
+        wrap.classList.remove('elapsed-green','elapsed-amber','elapsed-red');
+        wrap.classList.add(elapsedColorClass(ms));
+      }
+    });
+  }
+
+  /* ---------- métricas ---------- */
+  function avgOf(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0) / arr.length : null; }
+
+  // Formato compacto para promedios (ej. "2d 4h", "45m"), a diferencia del cronómetro con segundos.
+  function formatDurationHuman(ms){
+    if(ms == null || isNaN(ms)) return '—';
+    const totalMin = Math.max(0, Math.round(ms / 60000));
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const mins = totalMin % 60;
+    const parts = [];
+    if(days) parts.push(days + 'd');
+    if(hours) parts.push(hours + 'h');
+    if(!days && mins) parts.push(mins + 'm');
+    if(parts.length === 0) parts.push('<1m');
+    return parts.join(' ');
+  }
+
+  function computeMetrics(){
+    const total = drivers.length;
+    const byStatus = { Jaky:0, Dani:0, Alta:0, sinEstatus:0 };
+    drivers.forEach(d=>{
+      if(d.estatus === 'Jaky') byStatus.Jaky++;
+      else if(d.estatus === 'Dani') byStatus.Dani++;
+      else if(d.estatus === 'Alta') byStatus.Alta++;
+      else byStatus.sinEstatus++;
+    });
+    const altaDrivers = drivers.filter(d=>d.estatus==='Alta');
+    const altaDone = altaDrivers.filter(d=>d.cargaRealizada).length;
+    const altaPend = altaDrivers.length - altaDone;
+
+    // Quién recluta más
+    const byReclutador = {};
+    drivers.forEach(d=>{
+      const r = d.reclutador || 'free';
+      if(!byReclutador[r]) byReclutador[r] = 0;
+      byReclutador[r]++;
+    });
+    const reclutadorRanking = Object.entries(byReclutador).sort((a,b)=> b[1]-a[1]);
+
+    // Ranking por proyecto y sucursal
+    const byProyecto = {};
+    drivers.forEach(d=>{
+      const p = d.proyecto || '(sin proyecto)';
+      byProyecto[p] = (byProyecto[p]||0) + 1;
+    });
+    const proyectoRanking = Object.entries(byProyecto).sort((a,b)=> b[1]-a[1]);
+
+    const bySucursal = {};
+    drivers.forEach(d=>{
+      const s = d.sucursal || '(sin sucursal)';
+      bySucursal[s] = (bySucursal[s]||0) + 1;
+    });
+    const sucursalRanking = Object.entries(bySucursal).sort((a,b)=> b[1]-a[1]);
+
+    // Tiempo promedio en cada etapa, a partir del historial de cambios de estatus.
+    const stageDurations = { Jaky:[], Dani:[], Alta:[] };
+    drivers.forEach(d=>{
+      const hist = d.statusHistory || [];
+      for(let i=0;i<hist.length;i++){
+        const cur = hist[i];
+        if(!cur || !stageDurations[cur.estatus]) continue;
+        const start = new Date(cur.at).getTime();
+        const end = (i+1 < hist.length) ? new Date(hist[i+1].at).getTime() : Date.now();
+        if(!isNaN(start) && end >= start) stageDurations[cur.estatus].push(end - start);
+      }
+    });
+    const avgStage = {
+      Jaky: avgOf(stageDurations.Jaky),
+      Dani: avgOf(stageDurations.Dani),
+      Alta: avgOf(stageDurations.Alta)
+    };
+    const stageSampleSize = {
+      Jaky: stageDurations.Jaky.length,
+      Dani: stageDurations.Dani.length,
+      Alta: stageDurations.Alta.length
+    };
+
+    // Tiempo total: registro -> carga realizada, solo para los que ya terminaron.
+    const completedDurations = drivers
+      .filter(d=> d.fechaAlta && d.cargaRealizada && d.fechaRegistro)
+      .map(d=> new Date(d.fechaAlta).getTime() - new Date(d.fechaRegistro).getTime())
+      .filter(ms=> ms >= 0);
+    const avgTotal = avgOf(completedDurations);
+
+    // Candidatos más lentos en su etapa actual (para dar seguimiento puntual).
+    const slowest = drivers
+      .filter(d=> d.estatus)
+      .map(d=>({ d, ms: Date.now() - new Date(d.fechaRegistro).getTime() }))
+      .sort((a,b)=> b.ms - a.ms)
+      .slice(0, 8);
+
+    return {
+      total, byStatus, altaDone, altaPend,
+      reclutadorRanking, proyectoRanking, sucursalRanking,
+      avgStage, stageSampleSize, avgTotal, completedCount: completedDurations.length,
+      slowest
+    };
+  }
+
+  function renderRankBars(container, ranking, maxItems){
+    container.innerHTML = '';
+    if(ranking.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'metrics-empty';
+      empty.textContent = 'Sin datos todavía.';
+      container.appendChild(empty);
+      return;
+    }
+    const top = ranking.slice(0, maxItems);
+    const max = top[0][1] || 1;
+    top.forEach(([label, count])=>{
+      const row = document.createElement('div');
+      row.className = 'rank-row';
+      const name = document.createElement('span');
+      name.className = 'rank-name';
+      name.textContent = label;
+      name.title = label;
+      const track = document.createElement('div');
+      track.className = 'rank-track';
+      const fill = document.createElement('div');
+      fill.className = 'rank-fill';
+      fill.style.width = Math.max(4, Math.round((count / max) * 100)) + '%';
+      track.appendChild(fill);
+      const countEl = document.createElement('span');
+      countEl.className = 'rank-count';
+      countEl.textContent = count;
+      row.appendChild(name); row.appendChild(track); row.appendChild(countEl);
+      container.appendChild(row);
+    });
+    if(ranking.length > maxItems){
+      const more = document.createElement('div');
+      more.className = 'metrics-empty';
+      more.style.padding = '4px 0 0';
+      more.textContent = `+${ranking.length - maxItems} más`;
+      container.appendChild(more);
+    }
+  }
+
+  function renderMetrics(){
+    const wrap = document.getElementById('metricsContent');
+    if(!wrap) return;
+    const m = computeMetrics();
+
+    if(m.total === 0){
+      wrap.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'Todavía no hay choferes registrados. Agrega o pega candidatos en la pestaña Tabla para ver métricas aquí.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    wrap.innerHTML = '';
+
+    // KPIs
+    const kpiGrid = document.createElement('div');
+    kpiGrid.className = 'metrics-grid';
+    const kpis = [
+      { value: m.total, label: 'Total de choferes', cls: '' },
+      { value: m.byStatus.Jaky, label: 'Jaky · Validación docs.', cls: 'kpi-jaky' },
+      { value: m.byStatus.Dani, label: 'Dani · Onboarding', cls: 'kpi-dani' },
+      { value: `${m.altaPend} / ${m.byStatus.Alta}`, label: 'Pre alta pendientes / total', cls: 'kpi-alta' },
+      { value: m.altaDone, label: 'Carga realizada', cls: 'kpi-success' }
+    ];
+    kpis.forEach(k=>{
+      const card = document.createElement('div');
+      card.className = 'kpi-card ' + k.cls;
+      const val = document.createElement('div'); val.className = 'kpi-value'; val.textContent = k.value;
+      const lab = document.createElement('div'); lab.className = 'kpi-label'; lab.textContent = k.label;
+      card.appendChild(val); card.appendChild(lab);
+      kpiGrid.appendChild(card);
+    });
+    wrap.appendChild(kpiGrid);
+
+    // Dos columnas: tiempos por etapa | ranking de reclutadores
+    const cols = document.createElement('div');
+    cols.className = 'metrics-cols';
+
+    const stageCard = document.createElement('div');
+    stageCard.className = 'card';
+    const stageTitle = document.createElement('h3');
+    stageTitle.className = 'metrics-section-title';
+    stageTitle.textContent = '⏱ Tiempo promedio por etapa';
+    stageCard.appendChild(stageTitle);
+    const stageStats = document.createElement('div');
+    stageStats.className = 'stage-stats';
+    const stageDefs = [
+      { key:'Jaky', label:'Jaky · Validación docs.', color:'var(--jaky)' },
+      { key:'Dani', label:'Dani · Onboarding', color:'var(--dani)' },
+      { key:'Alta', label:'Pre alta · Coordinadores', color:'var(--alta)' }
+    ];
+    stageDefs.forEach(sd=>{
+      const row = document.createElement('div');
+      row.className = 'stage-stat-row';
+      const label = document.createElement('div');
+      label.className = 'stage-stat-label';
+      const dot = document.createElement('span'); dot.className = 'stage-dot'; dot.style.background = sd.color;
+      label.appendChild(dot);
+      label.appendChild(document.createTextNode(sd.label));
+      const value = document.createElement('div');
+      value.className = 'stage-stat-value';
+      const n = m.stageSampleSize[sd.key];
+      value.textContent = n > 0 ? `${formatDurationHuman(m.avgStage[sd.key])} (n=${n})` : 'Sin datos aún';
+      row.appendChild(label); row.appendChild(value);
+      stageStats.appendChild(row);
+    });
+    const totalRow = document.createElement('div');
+    totalRow.className = 'stage-stat-row';
+    totalRow.style.background = 'var(--success-soft)';
+    totalRow.style.borderColor = 'transparent';
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'stage-stat-label';
+    totalLabel.textContent = '✓ Total: registro → carga realizada';
+    const totalValue = document.createElement('div');
+    totalValue.className = 'stage-stat-value';
+    totalValue.style.color = 'var(--success)';
+    totalValue.textContent = m.completedCount > 0 ? `${formatDurationHuman(m.avgTotal)} (n=${m.completedCount})` : 'Sin datos aún';
+    totalRow.appendChild(totalLabel); totalRow.appendChild(totalValue);
+    stageStats.appendChild(totalRow);
+    stageCard.appendChild(stageStats);
+    cols.appendChild(stageCard);
+
+    const reclCard = document.createElement('div');
+    reclCard.className = 'card';
+    const reclTitle = document.createElement('h3');
+    reclTitle.className = 'metrics-section-title';
+    reclTitle.textContent = '🏆 Quién recluta más';
+    reclCard.appendChild(reclTitle);
+    const reclBars = document.createElement('div');
+    reclCard.appendChild(reclBars);
+    renderRankBars(reclBars, m.reclutadorRanking, 8);
+    cols.appendChild(reclCard);
+
+    wrap.appendChild(cols);
+
+    // Segunda fila: proyecto | sucursal
+    const cols2 = document.createElement('div');
+    cols2.className = 'metrics-cols';
+
+    const proyCard = document.createElement('div');
+    proyCard.className = 'card';
+    const proyTitle = document.createElement('h3');
+    proyTitle.className = 'metrics-section-title';
+    proyTitle.textContent = '📦 Candidatos por proyecto';
+    proyCard.appendChild(proyTitle);
+    const proyBars = document.createElement('div');
+    proyCard.appendChild(proyBars);
+    renderRankBars(proyBars, m.proyectoRanking, 8);
+    cols2.appendChild(proyCard);
+
+    const sucCard = document.createElement('div');
+    sucCard.className = 'card';
+    const sucTitle = document.createElement('h3');
+    sucTitle.className = 'metrics-section-title';
+    sucTitle.textContent = '📍 Candidatos por sucursal';
+    sucCard.appendChild(sucTitle);
+    const sucBars = document.createElement('div');
+    sucCard.appendChild(sucBars);
+    renderRankBars(sucBars, m.sucursalRanking, 8);
+    cols2.appendChild(sucCard);
+
+    wrap.appendChild(cols2);
+
+    // Candidatos más lentos en su etapa actual
+    const slowCard = document.createElement('div');
+    slowCard.className = 'card';
+    const slowTitle = document.createElement('h3');
+    slowTitle.className = 'metrics-section-title';
+    slowTitle.textContent = '🐢 Más tiempo sin cambiar de estatus';
+    slowCard.appendChild(slowTitle);
+    if(m.slowest.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'metrics-empty';
+      empty.textContent = 'Sin candidatos con estatus asignado todavía.';
+      slowCard.appendChild(empty);
+    } else {
+      const table = document.createElement('table');
+      table.className = 'slow-table';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>Chofer</th><th>Estatus</th><th>Reclutador</th><th>Tiempo en estatus actual</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      m.slowest.forEach(({d, ms})=>{
+        const tr = document.createElement('tr');
+        const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre;
+        const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus;
+        const tdRecl = document.createElement('td'); tdRecl.textContent = d.reclutador;
+        const tdTiempo = document.createElement('td'); tdTiempo.className = 'mono'; tdTiempo.textContent = formatDurationHuman(ms);
+        tr.appendChild(tdNombre); tr.appendChild(tdEstatus); tr.appendChild(tdRecl); tr.appendChild(tdTiempo);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      const tableScroll = document.createElement('div');
+      tableScroll.className = 'table-scroll-x';
+      tableScroll.appendChild(table);
+      slowCard.appendChild(tableScroll);
+    }
+    wrap.appendChild(slowCard);
+  }
+
+  /* ---------- alta con carga (completados) ---------- */
+  /* ---------- pendientes (tablero) ---------- */
+  function computePendingGroups(){
+    const now = Date.now();
+    const active = drivers.filter(d=> !d.cargaRealizada); // los "Alta con carga" ya no cuentan como pendientes
+    const groups = { Jaky: [], Dani: [], AltaPend: [], SinEstatus: [] };
+    active.forEach(d=>{
+      const ms = now - new Date(d.fechaRegistro).getTime();
+      const entry = { d, ms };
+      if(d.estatus === 'Jaky') groups.Jaky.push(entry);
+      else if(d.estatus === 'Dani') groups.Dani.push(entry);
+      else if(d.estatus === 'Alta') groups.AltaPend.push(entry);
+      else groups.SinEstatus.push(entry);
+    });
+    // El más urgente (más tiempo esperando) va arriba de cada columna.
+    Object.values(groups).forEach(arr=> arr.sort((a,b)=> b.ms - a.ms));
+    return groups;
+  }
+
+  function buildPendingCard(d, ms){
+    const card = document.createElement('div');
+    card.className = 'pending-card ' + elapsedColorClass(ms);
+
+    const top = document.createElement('div');
+    top.className = 'pending-card-top';
+    const name = document.createElement('span');
+    name.className = 'pending-name';
+    name.textContent = d.nombre || '(sin nombre)';
+    name.title = d.nombre || '';
+    const time = document.createElement('span');
+    time.className = 'pending-time mono';
+    time.textContent = formatDurationHuman(ms);
+    top.appendChild(name); top.appendChild(time);
+    card.appendChild(top);
+
+    const metaProy = document.createElement('div');
+    metaProy.className = 'pending-meta';
+    metaProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' · ') || 'Sin proyecto/sucursal';
+    card.appendChild(metaProy);
+
+    const metaRecl = document.createElement('div');
+    metaRecl.className = 'pending-meta';
+    metaRecl.textContent = (d.telefono ? '📞 ' + d.telefono + ' · ' : '') + (d.reclutador || 'free');
+    card.appendChild(metaRecl);
+
+    // Nota propia de esta pestaña: se guarda aparte de la Nota de la tabla principal,
+    // no aparece en Tabla, Alta con carga, proyectos ni en ningún CSV.
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text';
+    noteInput.className = 'pending-note-input';
+    noteInput.placeholder = '📝 Nota rápida (solo aquí)…';
+    noteInput.value = d.notaPendientes || '';
+    noteInput.addEventListener('click', (e)=> e.stopPropagation());
+    noteInput.addEventListener('input', ()=>{
+      d.notaPendientes = noteInput.value;
+      saveData();
+    });
+    card.appendChild(noteInput);
+
+    return card;
+  }
+
+  function buildPendingColumn(key, title, dotColor, entries){
+    const col = document.createElement('div');
+    col.className = 'pending-column';
+    col.dataset.colKey = key;
+
+    const header = document.createElement('div');
+    header.className = 'pending-column-header';
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'pending-column-title';
+    const dot = document.createElement('span');
+    dot.className = 'stage-dot';
+    dot.style.background = dotColor;
+    titleWrap.appendChild(dot);
+    titleWrap.appendChild(document.createTextNode(title));
+    const count = document.createElement('span');
+    count.className = 'pending-column-count';
+    count.textContent = entries.length;
+    header.appendChild(titleWrap);
+    header.appendChild(count);
+    col.appendChild(header);
+
+    if(entries.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'metrics-empty';
+      empty.textContent = 'Sin pendientes aquí 🎉';
+      col.appendChild(empty);
+    } else {
+      entries.forEach(({d, ms})=> col.appendChild(buildPendingCard(d, ms)));
+    }
+    return col;
+  }
+
+  function renderPendingView(){
+    const wrap = document.getElementById('pendingContent');
+    if(!wrap) return;
+
+    // Guarda cuánto había scrolleado cada columna antes de reconstruir, para restaurarlo
+    // después — si no, cada refresco automático regresaba el scroll hasta arriba.
+    const scrollPositions = {};
+    wrap.querySelectorAll('.pending-column').forEach(col=>{
+      if(col.dataset.colKey) scrollPositions[col.dataset.colKey] = col.scrollTop;
+    });
+
+    wrap.innerHTML = '';
+
+    const groups = computePendingGroups();
+    const allEntries = [...groups.Jaky, ...groups.Dani, ...groups.AltaPend, ...groups.SinEstatus];
+    const total = allEntries.length;
+
+    if(total === 0){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = '🎉 No hay pendientes. Todos los choferes activos están al día o ya completados.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const greenCount = allEntries.filter(e=> elapsedColorClass(e.ms) === 'elapsed-green').length;
+    const amberCount = allEntries.filter(e=> elapsedColorClass(e.ms) === 'elapsed-amber').length;
+    const redCount = allEntries.filter(e=> elapsedColorClass(e.ms) === 'elapsed-red').length;
+
+    const kpiGrid = document.createElement('div');
+    kpiGrid.className = 'metrics-grid';
+    const kpis = [
+      { value: total, label: 'Total de pendientes', cls: '' },
+      { value: greenCount, label: '🟢 Al día (menos de 8h)', cls: 'kpi-success' },
+      { value: amberCount, label: '🟡 Atención (8h - 24h)', cls: 'kpi-amber' },
+      { value: redCount, label: '🔴 Urgente (24h o más)', cls: 'kpi-red' }
+    ];
+    kpis.forEach(k=>{
+      const card = document.createElement('div');
+      card.className = 'kpi-card ' + k.cls;
+      const val = document.createElement('div'); val.className = 'kpi-value'; val.textContent = k.value;
+      const lab = document.createElement('div'); lab.className = 'kpi-label'; lab.textContent = k.label;
+      card.appendChild(val); card.appendChild(lab);
+      kpiGrid.appendChild(card);
+    });
+    wrap.appendChild(kpiGrid);
+
+    const pendingToolbar = document.createElement('div');
+    pendingToolbar.className = 'table-toolbar';
+    pendingToolbar.style.marginTop = '4px';
+    const toolbarSpacer = document.createElement('div');
+    const toolbarActions = document.createElement('div');
+    toolbarActions.className = 'toolbar-actions';
+    const btnExportPending = document.createElement('button');
+    btnExportPending.type = 'button';
+    btnExportPending.className = 'btn-secondary';
+    btnExportPending.textContent = '⇩ Exportar CSV (para presentar)';
+    btnExportPending.addEventListener('click', ()=> exportPendingCSV(allEntries));
+    toolbarActions.appendChild(btnExportPending);
+    pendingToolbar.appendChild(toolbarSpacer);
+    pendingToolbar.appendChild(toolbarActions);
+    wrap.appendChild(pendingToolbar);
+
+    const board = document.createElement('div');
+    board.className = 'pending-board';
+    board.appendChild(buildPendingColumn('jaky', STATUS_LABELS.Jaky, 'var(--jaky)', groups.Jaky));
+    board.appendChild(buildPendingColumn('dani', STATUS_LABELS.Dani, 'var(--dani)', groups.Dani));
+    board.appendChild(buildPendingColumn('altapend', 'Pre alta · Pendiente de carga', 'var(--alta)', groups.AltaPend));
+    if(groups.SinEstatus.length > 0){
+      board.appendChild(buildPendingColumn('sinestatus', 'Sin estatus asignado', 'var(--ink-soft)', groups.SinEstatus));
+    }
+    wrap.appendChild(board);
+
+    // Restaura el scroll de cada columna a donde estaba antes de reconstruir.
+    wrap.querySelectorAll('.pending-column').forEach(col=>{
+      const key = col.dataset.colKey;
+      if(key && scrollPositions[key] != null) col.scrollTop = scrollPositions[key];
+    });
+  }
+
+  function updatePendingTabBadge(){
+    const el = document.getElementById('pendingCount');
+    if(!el) return;
+    el.innerHTML = '';
+    const n = drivers.filter(d=> !d.cargaRealizada).length;
+    if(n > 0){
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.style.background = 'var(--accent)';
+      badge.textContent = n;
+      el.appendChild(badge);
+    }
+  }
+
+  // Exporta los pendientes ordenados del más urgente (más tiempo esperando) al más reciente,
+  // pensado para imprimir/mostrar en una junta y dar seguimiento a los procesos atorados.
+  function exportPendingCSV(entries){
+    const discardedAlta = discarded.filter(d=> d.estatus === 'Alta');
+    if((!entries || entries.length === 0) && discardedAlta.length === 0){
+      toast('No hay pendientes ni descartados en Pre alta para exportar');
+      return;
+    }
+    const sorted = [...(entries || [])].sort((a,b)=> b.ms - a.ms);
+    const headers = ['Nivel','Tiempo esperando','Chofer','Estatus','Reclutador','Teléfono','Proyecto','Sucursal','Nota rápida','Descartado el'];
+    const levelLabel = { 'elapsed-green':'Al día', 'elapsed-amber':'Atención', 'elapsed-red':'Urgente' };
+    const csvRows = [headers.join(',')];
+
+    sorted.forEach(({d, ms})=>{
+      const line = [
+        levelLabel[elapsedColorClass(ms)] || '',
+        formatDurationHuman(ms),
+        d.nombre, STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus',
+        d.reclutador, d.telefono, d.proyecto, d.sucursal,
+        d.notaPendientes || '', ''
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+
+    // Anexa al final los descartados que estaban en Pre alta, con cuánto duraron antes de descartarse.
+    discardedAlta.forEach(d=>{
+      const waitedMs = (d.discardedAt && d.fechaRegistro)
+        ? (new Date(d.discardedAt).getTime() - new Date(d.fechaRegistro).getTime())
+        : null;
+      const line = [
+        'Descartado',
+        waitedMs != null ? formatDurationHuman(waitedMs) : '',
+        d.nombre, STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus',
+        d.reclutador, d.telefono, d.proyecto, d.sucursal,
+        d.notaPendientes || '', formatDateTime(d.discardedAt)
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `pendientes_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`CSV exportado (${entries ? entries.length : 0} pendientes · ${discardedAlta.length} descartados en Pre alta)`);
+  }
+
+  function renderCompletedStats(list){
+    const el = document.getElementById('completedStats');
+    if(!el) return;
+    el.innerHTML = '';
+    const chip = document.createElement('span');
+    chip.className = 'chip chip-alta';
+    chip.textContent = `${list.length} con carga realizada`;
+    el.appendChild(chip);
+  }
+
+  function renderCompletedView(){
+    const tbody = document.getElementById('tbodyCompleted');
+    if(!tbody) return;
+    const list = getCompletedDrivers();
+    tbody.innerHTML = '';
+
+    if(list.length === 0){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 10;
+      td.className = 'empty-state';
+      td.textContent = 'Todavía no hay choferes con "Carga realizada" marcada. Aparecerán aquí en automático.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+      const { orderedList, dupFlags } = groupDuplicates(list);
+      orderedList.forEach((d,i)=> tbody.appendChild(buildRow(d, dupFlags[i])));
+    }
+    renderCompletedStats(list);
+  }
+
+  function exportCompletedCSV(){
+    const rows = getCompletedDrivers();
+    if(rows.length === 0){ toast('No hay registros con carga realizada para exportar'); return; }
+    const headers = ['Reclutador','Nombre del chofer','Teléfono','Proyecto','Sucursal','Fecha de registro','Fecha de alta','Nota','Estatus'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(d=>{
+      const line = [
+        d.reclutador, d.nombre, d.telefono, d.proyecto, d.sucursal,
+        formatDateTime(d.fechaRegistro), d.fechaAlta ? formatDateTime(d.fechaAlta) : '',
+        d.nota, d.estatus || ''
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `alta_con_carga_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('CSV exportado');
+  }
+
+  function updateCompletedTabBadge(){
+    const el = document.getElementById('completedCount');
+    if(!el) return;
+    el.innerHTML = '';
+    const n = getCompletedDrivers().length;
+    if(n > 0){
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.style.background = 'var(--success)';
+      badge.textContent = n;
+      el.appendChild(badge);
+    }
+  }
+
+  /* ---------- pestañas por proyecto (Amazon / Liverpool / La Comer) ---------- */
+  // Cada tab muestra TODOS los choferes de ese proyecto (activos + con carga realizada),
+  // sin importar el estatus, para tener de un vistazo el panorama completo de esa cuenta.
+  const PROJECT_TABS = [
+    { key: 'AMAZON',    label: 'projAmazon',    tbody: 'tbodyProjAmazon',    stats: 'projAmazonStats',    count: 'projAmazonCount',    badgeColor: 'var(--accent)' },
+    { key: 'LIVERPOOL', label: 'projLiverpool', tbody: 'tbodyProjLiverpool', stats: 'projLiverpoolStats', count: 'projLiverpoolCount', badgeColor: 'var(--accent)' },
+    { key: 'LA COMER',  label: 'projLacomer',   tbody: 'tbodyProjLacomer',   stats: 'projLacomerStats',   count: 'projLacomerCount',   badgeColor: 'var(--accent)' }
+  ];
+
+  function getProjectDrivers(key){
+    return drivers.filter(d => (d.proyecto || '').trim().toUpperCase().includes(key));
+  }
+
+  function renderProjectStats(containerId, list){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    el.innerHTML = '';
+    const jaky = list.filter(d=>d.estatus==='Jaky').length;
+    const dani = list.filter(d=>d.estatus==='Dani').length;
+    const alta = list.filter(d=>d.estatus==='Alta');
+    const altaPend = alta.filter(d=>!d.cargaRealizada).length;
+    const done = list.filter(d=>d.cargaRealizada).length;
+    const chips = [
+      { label:`${list.length} en total`, cls:'' },
+      { label:`${jaky} Jaky`, cls:'chip-jaky' },
+      { label:`${dani} Dani`, cls:'chip-dani' },
+      { label:`${alta.length} Pre alta (${altaPend} pend.)`, cls:'chip-alta' },
+      { label:`${done} con carga realizada`, cls:'chip-alta' }
+    ];
+    chips.forEach(c=>{
+      const span = document.createElement('span');
+      span.className = 'chip ' + c.cls;
+      span.textContent = c.label;
+      el.appendChild(span);
+    });
+  }
+
+  function renderProjectView(tab){
+    const tbody = document.getElementById(tab.tbody);
+    if(!tbody) return;
+    const list = getProjectDrivers(tab.key);
+    tbody.innerHTML = '';
+
+    if(list.length === 0){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 10;
+      td.className = 'empty-state';
+      td.textContent = `Todavía no hay choferes con proyecto "${tab.key}".`;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+      const { orderedList, dupFlags } = groupDuplicates(list);
+      orderedList.forEach((d,i)=> tbody.appendChild(buildRow(d, dupFlags[i])));
+    }
+    renderProjectStats(tab.stats, list);
+  }
+
+  function exportProjectCSV(tab){
+    const rows = getProjectDrivers(tab.key);
+    if(rows.length === 0){ toast('No hay registros de este proyecto para exportar'); return; }
+    const headers = ['Reclutador','Nombre del chofer','Teléfono','Proyecto','Sucursal','Fecha de registro','Fecha de alta','Nota','Estatus','Carga realizada'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(d=>{
+      const line = [
+        d.reclutador, d.nombre, d.telefono, d.proyecto, d.sucursal,
+        formatDateTime(d.fechaRegistro), d.fechaAlta ? formatDateTime(d.fechaAlta) : '',
+        d.nota, d.estatus || '', d.cargaRealizada ? 'Sí' : 'No'
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `${tab.label}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('CSV exportado');
+  }
+
+  function updateProjectTabBadges(){
+    PROJECT_TABS.forEach(tab=>{
+      const el = document.getElementById(tab.count);
+      if(!el) return;
+      el.innerHTML = '';
+      const n = getProjectDrivers(tab.key).length;
+      if(n > 0){
+        const badge = document.createElement('span');
+        badge.className = 'tab-badge';
+        badge.style.background = tab.badgeColor;
+        badge.textContent = n;
+        el.appendChild(badge);
+      }
+    });
+  }
+
+  function renderDiscarded(){
+    const wrap = document.getElementById('discardedContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    if(discarded.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'No hay choferes descartados. Los que marques con "Descartado" en la tabla aparecerán aquí.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.textContent = `Choferes descartados (${discarded.length})`;
+    card.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'discarded-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus al descartar</th><th>Descartado el</th><th></th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    discarded.forEach(d=>{
+      const tr = document.createElement('tr');
+
+      const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre;
+      const tdTel = document.createElement('td'); tdTel.className = 'mono'; tdTel.textContent = d.telefono || '—';
+      const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
+      const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
+      const tdFecha = document.createElement('td'); tdFecha.className = 'mono'; tdFecha.textContent = formatDateTime(d.discardedAt);
+
+      const tdAcc = document.createElement('td');
+      const btnRestore = document.createElement('button');
+      btnRestore.type = 'button'; btnRestore.className = 'btn-secondary'; btnRestore.style.marginRight = '6px';
+      btnRestore.textContent = '↺ Restaurar';
+      btnRestore.addEventListener('click', ()=> restoreDriver(d.id));
+      const btnDelete = document.createElement('button');
+      btnDelete.type = 'button'; btnDelete.className = 'btn-danger';
+      btnDelete.textContent = '✕ Borrar';
+      btnDelete.addEventListener('click', ()=> deleteDiscardedForever(d.id));
+      tdAcc.appendChild(btnRestore); tdAcc.appendChild(btnDelete);
+
+      tr.appendChild(tdNombre); tr.appendChild(tdTel); tr.appendChild(tdProy);
+      tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdAcc);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    const tableScroll = document.createElement('div');
+    tableScroll.className = 'table-scroll-x';
+    tableScroll.appendChild(table);
+    card.appendChild(tableScroll);
+    wrap.appendChild(card);
+  }
+
+  function renderBaja(){
+    const wrap = document.getElementById('bajaContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    if(baja.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'No hay choferes dados de baja. Los que marques con "Baja" en la tabla aparecerán aquí, con su motivo.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.textContent = `Choferes dados de baja (${baja.length})`;
+    card.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'discarded-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus al dar de baja</th><th>Fecha de baja</th><th>Motivo</th><th></th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    baja.forEach(d=>{
+      const tr = document.createElement('tr');
+
+      const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre;
+      const tdTel = document.createElement('td'); tdTel.className = 'mono'; tdTel.textContent = d.telefono || '—';
+      const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
+      const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
+      const tdFecha = document.createElement('td'); tdFecha.className = 'mono'; tdFecha.textContent = formatDateTime(d.bajaAt);
+
+      const tdMotivo = document.createElement('td');
+      const inpMotivo = document.createElement('input');
+      inpMotivo.type = 'text';
+      inpMotivo.className = 'cell-input';
+      inpMotivo.placeholder = 'Motivo de la baja…';
+      inpMotivo.value = d.motivoBaja || '';
+      inpMotivo.addEventListener('change', ()=> updateBajaMotivo(d.id, inpMotivo.value));
+      tdMotivo.appendChild(inpMotivo);
+
+      const tdAcc = document.createElement('td');
+      const btnRestore = document.createElement('button');
+      btnRestore.type = 'button'; btnRestore.className = 'btn-secondary'; btnRestore.style.marginRight = '6px';
+      btnRestore.textContent = '↺ Restaurar';
+      btnRestore.addEventListener('click', ()=> restoreFromBaja(d.id));
+      const btnDelete = document.createElement('button');
+      btnDelete.type = 'button'; btnDelete.className = 'btn-danger';
+      btnDelete.textContent = '✕ Borrar';
+      btnDelete.addEventListener('click', ()=> deleteBajaForever(d.id));
+      tdAcc.appendChild(btnRestore); tdAcc.appendChild(btnDelete);
+
+      tr.appendChild(tdNombre); tr.appendChild(tdTel); tr.appendChild(tdProy);
+      tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdMotivo); tr.appendChild(tdAcc);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    const tableScroll = document.createElement('div');
+    tableScroll.className = 'table-scroll-x';
+    tableScroll.appendChild(table);
+    card.appendChild(tableScroll);
+    wrap.appendChild(card);
+  }
+
+  function updateBajaTabBadge(){
+    const el = document.getElementById('bajaCount');
+    if(!el) return;
+    el.innerHTML = '';
+    if(baja.length > 0){
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.style.background = 'var(--ink)';
+      badge.textContent = baja.length;
+      el.appendChild(badge);
+    }
+  }
+
+  function updateDiscardedTabBadge(){
+    const el = document.getElementById('discardedCount');
+    if(!el) return;
+    el.innerHTML = '';
+    if(discarded.length > 0){
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.textContent = discarded.length;
+      el.appendChild(badge);
+    }
+  }
+
+  // Animación de "toque": dibuja una onda que se expande desde el punto exacto donde
+  // se tocó/hizo clic, y hace que el botón se hunda un poco, como al presionarlo con el dedo.
+  function addTapRipple(evt, btn){
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.5;
+    const clientX = (evt && evt.clientX) || (rect.left + rect.width / 2);
+    const clientY = (evt && evt.clientY) || (rect.top + rect.height / 2);
+
+    const ripple = document.createElement('span');
+    ripple.className = 'tap-ripple';
+    ripple.style.width = size + 'px';
+    ripple.style.height = size + 'px';
+    ripple.style.left = (clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (clientY - rect.top - size / 2) + 'px';
+    ripple.style.background = btn.classList.contains('active') ? 'rgba(255,255,255,.45)' : 'rgba(47,111,237,.25)';
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', ()=> ripple.remove());
+
+    btn.classList.remove('tap-press');
+    void btn.offsetWidth; // reinicia la animación si se toca varias veces seguidas
+    btn.classList.add('tap-press');
+    setTimeout(()=> btn.classList.remove('tap-press'), 300);
+  }
+
+  /* ================= Gatito de escritorio (SVG interactivo) ================= */
+  function initDesktopCat(){
+    const CAT_ACTION_INTERVAL = 5000;
+    const CAT_WALK_DURATION   = 1.8;
+    const CAT_SCRATCH_DURATION= 2600;
+    const CAT_EYE_MAX_OFFSET  = 4.2;
+
+    const catEl = document.getElementById('catPet');
+    if(!catEl) return;
+    const catPoses = {
+      walk: document.getElementById('poseWalk'),
+      sit: document.getElementById('poseSit'),
+      scratch: document.getElementById('poseScratch')
+    };
+    const catAllEyes = Array.from(catEl.querySelectorAll('.eye'));
+    const catAllPupilGroups = Array.from(catEl.querySelectorAll('.pupilGroup'));
+
+    let catPosX = window.innerWidth / 2 - 52;
+    let catPosY = window.innerHeight / 2 - 60;
+    let catCurrentPose = 'walk';
+    let catFacingRight = false;
+    let catDragging = false;
+    let catDragMoved = false;
+    let catDragOffsetX = 0, catDragOffsetY = 0;
+
+    let catActionIntervalId = null;
+    let catPoseRevertTimeout = null;
+    let catBlinkTimeoutId = null;
+    let catHappyTimeoutId = null;
+    let catSpinTimeoutId = null;
+
+    function catClampPos(px, py){
+      const w = catEl.offsetWidth || 104, h = catEl.offsetHeight || 120;
+      return {
+        x: Math.min(Math.max(px, 0), Math.max(window.innerWidth - w, 0)),
+        y: Math.min(Math.max(py, 0), Math.max(window.innerHeight - h, 0))
+      };
+    }
+
+    function catApplyPosition(){
+      catEl.style.left = catPosX + 'px';
+      catEl.style.top = catPosY + 'px';
+    }
+
+    function catSetPose(name){
+      Object.keys(catPoses).forEach(k=> catPoses[k].classList.toggle('active', k === name));
+      catPoses.walk.classList.remove('walking');
+      catPoses.scratch.classList.remove('scratching');
+      catCurrentPose = name;
+    }
+
+    function catSetFacing(right){
+      catFacingRight = right;
+      catEl.classList.toggle('facing-right', right);
+    }
+
+    function catUpdateGaze(mouseX, mouseY){
+      const rect = catEl.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height * 0.32;
+      const dx = mouseX - cx, dy = mouseY - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const offX = (dx / dist) * CAT_EYE_MAX_OFFSET;
+      const offY = (dy / dist) * CAT_EYE_MAX_OFFSET * 0.7;
+      const sign = catFacingRight ? -1 : 1;
+      catAllPupilGroups.forEach(p=>{ p.style.transform = `translate(${offX * sign}px, ${offY}px)`; });
+    }
+
+    document.addEventListener('mousemove', (e)=>{ if(!catDragging) catUpdateGaze(e.clientX, e.clientY); });
+
+    function catBlinkOnce(){
+      catAllEyes.forEach(eye=> eye.classList.add('blinking'));
+      setTimeout(()=> catAllEyes.forEach(eye=> eye.classList.remove('blinking')), 130);
+    }
+    function catScheduleBlink(){
+      clearTimeout(catBlinkTimeoutId);
+      catBlinkTimeoutId = setTimeout(()=>{
+        if(catCurrentPose === 'sit'){ catBlinkOnce(); catScheduleBlink(); }
+      }, 1500 + Math.random() * 2200);
+    }
+
+    function catDoWalk(){
+      catSetPose('walk');
+      const margin = 20;
+      const targetX = margin + Math.random() * Math.max(window.innerWidth - 104 - margin * 2, 1);
+      catSetFacing(targetX > catPosX);
+      catPoses.walk.classList.add('walking');
+      catEl.style.transition = `left ${CAT_WALK_DURATION}s ease-in-out, top ${CAT_WALK_DURATION}s ease-in-out`;
+      const p = catClampPos(targetX, catPosY);
+      catPosX = p.x; catPosY = p.y;
+      catApplyPosition();
+      clearTimeout(catPoseRevertTimeout);
+      catPoseRevertTimeout = setTimeout(()=> catPoses.walk.classList.remove('walking'), CAT_WALK_DURATION * 1000);
+    }
+
+    function catDoSit(){
+      catEl.style.transition = 'left .4s ease, top .4s ease';
+      catSetPose('sit');
+      catScheduleBlink();
+      clearTimeout(catPoseRevertTimeout);
+    }
+
+    function catDoScratch(){
+      catEl.style.transition = 'left .4s ease, top .4s ease';
+      catSetPose('scratch');
+      catPoses.scratch.classList.add('scratching');
+      clearTimeout(catPoseRevertTimeout);
+      catPoseRevertTimeout = setTimeout(()=> catPoses.scratch.classList.remove('scratching'), CAT_SCRATCH_DURATION);
+    }
+
+    function catPerformRandomAction(){
+      if(catDragging) return;
+      const choices = ['walk', 'sit', 'scratch'];
+      const choice = choices[Math.floor(Math.random() * choices.length)];
+      if(choice === 'walk') catDoWalk();
+      else if(choice === 'sit') catDoSit();
+      else catDoScratch();
+    }
+
+    function catRestartActionCycle(){
+      clearInterval(catActionIntervalId);
+      catActionIntervalId = setInterval(catPerformRandomAction, CAT_ACTION_INTERVAL);
+    }
+
+    function catSpawnHeart(clientX, clientY){
+      const heart = document.createElement('span');
+      heart.className = 'cat-heart';
+      heart.textContent = '❤️';
+      heart.style.left = (clientX + (Math.random() * 40 - 20)) + 'px';
+      heart.style.top = (clientY - 10) + 'px';
+      document.body.appendChild(heart);
+      setTimeout(()=> heart.remove(), 1050);
+    }
+
+    function catTriggerHappy(clientX, clientY){
+      catAllEyes.forEach(eye=> eye.classList.add('happy'));
+      catEl.classList.add('happy-vibrate');
+      setTimeout(()=> catEl.classList.remove('happy-vibrate'), 400);
+      clearTimeout(catHappyTimeoutId);
+      catHappyTimeoutId = setTimeout(()=> catAllEyes.forEach(eye=> eye.classList.remove('happy')), 1200);
+      for(let i = 0; i < 3; i++){ setTimeout(()=> catSpawnHeart(clientX, clientY), i * 120); }
+    }
+
+    // Doble clic: giro 3D gracioso estilo Blender, y regresa solo a la normalidad.
+    function catTriggerBlenderSpin(){
+      catEl.classList.remove('spin-3d');
+      void catEl.offsetWidth; // reinicia la animación si se hace doble clic varias veces seguidas
+      catEl.classList.add('spin-3d');
+      clearTimeout(catSpinTimeoutId);
+      catSpinTimeoutId = setTimeout(()=> catEl.classList.remove('spin-3d'), 1350);
+    }
+
+    let catClickCount = 0;
+    let catClickTimer = null;
+    catEl.addEventListener('click', (e)=>{
+      if(catDragMoved){ catDragMoved = false; return; }
+      catClickCount++;
+      if(catClickCount === 1){
+        clearTimeout(catClickTimer);
+        catClickTimer = setTimeout(()=>{
+          catTriggerHappy(e.clientX, e.clientY);
+          catClickCount = 0;
+        }, 280);
+      } else {
+        clearTimeout(catClickTimer);
+        catClickCount = 0;
+        catTriggerBlenderSpin();
+      }
+    });
+
+    function catStartDrag(clientX, clientY){
+      catDragging = true;
+      catDragMoved = false;
+      catDragOffsetX = clientX - catPosX;
+      catDragOffsetY = clientY - catPosY;
+      catEl.style.transition = 'none';
+      catEl.classList.add('dragging');
+      clearInterval(catActionIntervalId);
+      clearTimeout(catPoseRevertTimeout);
+      catSetPose('scratch');
+      catPoses.scratch.classList.add('scratching');
+    }
+
+    function catMoveDrag(clientX, clientY){
+      if(!catDragging) return;
+      catDragMoved = true;
+      const p = catClampPos(clientX - catDragOffsetX, clientY - catDragOffsetY);
+      catPosX = p.x; catPosY = p.y;
+      catApplyPosition();
+      catUpdateGaze(clientX, clientY);
+    }
+
+    function catEndDrag(){
+      if(!catDragging) return;
+      catDragging = false;
+      catEl.classList.remove('dragging');
+      catPoses.scratch.classList.remove('scratching');
+      catSetPose('walk');
+      catRestartActionCycle();
+      setTimeout(()=>{ catDragMoved = false; }, 50);
+    }
+
+    catEl.addEventListener('mousedown', (e)=>{ e.preventDefault(); catStartDrag(e.clientX, e.clientY); });
+    document.addEventListener('mousemove', (e)=> catMoveDrag(e.clientX, e.clientY));
+    document.addEventListener('mouseup', catEndDrag);
+
+    catEl.addEventListener('touchstart', (e)=>{ const t = e.touches[0]; catStartDrag(t.clientX, t.clientY); }, { passive:true });
+    document.addEventListener('touchmove', (e)=>{ if(!catDragging) return; const t = e.touches[0]; catMoveDrag(t.clientX, t.clientY); }, { passive:true });
+    document.addEventListener('touchend', catEndDrag);
+
+    window.addEventListener('resize', ()=>{
+      const p = catClampPos(catPosX, catPosY);
+      catPosX = p.x; catPosY = p.y;
+      catApplyPosition();
+    });
+
+    catApplyPosition();
+    catSetPose('walk');
+    catRestartActionCycle();
+    setTimeout(catPerformRandomAction, 1200);
+  }
+
+  let currentView = 'table';
+  function switchView(view){
+    currentView = view;
+    document.getElementById('viewTable').style.display = view === 'table' ? '' : 'none';
+    document.getElementById('viewPending').style.display = view === 'pending' ? '' : 'none';
+    document.getElementById('viewCompleted').style.display = view === 'completed' ? '' : 'none';
+    document.getElementById('viewProjAmazon').style.display = view === 'projAmazon' ? '' : 'none';
+    document.getElementById('viewProjLiverpool').style.display = view === 'projLiverpool' ? '' : 'none';
+    document.getElementById('viewProjLacomer').style.display = view === 'projLacomer' ? '' : 'none';
+    document.getElementById('viewMetrics').style.display = view === 'metrics' ? '' : 'none';
+    document.getElementById('viewBaja').style.display = view === 'baja' ? '' : 'none';
+    document.getElementById('viewDiscarded').style.display = view === 'discarded' ? '' : 'none';
+    document.getElementById('tabTable').classList.toggle('active', view === 'table');
+    document.getElementById('tabPending').classList.toggle('active', view === 'pending');
+    document.getElementById('tabCompleted').classList.toggle('active', view === 'completed');
+    document.getElementById('tabProjAmazon').classList.toggle('active', view === 'projAmazon');
+    document.getElementById('tabProjLiverpool').classList.toggle('active', view === 'projLiverpool');
+    document.getElementById('tabProjLacomer').classList.toggle('active', view === 'projLacomer');
+    document.getElementById('tabMetrics').classList.toggle('active', view === 'metrics');
+    document.getElementById('tabBaja').classList.toggle('active', view === 'baja');
+    document.getElementById('tabDiscarded').classList.toggle('active', view === 'discarded');
+    if(view === 'pending') renderPendingView();
+    if(view === 'completed') renderCompletedView();
+    if(view === 'projAmazon') renderProjectView(PROJECT_TABS[0]);
+    if(view === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
+    if(view === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
+    if(view === 'metrics') renderMetrics();
+    if(view === 'baja') renderBaja();
+    if(view === 'discarded') renderDiscarded();
+  }
+
+  function updateHeaderClock(){
+    const el = document.getElementById('headerClock');
+    const now = new Date();
+    const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    el.textContent = `${dias[now.getDay()]} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} · ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+
+  /* ---------- export ---------- */
+  function exportCSV(){
+    const rows = getFilteredDrivers();
+    if(rows.length === 0){ toast('No hay registros para exportar'); return; }
+    const headers = ['Reclutador','Nombre del chofer','Teléfono','Proyecto','Sucursal','Fecha de registro','Fecha de alta','Nota','Estatus','Carga realizada'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(d=>{
+      const line = [
+        d.reclutador, d.nombre, d.telefono, d.proyecto, d.sucursal,
+        formatDateTime(d.fechaRegistro), d.fechaAlta ? formatDateTime(d.fechaAlta) : '',
+        d.nota, d.estatus || '', d.estatus === 'Alta' ? (d.cargaRealizada ? 'Sí' : 'No') : ''
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `choferes_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('CSV exportado');
+  }
+
+  /* ---------- borrar todo ---------- */
+  function clearAllData(){
+    if(drivers.length === 0 && importBatches.length === 0 && discarded.length === 0 && baja.length === 0){ toast('No hay datos que borrar'); return; }
+    const count = drivers.length;
+    if(!confirm(`¿Borrar TODA la información? Se eliminarán los ${count} choferes registrados (descartados y bajas incluidos) y no se puede deshacer.`)) return;
+    drivers = [];
+    importBatches = [];
+    discarded = [];
+    baja = [];
+    saveData();
+    saveBatches();
+    saveDiscarded();
+    saveBaja();
+    render();
+    if(currentView === 'discarded') renderDiscarded();
+    if(currentView === 'baja') renderBaja();
+    toast('Toda la información fue borrada');
+  }
+
+  /* ---------- import (Excel / CSV) ---------- */
+  const IMPORT_HEADER_SYNONYMS = {
+    nombre:      ['NOMBRE','NOMBRE DEL CHOFER','CHOFER','NOMBRE CHOFER'],
+    proyecto:    ['PROYECTO'],
+    sucursal:    ['SUCURSAL'],
+    telefono:    ['TELEFONO','NUMERO','NUMERO DE TELEFONO','TEL','CELULAR'],
+    fechaAlta:   ['FECHA DE ALTA','FECHA ALTA'],
+    fechaCarga:  ['FECHA DE CARGA','FECHA CARGA'],
+    reclutador:  ['RECLUTADOR'],
+    nota:        ['NOTA','NOTAS','COMENTARIO','COMENTARIOS'],
+    estatus:     ['ESTATUS','STATUS']
+  };
+
+  function normalizeHeader(h){
+    return String(h || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function buildImportHeaderMap(headers){
+    const map = {};
+    headers.forEach(h=>{
+      const n = normalizeHeader(h);
+      for(const key in IMPORT_HEADER_SYNONYMS){
+        if(!map[key] && IMPORT_HEADER_SYNONYMS[key].includes(n)) map[key] = h;
+      }
+    });
+    return map;
+  }
+
+  // Handles real Date objects (from cellDates:true) and messy text like "28/07//2026" or "DESERTO".
+  function parseFlexibleDateValue(value){
+    if(value instanceof Date && !isNaN(value.getTime())) return value;
+    if(typeof value === 'string'){
+      const s = value.trim();
+      if(!s) return null;
+      const cleaned = s.replace(/\/{2,}/g, '/');
+      const m = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if(m){
+        const day = parseInt(m[1],10), month = parseInt(m[2],10), year = parseInt(m[3],10);
+        const d = new Date(year, month-1, day);
+        if(!isNaN(d.getTime())) return d;
+      }
+      if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+        const d2 = new Date(s);
+        if(!isNaN(d2.getTime())) return d2;
+      }
+    }
+    return null;
+  }
+
+  async function handleImportFile(file){
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:'array', cellDates:true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+
+      if(json.length === 0){ toast('El archivo no tiene filas de datos'); return; }
+
+      const hmap = buildImportHeaderMap(Object.keys(json[0]));
+      if(!hmap.nombre){ toast('No se encontró una columna de nombre en el archivo'); return; }
+
+      const batchId = 'imp_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      let added = 0, updated = 0, skipped = 0;
+
+      json.forEach(row=>{
+        const nombre = String(row[hmap.nombre] || '').trim();
+        if(!nombre){ skipped++; return; }
+
+        const proyecto   = hmap.proyecto   ? String(row[hmap.proyecto]   || '').trim() : '';
+        const sucursal   = hmap.sucursal   ? String(row[hmap.sucursal]   || '').trim() : '';
+        const telefono   = hmap.telefono   ? String(row[hmap.telefono]   || '').trim() : '';
+        const reclRaw    = hmap.reclutador ? String(row[hmap.reclutador] || '').trim() : '';
+        const notaRaw    = hmap.nota       ? String(row[hmap.nota]       || '').trim() : '';
+        const estatusRaw = hmap.estatus    ? String(row[hmap.estatus]    || '').trim() : '';
+
+        const fechaAltaRaw  = hmap.fechaAlta  ? row[hmap.fechaAlta]  : '';
+        const fechaCargaRaw = hmap.fechaCarga ? row[hmap.fechaCarga] : '';
+        const fechaAltaDate  = parseFlexibleDateValue(fechaAltaRaw);
+        const fechaCargaDate = parseFlexibleDateValue(fechaCargaRaw);
+
+        // Si el archivo trae fecha de alta / carga, es el tramo de "Alta" del proceso.
+        const estatusFinal = ['Jaky','Dani','Alta'].includes(estatusRaw)
+          ? estatusRaw
+          : (hmap.fechaAlta || hmap.fechaCarga ? 'Alta' : '');
+        const reclutadorFinal = RECRUITERS.includes(reclRaw) ? reclRaw : 'free';
+
+        const notas = [];
+        if(notaRaw) notas.push(notaRaw);
+        if(fechaCargaRaw && !fechaCargaDate) notas.push('Carga: ' + String(fechaCargaRaw).trim());
+        if(fechaAltaRaw && !fechaAltaDate) notas.push('Fecha de alta (texto original): ' + String(fechaAltaRaw).trim());
+
+        const existing = findDriverByName(nombre);
+        if(existing){
+          // Fila ya existía antes de esta importación: se actualiza pero NO se etiqueta
+          // con el lote, para que "borrar esta importación" no elimine datos previos.
+          if(proyecto) existing.proyecto = proyecto;
+          if(sucursal) existing.sucursal = sucursal;
+          if(telefono) existing.telefono = telefono;
+          if(estatusFinal) applyStatusChange(existing, estatusFinal);
+          if(notas.length && !existing.nota) existing.nota = notas.join(' · ');
+          if(fechaCargaDate){ existing.fechaAlta = fechaCargaDate.toISOString(); existing.cargaRealizada = true; }
+          updated++;
+        } else {
+          const driver = createDriverObject({
+            reclutador: reclutadorFinal,
+            nombre, telefono, proyecto, sucursal,
+            estatus: estatusFinal,
+            nota: notas.join(' · ')
+          });
+          driver.fechaRegistro = (fechaAltaDate || fechaCargaDate || new Date()).toISOString();
+          if(driver.statusHistory.length) driver.statusHistory[0].at = driver.fechaRegistro;
+          if(fechaCargaDate){ driver.fechaAlta = fechaCargaDate.toISOString(); driver.cargaRealizada = true; }
+          driver.importBatchId = batchId;
+          driver.importFileName = file.name;
+          drivers.unshift(driver);
+          added++;
+        }
+      });
+
+      if(added > 0){
+        importBatches.unshift({ id: batchId, fileName: file.name, count: added, importedAt: new Date().toISOString() });
+        saveBatches();
+      }
+
+      saveData();
+      render();
+
+      const parts = [];
+      if(added) parts.push(`${added} importado${added===1?'':'s'}`);
+      if(updated) parts.push(`${updated} actualizado${updated===1?'':'s'}`);
+      if(skipped) parts.push(`${skipped} omitido${skipped===1?'':'s'} (sin nombre)`);
+      toast(parts.join(' · ') || 'No se importó ningún registro');
+    }catch(err){
+      console.error('Error importando archivo', err);
+      toast('No se pudo leer el archivo. Verifica que sea un .xlsx, .xls o .csv válido.');
+    }
+  }
+
+  function deleteImportBatch(batchId){
+    const batch = importBatches.find(b=>b.id===batchId);
+    if(!batch) return;
+    const stillPresent = drivers.filter(d=>d.importBatchId===batchId).length;
+    if(!confirm(`¿Borrar los ${stillPresent} choferes que llegaron de "${batch.fileName}"? Esto no afecta registros agregados o pegados a mano.`)) return;
+    drivers = drivers.filter(d=>d.importBatchId !== batchId);
+    importBatches = importBatches.filter(b=>b.id !== batchId);
+    saveData();
+    saveBatches();
+    render();
+    toast(`Importación de "${batch.fileName}" borrada`);
+  }
+
+  function renderImportBatches(){
+    const wrap = document.getElementById('importBatches');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    if(importBatches.length === 0){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    importBatches.forEach(b=>{
+      const remaining = drivers.filter(d=>d.importBatchId===b.id).length;
+      const chip = document.createElement('span');
+      chip.className = 'import-chip';
+      const label = document.createElement('span');
+      label.textContent = `📄 ${b.fileName} · ${remaining} registro${remaining===1?'':'s'}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'import-chip-del';
+      btn.title = 'Borrar esta importación';
+      btn.textContent = '✕';
+      btn.addEventListener('click', ()=> deleteImportBatch(b.id));
+      chip.appendChild(label);
+      chip.appendChild(btn);
+      wrap.appendChild(chip);
+    });
+  }
+
+  /* ---------- manual add modal ---------- */
+  function populateSelect(sel, options){
+    sel.innerHTML = '';
+    options.forEach(r=>{
+      const opt = document.createElement('option');
+      opt.value = r; opt.textContent = r;
+      sel.appendChild(opt);
+    });
+  }
+
+  function openManualModal(){
+    document.getElementById('formManual').reset();
+    populateSelect(document.getElementById('mReclutador'), RECRUITERS);
+    document.getElementById('modalManual').showModal();
+    document.getElementById('mNombre').focus();
+  }
+
+  /* ---------- init ---------- */
+  function initReclutadorFilter(){
+    const sel = document.getElementById('fReclutador');
+    RECRUITERS.forEach(r=>{
+      const opt = document.createElement('option');
+      opt.value = r; opt.textContent = r;
+      sel.appendChild(opt);
+    });
+  }
+
+  function init(){
+    loadData();
+    loadBatches();
+    loadDiscarded();
+    loadBaja();
+    initReclutadorFilter();
+    render();
+    updateHeaderClock();
+    setInterval(updateHeaderClock, 1000);
+    setInterval(updateElapsedTimers, 1000);
+    setInterval(()=>{
+      if(currentView !== 'pending') return;
+      const active = document.activeElement;
+      if(active && active.classList && active.classList.contains('pending-note-input')) return; // no interrumpir mientras escribes una nota
+      renderPendingView();
+    }, 30000);
+
+    document.getElementById('btnProcess').addEventListener('click', handleProcess);
+    document.getElementById('btnExport').addEventListener('click', exportCSV);
+    document.getElementById('btnClearAll').addEventListener('click', clearAllData);
+    document.getElementById('tabTable').addEventListener('click', ()=> switchView('table'));
+    document.getElementById('tabMetrics').addEventListener('click', ()=> switchView('metrics'));
+    document.getElementById('tabDiscarded').addEventListener('click', ()=> switchView('discarded'));
+    document.getElementById('tabBaja').addEventListener('click', ()=> switchView('baja'));
+    document.getElementById('tabPending').addEventListener('click', (e)=>{
+      addTapRipple(e, document.getElementById('tabPending'));
+      switchView('pending');
+    });
+    initDesktopCat();
+    document.getElementById('tabCompleted').addEventListener('click', ()=> switchView('completed'));
+    document.getElementById('btnExportCompleted').addEventListener('click', exportCompletedCSV);
+    document.getElementById('tabProjAmazon').addEventListener('click', ()=> switchView('projAmazon'));
+    document.getElementById('tabProjLiverpool').addEventListener('click', ()=> switchView('projLiverpool'));
+    document.getElementById('tabProjLacomer').addEventListener('click', ()=> switchView('projLacomer'));
+    document.getElementById('btnExportProjAmazon').addEventListener('click', ()=> exportProjectCSV(PROJECT_TABS[0]));
+    document.getElementById('btnExportProjLiverpool').addEventListener('click', ()=> exportProjectCSV(PROJECT_TABS[1]));
+    document.getElementById('btnExportProjLacomer').addEventListener('click', ()=> exportProjectCSV(PROJECT_TABS[2]));
+    document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('fileImport').click());
+    document.getElementById('fileImport').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(file) handleImportFile(file);
+      e.target.value = '';
+    });
+    document.getElementById('btnAddManual').addEventListener('click', openManualModal);
+    document.getElementById('btnCancelManual').addEventListener('click', ()=> document.getElementById('modalManual').close());
+
+    document.getElementById('formManual').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const nombre = document.getElementById('mNombre').value.trim();
+      if(!nombre){ document.getElementById('mNombre').focus(); return; }
+      addDriver({
+        reclutador: document.getElementById('mReclutador').value,
+        nombre,
+        telefono: document.getElementById('mTelefono').value.trim(),
+        proyecto: document.getElementById('mProyecto').value.trim(),
+        sucursal: document.getElementById('mSucursal').value.trim(),
+        estatus: document.getElementById('mEstatus').value,
+        nota: document.getElementById('mNota').value.trim()
+      });
+      document.getElementById('modalManual').close();
+      toast('Chofer agregado');
+    });
+
+    document.getElementById('fReclutador').addEventListener('change', render);
+    document.getElementById('fProyecto').addEventListener('input', render);
+    document.getElementById('fSucursal').addEventListener('input', render);
+    document.getElementById('fDateType').addEventListener('change', render);
+    document.getElementById('fDateFrom').addEventListener('change', render);
+    document.getElementById('fDateTo').addEventListener('change', render);
+
+    document.getElementById('btnClearFilters').addEventListener('click', ()=>{
+      document.getElementById('fReclutador').value = '';
+      document.getElementById('fProyecto').value = '';
+      document.getElementById('fSucursal').value = '';
+      document.getElementById('fDateType').value = 'registro';
+      document.getElementById('fDateFrom').value = '';
+      document.getElementById('fDateTo').value = '';
+      render();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+<script src="/nav.js"></script>
+</body>
+</html>
