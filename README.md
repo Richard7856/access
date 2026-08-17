@@ -12,7 +12,7 @@ sin PHP, sin instalación.
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
 | `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
-| `/seguimiento` | choferes: pendientes, alta con carga, bajas | tu navegador, no se comparte |
+| `/seguimiento` | choferes: pendientes, alta con carga, bajas | **compartidos** (Supabase) |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
@@ -41,6 +41,23 @@ el navegador guarda una copia que pinta al instante y aguanta sin internet, y
 Supabase sigue siendo la lista del equipo — al abrir, lo compartido pisa lo
 local. El enganche se inserta **por expresión regular**, porque el valor inicial
 del estado cambia entre versiones (`useState([])`, `useState(loadStoredRecords)`).
+
+## Cómo se comparte el Seguimiento
+
+Esta app vive dentro de un `(function(){…})()`, así que sus funciones no se
+alcanzan desde fuera. El enganche es otro: arranca con `DOMContentLoaded`, así
+que `sync-seguimiento.js` —cargado en el `<head>`, antes que ella— **intercepta
+ese registro**, baja el estado del equipo, lo deja en `localStorage` y recién
+entonces la deja arrancar. La app carga los datos compartidos creyendo que son
+suyos.
+
+Para publicar se envuelve `Storage.prototype.setItem`. Tiene que ser en el
+**prototipo**: asignarle una propiedad a `localStorage` se ignora en silencio,
+porque los `Storage` tratan las asignaciones como entradas de datos.
+
+Los cambios de otros mientras la página está abierta se bajan, pero **no se
+repintan solos** —la app no expone su render— así que sale un aviso pidiendo
+recargar.
 
 ## Cómo se comparte el Clasificador
 
@@ -80,7 +97,8 @@ web/                            ← esto es lo que sirve Vercel
 ├── seguimiento/index.html
 ├── carrera/index.html
 ├── sync-clasificador.js       comparte el Clasificador
-└── sync-carrera.js             comparte la Carrera
+├── sync-carrera.js             comparte la Carrera
+└── sync-seguimiento.js         comparte el Seguimiento
 
 movil.css                 ajustes de celular, inyectada en las 8 páginas
 

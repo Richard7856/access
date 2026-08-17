@@ -37,7 +37,8 @@ OTRAS = [
      ["/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",        []),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
-    ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes", []),
+    ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes",
+     ["head:/sync-seguimiento.js"]),
     # Claude no siempre nombra igual el archivo de la carrera, así que se
     # aceptan los dos prefijos que ha usado.
     (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",
@@ -147,6 +148,19 @@ def con_estilos_movil(texto, etiqueta):
     if texto.count("</head>") != 1:
         morir(f"«{etiqueta}»: esperaba un solo </head> y encontré {texto.count('</head>')}")
     return texto.replace("</head>", '<link rel="stylesheet" href="/movil.css">\n</head>')
+
+
+def con_script_head(texto, etiqueta, ruta):
+    """Inyecta un script en el <head>, ANTES del código de la app.
+
+    Hace falta cuando el enganche tiene que existir antes de que la app
+    arranque — por ejemplo para retener su DOMContentLoaded.
+    """
+    if ruta in texto:
+        return texto
+    if texto.count("</head>") != 1:
+        morir(f"«{etiqueta}»: esperaba un solo </head> y encontré {texto.count('</head>')}")
+    return texto.replace("</head>", f'<script src="{ruta}"></script>\n</head>')
 
 
 def con_scripts(texto, etiqueta, rutas):
@@ -416,7 +430,7 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
-for js in ("sync-clasificador.js", "sync-carrera.js"):
+for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
@@ -458,6 +472,10 @@ for prefijo, destino, nombre, extra in OTRAS:
                   "para engancharle la memoria compartida.")
 
     contenido = con_estilos_movil(contenido, fuente.name)
-    contenido = con_barra(contenido, fuente.name, extra)
+    for r in extra:
+        if r.startswith("head:"):
+            contenido = con_script_head(contenido, fuente.name, r[5:])
+    contenido = con_barra(contenido, fuente.name,
+                          [r for r in extra if not r.startswith("head:")])
     (WEB / destino / "index.html").write_text(contenido, encoding="utf-8")
     print(f"✔ web/{destino}/index.html".ljust(38) + f"{len(contenido)/1024:.0f} KB  ← {fuente.name}")
