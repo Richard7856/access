@@ -19,12 +19,15 @@
   var ESPERA = 1200;    // respiro antes de publicar
   var SONDEO = 25000;   // cada cuánto miramos si alguien más guardó
 
-  /* Las cuatro cajas donde la app guarda su estado. */
+  /* Las cajas donde la app guarda su estado. Si una versión nueva agrega
+     otra y no se lista aquí, esa parte se queda sin compartir — la v29
+     sumó la bitácora. */
   var CAJAS = [
     'driverTrackerData_v1',
     'driverTrackerImportBatches_v1',
     'driverTrackerDiscarded_v1',
     'driverTrackerBaja_v1',
+    'driverTrackerLog_v1',
   ];
 
   var REST = CFG.url + '/rest/v1/despacho_estado';

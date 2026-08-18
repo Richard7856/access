@@ -12,7 +12,7 @@ sin PHP, sin instalación.
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
 | `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
-| `/seguimiento` | choferes: pendientes, alta con carga, bajas | **compartidos** (Supabase) |
+| `/seguimiento` | choferes: estatus, bitácora, búsqueda | **compartidos** (Supabase) |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
@@ -50,6 +50,10 @@ que `sync-seguimiento.js` —cargado en el `<head>`, antes que ella— **interce
 ese registro**, baja el estado del equipo, lo deja en `localStorage` y recién
 entonces la deja arrancar. La app carga los datos compartidos creyendo que son
 suyos.
+
+Las cajas que se sincronizan están listadas en `CAJAS`. **Si una versión nueva
+agrega otra y no se lista ahí, esa parte se queda sin compartir** — pasó con la
+v29, que sumó la bitácora.
 
 Para publicar se envuelve `Storage.prototype.setItem`. Tiene que ser en el
 **prototipo**: asignarle una propiedad a `localStorage` se ignora en silencio,

@@ -294,6 +294,26 @@
   .discarded-table tr:last-child td{border-bottom:none;}
   .discarded-table .mono{font-family:var(--font-mono); font-size:12px;}
 
+  .log-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+  .log-search{font-family:var(--font-body); font-size:13px; padding:8px 12px; border:1px solid var(--border); border-radius:7px; background:#FBFCFE; min-width:240px;}
+  .log-search:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  .log-action-chip{display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; white-space:nowrap;}
+  .log-action-Creado{background:var(--accent-soft); color:var(--accent);}
+  .log-action-Estatus{background:var(--jaky-soft); color:var(--jaky);}
+  .log-action-CargaRealizada{background:var(--success-soft); color:var(--success);}
+  .log-action-CargaRevertida{background:var(--amber-soft); color:var(--amber-ink);}
+  .log-action-Descartado{background:var(--danger-soft); color:var(--danger);}
+  .log-action-Baja{background:#ECECEC; color:var(--ink);}
+  .log-action-Restaurado{background:var(--success-soft); color:var(--success);}
+  .log-action-Eliminado{background:var(--danger-soft); color:var(--danger);}
+  .log-action-EliminadoDefinitivamente{background:var(--danger); color:#fff;}
+
+  .search-loc-badge{display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; white-space:nowrap;}
+  .search-loc-activo{background:var(--accent-soft); color:var(--accent);}
+  .search-loc-completado{background:var(--success-soft); color:var(--success);}
+  .search-loc-descartado{background:var(--danger-soft); color:var(--danger);}
+  .search-loc-baja{background:#ECECEC; color:var(--ink);}
+
   /* Métricas */
   .metrics-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; margin-bottom:18px;}
   .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px;}
@@ -329,6 +349,12 @@
   }
   .pending-note-input::placeholder{ color:var(--ink-soft); opacity:.75; }
   .pending-note-input:focus{ outline:none; border-style:solid; border-color:var(--accent); background:#fff; box-shadow:0 0 0 2px var(--accent-soft); }
+
+  .pending-card-controls{ margin-top:8px; padding-top:8px; border-top:1px dashed rgba(0,0,0,.08); }
+  .pending-status-select{ font-size:11.5px; padding:5px 6px; }
+  .pending-card-controls .carga-check{ margin-top:6px; font-size:10.5px; padding:4px 7px; }
+  .pending-card-mini-row{ display:flex; gap:6px; margin-top:6px; }
+  .pending-card-mini-row .discard-check, .pending-card-mini-row .baja-check{ margin-top:0; font-size:10.5px; padding:4px 7px; flex:1; justify-content:center; }
 
   .metrics-cols{display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start;}
   @media (max-width:900px){ .metrics-cols{grid-template-columns:1fr;} }
@@ -391,6 +417,7 @@
 <main>
 
   <div class="view-tabs">
+    <button id="tabSearch" class="view-tab" type="button">🔍 Buscar</button>
     <button id="tabTable" class="view-tab active" type="button">📋 Tabla</button>
     <button id="tabPending" class="view-tab" type="button">⏳ Pendientes <span id="pendingCount"></span></button>
     <button id="tabCompleted" class="view-tab" type="button">✅ Alta con carga <span id="completedCount"></span></button>
@@ -400,6 +427,7 @@
     <button id="tabMetrics" class="view-tab" type="button">📊 Métricas</button>
     <button id="tabBaja" class="view-tab" type="button">⛔ Baja <span id="bajaCount"></span></button>
     <button id="tabDiscarded" class="view-tab" type="button">🗑 Descartados <span id="discardedCount"></span></button>
+    <button id="tabLog" class="view-tab" type="button">📜 Bitácora <span id="logCount"></span></button>
   </div>
 
   <div id="viewTable">
@@ -619,6 +647,14 @@ En revisión de documentos con Jaky"></textarea>
     <div id="discardedContent"></div>
   </div>
 
+  <div id="viewLog" style="display:none;">
+    <div id="logContent"></div>
+  </div>
+
+  <div id="viewSearch" style="display:none;">
+    <div id="searchContent"></div>
+  </div>
+
 </main>
 
 <dialog id="modalManual" class="modal-dialog">
@@ -780,6 +816,7 @@ En revisión de documentos con Jaky"></textarea>
   const BATCHES_KEY = 'driverTrackerImportBatches_v1';
   const DISCARDED_KEY = 'driverTrackerDiscarded_v1';
   const BAJA_KEY = 'driverTrackerBaja_v1';
+  const LOG_KEY = 'driverTrackerLog_v1';
   const RECRUITERS = ['Valentina','Sharon','Arely','David','Jose','Sandra','free'];
   const STATUS_LABELS = { Jaky:'Jaky · Validación docs.', Dani:'Dani · Onboarding', Alta:'Pre alta · Coordinadores' };
 
@@ -787,6 +824,7 @@ En revisión de documentos con Jaky"></textarea>
   let importBatches = []; // { id, fileName, count, importedAt } — solo filas NUEVAS creadas por cada importación
   let discarded = []; // choferes marcados como "Descartado": se quitan de la tabla pero quedan archivados aquí
   let baja = []; // choferes marcados como "Baja" (con motivo): se archivan aparte de los descartados
+  let activityLog = []; // bitácora: cada movimiento importante (estatus, carga, descarte, baja, borrado…) con su nota
 
   /* ---------- persistence ---------- */
   function loadData(){
@@ -843,6 +881,34 @@ En revisión de documentos con Jaky"></textarea>
   function saveBaja(){
     try{ localStorage.setItem(BAJA_KEY, JSON.stringify(baja)); }
     catch(e){ console.error('Error guardando bajas', e); }
+  }
+
+  function loadLog(){
+    try{
+      const raw = localStorage.getItem(LOG_KEY);
+      activityLog = raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Error leyendo bitácora', e);
+      activityLog = [];
+    }
+  }
+  function saveLog(){
+    try{ localStorage.setItem(LOG_KEY, JSON.stringify(activityLog)); }
+    catch(e){ console.error('Error guardando bitácora', e); }
+  }
+  // Registra un movimiento en la bitácora. No se puede borrar desde la app: es el
+  // historial de "qué pasó y por qué" para poder presentarlo después.
+  function logActivity(driver, action, detail, nota){
+    activityLog.unshift({
+      id: uid(),
+      at: new Date().toISOString(),
+      driverName: (driver && driver.nombre) || '',
+      reclutador: (driver && driver.reclutador) || '',
+      action: action,
+      detail: detail || '',
+      nota: nota || ''
+    });
+    saveLog();
   }
 
   /* ---------- helpers ---------- */
@@ -927,11 +993,15 @@ En revisión de documentos con Jaky"></textarea>
   }
 
   // Registra en el historial cuándo cambió el estatus (para las métricas de tiempo por etapa)
-  // y aplica el cambio. No hace nada si el nuevo valor es igual al actual.
-  function applyStatusChange(driver, newEstatus){
+  // y aplica el cambio, dejando constancia en la bitácora. No hace nada si el valor es igual.
+  function applyStatusChange(driver, newEstatus, nota, origen){
     if(!driver.statusHistory) driver.statusHistory = [];
-    if(newEstatus && newEstatus !== driver.estatus){
-      driver.statusHistory.push({ estatus: newEstatus, at: new Date().toISOString() });
+    const changed = newEstatus !== driver.estatus;
+    if(changed){
+      const oldLabel = STATUS_LABELS[driver.estatus] || driver.estatus || 'Sin estatus';
+      const newLabel = STATUS_LABELS[newEstatus] || newEstatus || 'Sin estatus';
+      if(newEstatus) driver.statusHistory.push({ estatus: newEstatus, at: new Date().toISOString() });
+      logActivity(driver, 'Estatus', `${oldLabel} → ${newLabel}` + (origen ? ` · ${origen}` : ''), nota || '');
     }
     driver.estatus = newEstatus;
   }
@@ -945,6 +1015,7 @@ En revisión de documentos con Jaky"></textarea>
   function addDriver(data){
     const driver = createDriverObject(data);
     drivers.unshift(driver);
+    logActivity(driver, 'Creado', 'Agregado manualmente', '');
     saveData();
     render();
     return driver;
@@ -963,19 +1034,35 @@ En revisión de documentos con Jaky"></textarea>
     render();
   }
 
+  // Cambio de estatus manual (desde el <select> de la tabla): pide una nota antes de aplicarlo.
+  // Cancelar el cuadro de texto deja todo como estaba.
   function updateStatus(id, value){
     const d = drivers.find(x=>x.id===id);
     if(!d) return;
-    applyStatusChange(d, value);
+    if(value === d.estatus) return;
+    const oldLabel = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
+    const newLabel = STATUS_LABELS[value] || value || 'Sin estatus';
+    const nota = prompt(`"${d.nombre || 'Chofer'}": ${oldLabel} → ${newLabel}\n¿Nota sobre este cambio? (opcional, Cancelar para no cambiarlo)`, '');
+    if(nota === null){ render(); return; } // canceló: se vuelve a pintar para regresar el <select> a su valor real
+    applyStatusChange(d, value, nota);
     saveData();
     render();
   }
 
-  function toggleCarga(id, checked){
+  // Marcar "Carga realizada" pide una nota (es la meta final del proceso). Desmarcarlo no pide nota.
+  function toggleCarga(id, checked, chkEl){
     const d = drivers.find(x=>x.id===id);
     if(!d) return;
+    let nota = '';
+    if(checked){
+      const input = prompt(`"${d.nombre || 'Chofer'}" pasa a Carga realizada.\n¿Alguna nota? (opcional, Cancelar para no marcarlo)`, '');
+      if(input === null){ if(chkEl) chkEl.checked = false; return; }
+      nota = input;
+    }
     d.cargaRealizada = checked;
     d.fechaAlta = checked ? new Date().toISOString() : null;
+    logActivity(d, checked ? 'Carga realizada' : 'Carga revertida',
+      checked ? 'Se marcó Carga realizada' : 'Se desmarcó Carga realizada', nota);
     saveData();
     render();
   }
@@ -984,24 +1071,41 @@ En revisión de documentos con Jaky"></textarea>
     const d = drivers.find(x=>x.id===id);
     if(!d) return;
     if(!confirm(`¿Eliminar el registro de "${d.nombre || 'sin nombre'}"?`)) return;
+    const motivo = prompt('¿Por qué se elimina este registro? (opcional)', '');
     drivers = drivers.filter(x=>x.id!==id);
+    logActivity(d, 'Eliminado', 'Eliminado desde la tabla', motivo || '');
     saveData();
     render();
   }
 
   /* ---------- descartados ---------- */
-  // Marca a un chofer como Descartado: lo quita de la tabla activa pero lo guarda
-  // en el archivo de Descartados (no se pierde, se puede restaurar).
-  function discardDriver(id){
+  // Marca a un chofer como Descartado: pide el motivo, lo quita de la tabla activa y lo
+  // guarda en el archivo de Descartados (no se pierde, se puede restaurar).
+  function discardDriver(id, chkEl){
     const idx = drivers.findIndex(x=>x.id===id);
     if(idx === -1) return;
+    const nombre = drivers[idx].nombre || 'este chofer';
+    const motivo = prompt(`¿Por qué se descarta a "${nombre}"?`, '');
+    if(motivo === null){
+      if(chkEl) chkEl.checked = false; // canceló: no se descarta
+      return;
+    }
     const [d] = drivers.splice(idx, 1);
     d.discardedAt = new Date().toISOString();
+    d.motivoDescarte = motivo.trim();
     discarded.unshift(d);
+    logActivity(d, 'Descartado', 'Pasó a Descartados', motivo.trim());
     saveData();
     saveDiscarded();
     render();
     toast(`"${d.nombre || 'Chofer'}" pasó a Descartados`);
+  }
+
+  function updateDiscardMotivo(id, motivo){
+    const d = discarded.find(x=>x.id===id);
+    if(!d) return;
+    d.motivoDescarte = motivo;
+    saveDiscarded();
   }
 
   function restoreDriver(id){
@@ -1010,6 +1114,7 @@ En revisión de documentos con Jaky"></textarea>
     const [d] = discarded.splice(idx, 1);
     delete d.discardedAt;
     drivers.push(d);
+    logActivity(d, 'Restaurado', 'Regresó a la tabla desde Descartados', '');
     saveData();
     saveDiscarded();
     render();
@@ -1021,7 +1126,9 @@ En revisión de documentos con Jaky"></textarea>
     const d = discarded.find(x=>x.id===id);
     if(!d) return;
     if(!confirm(`¿Borrar definitivamente a "${d.nombre || 'sin nombre'}"? Esto ya no se puede deshacer.`)) return;
+    const motivo = prompt('¿Por qué se borra definitivamente? (opcional)', '');
     discarded = discarded.filter(x=>x.id!==id);
+    logActivity(d, 'Eliminado definitivamente', 'Borrado desde Descartados', motivo || '');
     saveDiscarded();
     renderDiscarded();
     toast('Borrado definitivamente');
@@ -1043,6 +1150,7 @@ En revisión de documentos con Jaky"></textarea>
     d.motivoBaja = motivo.trim();
     d.bajaAt = new Date().toISOString();
     baja.unshift(d);
+    logActivity(d, 'Baja', 'Pasó a Baja', motivo.trim());
     saveData();
     saveBaja();
     render();
@@ -1056,6 +1164,7 @@ En revisión de documentos con Jaky"></textarea>
     delete d.motivoBaja;
     delete d.bajaAt;
     drivers.push(d);
+    logActivity(d, 'Restaurado', 'Regresó a la tabla desde Baja', '');
     saveData();
     saveBaja();
     render();
@@ -1067,7 +1176,9 @@ En revisión de documentos con Jaky"></textarea>
     const d = baja.find(x=>x.id===id);
     if(!d) return;
     if(!confirm(`¿Borrar definitivamente a "${d.nombre || 'sin nombre'}"? Esto ya no se puede deshacer.`)) return;
+    const motivo = prompt('¿Por qué se borra definitivamente? (opcional)', '');
     baja = baja.filter(x=>x.id!==id);
+    logActivity(d, 'Eliminado definitivamente', 'Borrado desde Baja', motivo || '');
     saveBaja();
     renderBaja();
     toast('Borrado definitivamente');
@@ -1221,14 +1332,16 @@ En revisión de documentos con Jaky"></textarea>
         if(parsed.telefono) existing.telefono = parsed.telefono;
         if(parsed.proyecto) existing.proyecto = parsed.proyecto;
         if(parsed.sucursal) existing.sucursal = parsed.sucursal;
-        if(parsed.estatus) applyStatusChange(existing, parsed.estatus);
+        if(parsed.estatus) applyStatusChange(existing, parsed.estatus, '', 'texto pegado');
         existing.nota = mergeNotes(existing.nota, parsed.notaExtra);
         // Lo mueve al final: la tabla queda ordenada por lo último que pegaste.
         drivers = drivers.filter(d => d.id !== existing.id);
         drivers.push(existing);
         updated++;
       } else {
-        drivers.push(createDriverObject({ ...parsed, reclutador:'free', nota: parsed.notaExtra.join(' · ') }));
+        const newDriver = createDriverObject({ ...parsed, reclutador:'free', nota: parsed.notaExtra.join(' · ') });
+        drivers.push(newDriver);
+        logActivity(newDriver, 'Creado', 'Agregado por texto pegado', '');
         added++;
       }
     });
@@ -1462,7 +1575,7 @@ En revisión de documentos con Jaky"></textarea>
       label.className = 'carga-check ' + (d.cargaRealizada ? 'done' : 'pending');
       const chk = document.createElement('input');
       chk.type = 'checkbox'; chk.checked = !!d.cargaRealizada;
-      chk.addEventListener('change', ()=> toggleCarga(d.id, chk.checked));
+      chk.addEventListener('change', ()=> toggleCarga(d.id, chk.checked, chk));
       const span = document.createElement('span');
       span.textContent = d.cargaRealizada ? 'Carga realizada' : 'Pendiente de carga';
       label.appendChild(chk); label.appendChild(span);
@@ -1476,7 +1589,7 @@ En revisión de documentos con Jaky"></textarea>
     discardChk.type = 'checkbox';
     discardChk.checked = false;
     discardChk.addEventListener('change', ()=>{
-      if(discardChk.checked) discardDriver(d.id);
+      if(discardChk.checked) discardDriver(d.id, discardChk);
     });
     const discardSpan = document.createElement('span');
     discardSpan.textContent = 'Descartado';
@@ -1587,6 +1700,7 @@ En revisión de documentos con Jaky"></textarea>
     updatePendingTabBadge();
     updateBajaTabBadge();
     updateProjectTabBadges();
+    updateLogTabBadge();
     if(currentView === 'pending') renderPendingView();
     if(currentView === 'completed') renderCompletedView();
     if(currentView === 'projAmazon') renderProjectView(PROJECT_TABS[0]);
@@ -1594,6 +1708,8 @@ En revisión de documentos con Jaky"></textarea>
     if(currentView === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
     if(currentView === 'metrics') renderMetrics();
     if(currentView === 'baja') renderBaja();
+    if(currentView === 'log') renderLogTable();
+    if(currentView === 'search') renderSearchTable();
   }
 
   function updateElapsedTimers(){
@@ -1969,6 +2085,68 @@ En revisión de documentos con Jaky"></textarea>
       saveData();
     });
     card.appendChild(noteInput);
+
+    // Mover de estatus / descartar / carga realizada / baja, directo desde la tarjeta
+    // (usa las mismas funciones y avisos de nota que la tabla principal).
+    const controls = document.createElement('div');
+    controls.className = 'pending-card-controls';
+
+    const selStatus = document.createElement('select');
+    selStatus.className = 'cell-input select-status pending-status-select status-' + (d.estatus || 'none');
+    [['', 'Sin estatus'], ['Jaky', STATUS_LABELS.Jaky], ['Dani', STATUS_LABELS.Dani], ['Alta', STATUS_LABELS.Alta]].forEach(([val,label])=>{
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = label;
+      if(val === d.estatus) opt.selected = true;
+      selStatus.appendChild(opt);
+    });
+    selStatus.addEventListener('click', (e)=> e.stopPropagation());
+    selStatus.addEventListener('change', ()=> updateStatus(d.id, selStatus.value));
+    controls.appendChild(selStatus);
+
+    if(d.estatus === 'Alta'){
+      const cargaLabel = document.createElement('label');
+      cargaLabel.className = 'carga-check ' + (d.cargaRealizada ? 'done' : 'pending');
+      const cargaChk = document.createElement('input');
+      cargaChk.type = 'checkbox'; cargaChk.checked = !!d.cargaRealizada;
+      cargaChk.addEventListener('click', (e)=> e.stopPropagation());
+      cargaChk.addEventListener('change', ()=> toggleCarga(d.id, cargaChk.checked, cargaChk));
+      const cargaSpan = document.createElement('span');
+      cargaSpan.textContent = d.cargaRealizada ? 'Carga realizada' : 'Pendiente de carga';
+      cargaLabel.appendChild(cargaChk); cargaLabel.appendChild(cargaSpan);
+      controls.appendChild(cargaLabel);
+    }
+
+    const miniRow = document.createElement('div');
+    miniRow.className = 'pending-card-mini-row';
+
+    const discardLabel = document.createElement('label');
+    discardLabel.className = 'discard-check';
+    const discardChk = document.createElement('input');
+    discardChk.type = 'checkbox'; discardChk.checked = false;
+    discardChk.addEventListener('click', (e)=> e.stopPropagation());
+    discardChk.addEventListener('change', ()=>{
+      if(discardChk.checked) discardDriver(d.id, discardChk);
+    });
+    const discardSpan = document.createElement('span');
+    discardSpan.textContent = 'Descartado';
+    discardLabel.appendChild(discardChk); discardLabel.appendChild(discardSpan);
+    miniRow.appendChild(discardLabel);
+
+    const bajaLabel = document.createElement('label');
+    bajaLabel.className = 'baja-check';
+    const bajaChk = document.createElement('input');
+    bajaChk.type = 'checkbox'; bajaChk.checked = false;
+    bajaChk.addEventListener('click', (e)=> e.stopPropagation());
+    bajaChk.addEventListener('change', ()=>{
+      if(bajaChk.checked) sendToBaja(d.id, bajaChk);
+    });
+    const bajaSpan = document.createElement('span');
+    bajaSpan.textContent = 'Baja';
+    bajaLabel.appendChild(bajaChk); bajaLabel.appendChild(bajaSpan);
+    miniRow.appendChild(bajaLabel);
+
+    controls.appendChild(miniRow);
+    card.appendChild(controls);
 
     return card;
   }
@@ -2348,7 +2526,7 @@ En revisión de documentos con Jaky"></textarea>
     const table = document.createElement('table');
     table.className = 'discarded-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus al descartar</th><th>Descartado el</th><th></th></tr>';
+    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus al descartar</th><th>Descartado el</th><th>Motivo</th><th></th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
 
@@ -2360,6 +2538,15 @@ En revisión de documentos con Jaky"></textarea>
       const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
       const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
       const tdFecha = document.createElement('td'); tdFecha.className = 'mono'; tdFecha.textContent = formatDateTime(d.discardedAt);
+
+      const tdMotivo = document.createElement('td');
+      const inpMotivo = document.createElement('input');
+      inpMotivo.type = 'text';
+      inpMotivo.className = 'cell-input';
+      inpMotivo.placeholder = 'Motivo del descarte…';
+      inpMotivo.value = d.motivoDescarte || '';
+      inpMotivo.addEventListener('change', ()=> updateDiscardMotivo(d.id, inpMotivo.value));
+      tdMotivo.appendChild(inpMotivo);
 
       const tdAcc = document.createElement('td');
       const btnRestore = document.createElement('button');
@@ -2373,7 +2560,7 @@ En revisión de documentos con Jaky"></textarea>
       tdAcc.appendChild(btnRestore); tdAcc.appendChild(btnDelete);
 
       tr.appendChild(tdNombre); tr.appendChild(tdTel); tr.appendChild(tdProy);
-      tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdAcc);
+      tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdMotivo); tr.appendChild(tdAcc);
       tbody.appendChild(tr);
     });
 
@@ -2477,6 +2664,269 @@ En revisión de documentos con Jaky"></textarea>
       badge.textContent = discarded.length;
       el.appendChild(badge);
     }
+  }
+
+  /* ---------- bitácora de movimientos ---------- */
+  let logSearchTerm = '';
+
+  function logActionClass(action){
+    const map = {
+      'Creado':'Creado', 'Estatus':'Estatus', 'Carga realizada':'CargaRealizada', 'Carga revertida':'CargaRevertida',
+      'Descartado':'Descartado', 'Baja':'Baja', 'Restaurado':'Restaurado', 'Eliminado':'Eliminado',
+      'Eliminado definitivamente':'EliminadoDefinitivamente'
+    };
+    return map[action] || 'Estatus';
+  }
+
+  function getFilteredLog(){
+    const term = (logSearchTerm || '').trim().toLowerCase();
+    if(!term) return activityLog;
+    return activityLog.filter(e=>
+      (e.driverName || '').toLowerCase().includes(term) ||
+      (e.nota || '').toLowerCase().includes(term) ||
+      (e.reclutador || '').toLowerCase().includes(term) ||
+      (e.action || '').toLowerCase().includes(term) ||
+      (e.detail || '').toLowerCase().includes(term)
+    );
+  }
+
+  function renderLogTable(){
+    const holder = document.getElementById('logTableHolder');
+    if(!holder) return;
+    holder.innerHTML = '';
+
+    const list = getFilteredLog();
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.textContent = `${list.length} movimiento${list.length===1?'':'s'} registrado${list.length===1?'':'s'}`;
+    card.appendChild(title);
+
+    if(list.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'metrics-empty';
+      empty.textContent = activityLog.length === 0
+        ? 'Aún no hay movimientos registrados. Cada cambio de estatus, carga realizada, descarte, baja o eliminación quedará aquí, con su nota.'
+        : 'Ningún movimiento coincide con la búsqueda.';
+      card.appendChild(empty);
+    } else {
+      const table = document.createElement('table');
+      table.className = 'discarded-table';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>Fecha y hora</th><th>Chofer</th><th>Acción</th><th>Detalle</th><th>Nota</th><th>Reclutador</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      list.forEach(e=>{
+        const tr = document.createElement('tr');
+        const tdFecha = document.createElement('td'); tdFecha.className = 'mono'; tdFecha.textContent = formatDateTime(e.at);
+        const tdNombre = document.createElement('td'); tdNombre.textContent = e.driverName || '—';
+        const tdAccion = document.createElement('td');
+        const chip = document.createElement('span');
+        chip.className = 'log-action-chip log-action-' + logActionClass(e.action);
+        chip.textContent = e.action;
+        tdAccion.appendChild(chip);
+        const tdDetalle = document.createElement('td'); tdDetalle.textContent = e.detail || '—';
+        const tdNota = document.createElement('td'); tdNota.textContent = e.nota || '—';
+        const tdRecl = document.createElement('td'); tdRecl.textContent = e.reclutador || '—';
+        tr.appendChild(tdFecha); tr.appendChild(tdNombre); tr.appendChild(tdAccion);
+        tr.appendChild(tdDetalle); tr.appendChild(tdNota); tr.appendChild(tdRecl);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      const tableScroll = document.createElement('div');
+      tableScroll.className = 'table-scroll-x';
+      tableScroll.appendChild(table);
+      card.appendChild(tableScroll);
+    }
+
+    holder.appendChild(card);
+  }
+
+  function renderLog(){
+    const wrap = document.getElementById('logContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'log-toolbar';
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'log-search';
+    search.placeholder = '🔎 Buscar por nombre, nota, reclutador o acción…';
+    search.value = logSearchTerm;
+    search.addEventListener('input', ()=>{ logSearchTerm = search.value; renderLogTable(); });
+    const btnExport = document.createElement('button');
+    btnExport.type = 'button';
+    btnExport.className = 'btn-secondary';
+    btnExport.textContent = '⇩ Exportar CSV (bitácora completa)';
+    btnExport.addEventListener('click', exportLogCSV);
+    toolbar.appendChild(search);
+    toolbar.appendChild(btnExport);
+    wrap.appendChild(toolbar);
+
+    const holder = document.createElement('div');
+    holder.id = 'logTableHolder';
+    wrap.appendChild(holder);
+
+    renderLogTable();
+  }
+
+  function exportLogCSV(){
+    const list = getFilteredLog();
+    if(list.length === 0){ toast('No hay movimientos para exportar'); return; }
+    const headers = ['Fecha y hora','Chofer','Acción','Detalle','Nota','Reclutador'];
+    const csvRows = [headers.join(',')];
+    list.forEach(e=>{
+      const line = [formatDateTime(e.at), e.driverName, e.action, e.detail, e.nota, e.reclutador].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `bitacora_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Bitácora exportada');
+  }
+
+  function updateLogTabBadge(){
+    const el = document.getElementById('logCount');
+    if(!el) return;
+    el.innerHTML = '';
+    if(activityLog.length > 0){
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.style.background = 'var(--ink)';
+      badge.textContent = activityLog.length;
+      el.appendChild(badge);
+    }
+  }
+
+  /* ---------- buscador general (activos, alta con carga, descartados y bajas) ---------- */
+  let globalSearchTerm = '';
+
+  function matchesGlobalSearch(d, term, extraFields){
+    const haystacks = [d.nombre, d.telefono, d.proyecto, d.sucursal, d.reclutador, d.nota, d.notaPendientes].concat(extraFields || []);
+    return haystacks.some(v => (v || '').toString().toLowerCase().includes(term));
+  }
+
+  function getGlobalSearchResults(){
+    const term = (globalSearchTerm || '').trim().toLowerCase();
+    if(!term) return [];
+    const results = [];
+    drivers.forEach(d=>{
+      if(matchesGlobalSearch(d, term)){
+        results.push(d.cargaRealizada
+          ? { d, loc:'completado', locLabel:'Alta con carga' }
+          : { d, loc:'activo', locLabel:'Activo' });
+      }
+    });
+    discarded.forEach(d=>{
+      if(matchesGlobalSearch(d, term, [d.motivoDescarte])) results.push({ d, loc:'descartado', locLabel:'Descartado' });
+    });
+    baja.forEach(d=>{
+      if(matchesGlobalSearch(d, term, [d.motivoBaja])) results.push({ d, loc:'baja', locLabel:'Baja' });
+    });
+    return results;
+  }
+
+  function renderSearchTable(){
+    const holder = document.getElementById('searchTableHolder');
+    if(!holder) return;
+    holder.innerHTML = '';
+
+    const term = (globalSearchTerm || '').trim();
+    if(!term){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'Escribe un nombre, teléfono, proyecto, sucursal, reclutador o nota para buscar en TODO el archivo: activos, Alta con carga, Descartados y Baja.';
+      holder.appendChild(empty);
+      return;
+    }
+
+    const results = getGlobalSearchResults();
+    const card = document.createElement('div');
+    card.className = 'card';
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.textContent = `${results.length} resultado${results.length===1?'':'s'} para "${term}"`;
+    card.appendChild(title);
+
+    if(results.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'metrics-empty';
+      empty.textContent = 'Sin resultados en ninguna pestaña.';
+      card.appendChild(empty);
+    } else {
+      const table = document.createElement('table');
+      table.className = 'discarded-table';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>Ubicación</th><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus</th><th>Reclutador</th><th></th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      const goTarget = { activo:'table', completado:'completed', descartado:'discarded', baja:'baja' };
+      results.forEach(({d, loc, locLabel})=>{
+        const tr = document.createElement('tr');
+        const tdLoc = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'search-loc-badge search-loc-' + loc;
+        badge.textContent = locLabel;
+        tdLoc.appendChild(badge);
+        const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre || '—';
+        const tdTel = document.createElement('td'); tdTel.className = 'mono'; tdTel.textContent = d.telefono || '—';
+        const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
+        const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
+        const tdRecl = document.createElement('td'); tdRecl.textContent = d.reclutador || '—';
+        const tdAcc = document.createElement('td');
+        const btnGo = document.createElement('button');
+        btnGo.type = 'button'; btnGo.className = 'btn-secondary';
+        btnGo.textContent = 'Ir a esta pestaña →';
+        btnGo.addEventListener('click', ()=> switchView(goTarget[loc]));
+        tdAcc.appendChild(btnGo);
+        tr.appendChild(tdLoc); tr.appendChild(tdNombre); tr.appendChild(tdTel);
+        tr.appendChild(tdProy); tr.appendChild(tdEstatus); tr.appendChild(tdRecl); tr.appendChild(tdAcc);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      const tableScroll = document.createElement('div');
+      tableScroll.className = 'table-scroll-x';
+      tableScroll.appendChild(table);
+      card.appendChild(tableScroll);
+    }
+
+    holder.appendChild(card);
+  }
+
+  function renderSearchView(){
+    const wrap = document.getElementById('searchContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'log-toolbar';
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'log-search';
+    search.style.minWidth = '360px';
+    search.placeholder = '🔎 Buscar en TODO el archivo: nombre, teléfono, proyecto, sucursal, reclutador, nota…';
+    search.value = globalSearchTerm;
+    search.addEventListener('input', ()=>{ globalSearchTerm = search.value; renderSearchTable(); });
+    toolbar.appendChild(search);
+    wrap.appendChild(toolbar);
+
+    const holder = document.createElement('div');
+    holder.id = 'searchTableHolder';
+    wrap.appendChild(holder);
+
+    renderSearchTable();
+    setTimeout(()=> search.focus(), 50);
   }
 
   // Animación de "toque": dibuja una onda que se expande desde el punto exacto donde
@@ -2737,6 +3187,8 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('viewMetrics').style.display = view === 'metrics' ? '' : 'none';
     document.getElementById('viewBaja').style.display = view === 'baja' ? '' : 'none';
     document.getElementById('viewDiscarded').style.display = view === 'discarded' ? '' : 'none';
+    document.getElementById('viewLog').style.display = view === 'log' ? '' : 'none';
+    document.getElementById('viewSearch').style.display = view === 'search' ? '' : 'none';
     document.getElementById('tabTable').classList.toggle('active', view === 'table');
     document.getElementById('tabPending').classList.toggle('active', view === 'pending');
     document.getElementById('tabCompleted').classList.toggle('active', view === 'completed');
@@ -2746,6 +3198,8 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('tabMetrics').classList.toggle('active', view === 'metrics');
     document.getElementById('tabBaja').classList.toggle('active', view === 'baja');
     document.getElementById('tabDiscarded').classList.toggle('active', view === 'discarded');
+    document.getElementById('tabLog').classList.toggle('active', view === 'log');
+    document.getElementById('tabSearch').classList.toggle('active', view === 'search');
     if(view === 'pending') renderPendingView();
     if(view === 'completed') renderCompletedView();
     if(view === 'projAmazon') renderProjectView(PROJECT_TABS[0]);
@@ -2754,6 +3208,8 @@ En revisión de documentos con Jaky"></textarea>
     if(view === 'metrics') renderMetrics();
     if(view === 'baja') renderBaja();
     if(view === 'discarded') renderDiscarded();
+    if(view === 'log') renderLog();
+    if(view === 'search') renderSearchView();
   }
 
   function updateHeaderClock(){
@@ -2795,7 +3251,8 @@ En revisión de documentos con Jaky"></textarea>
   function clearAllData(){
     if(drivers.length === 0 && importBatches.length === 0 && discarded.length === 0 && baja.length === 0){ toast('No hay datos que borrar'); return; }
     const count = drivers.length;
-    if(!confirm(`¿Borrar TODA la información? Se eliminarán los ${count} choferes registrados (descartados y bajas incluidos) y no se puede deshacer.`)) return;
+    if(!confirm(`¿Borrar TODA la información? Se eliminarán los ${count} choferes registrados (descartados y bajas incluidos) y no se puede deshacer. La bitácora de movimientos NO se borra: queda como registro histórico.`)) return;
+    logActivity(null, 'Eliminado definitivamente', `Se borró toda la información (${count} choferes) con "Borrar todo"`, '');
     drivers = [];
     importBatches = [];
     discarded = [];
@@ -2807,7 +3264,9 @@ En revisión de documentos con Jaky"></textarea>
     render();
     if(currentView === 'discarded') renderDiscarded();
     if(currentView === 'baja') renderBaja();
-    toast('Toda la información fue borrada');
+    if(currentView === 'log') renderLogTable();
+    if(currentView === 'search') renderSearchTable();
+    toast('Toda la información fue borrada (la bitácora se conserva)');
   }
 
   /* ---------- import (Excel / CSV) ---------- */
@@ -2908,7 +3367,7 @@ En revisión de documentos con Jaky"></textarea>
           if(proyecto) existing.proyecto = proyecto;
           if(sucursal) existing.sucursal = sucursal;
           if(telefono) existing.telefono = telefono;
-          if(estatusFinal) applyStatusChange(existing, estatusFinal);
+          if(estatusFinal) applyStatusChange(existing, estatusFinal, '', 'importación de ' + file.name);
           if(notas.length && !existing.nota) existing.nota = notas.join(' · ');
           if(fechaCargaDate){ existing.fechaAlta = fechaCargaDate.toISOString(); existing.cargaRealizada = true; }
           updated++;
@@ -2925,6 +3384,7 @@ En revisión de documentos con Jaky"></textarea>
           driver.importBatchId = batchId;
           driver.importFileName = file.name;
           drivers.unshift(driver);
+          logActivity(driver, 'Creado', 'Importado de ' + file.name, '');
           added++;
         }
       });
@@ -3017,6 +3477,7 @@ En revisión de documentos con Jaky"></textarea>
     loadBatches();
     loadDiscarded();
     loadBaja();
+    loadLog();
     initReclutadorFilter();
     render();
     updateHeaderClock();
@@ -3035,6 +3496,8 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('tabTable').addEventListener('click', ()=> switchView('table'));
     document.getElementById('tabMetrics').addEventListener('click', ()=> switchView('metrics'));
     document.getElementById('tabDiscarded').addEventListener('click', ()=> switchView('discarded'));
+    document.getElementById('tabLog').addEventListener('click', ()=> switchView('log'));
+    document.getElementById('tabSearch').addEventListener('click', ()=> switchView('search'));
     document.getElementById('tabBaja').addEventListener('click', ()=> switchView('baja'));
     document.getElementById('tabPending').addEventListener('click', (e)=>{
       addTapRipple(e, document.getElementById('tabPending'));
