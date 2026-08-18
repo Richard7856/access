@@ -484,6 +484,9 @@ En revisión de documentos con Jaky"></textarea>
         <button id="btnImport" class="btn-secondary" type="button">⇧ Importar Excel/CSV</button>
         <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">
         <button id="btnExport" class="btn-secondary" type="button">⇩ Exportar CSV</button>
+        <button id="btnExportBackup" class="btn-secondary" type="button">💾 Descargar respaldo completo</button>
+        <button id="btnImportBackup" class="btn-secondary" type="button">📤 Subir respaldo</button>
+        <input type="file" id="fileImportBackup" accept=".json" style="display:none">
         <button id="btnClearAll" class="btn-danger" type="button">🗑 Borrar todo</button>
       </div>
     </div>
@@ -3247,6 +3250,86 @@ En revisión de documentos con Jaky"></textarea>
     toast('CSV exportado');
   }
 
+  /* ---------- respaldo completo (JSON: TODO — choferes, importaciones, descartados, bajas, bitácora) ---------- */
+  function exportFullBackup(){
+    if(drivers.length === 0 && discarded.length === 0 && baja.length === 0 && activityLog.length === 0){
+      toast('No hay información para respaldar todavía');
+      return;
+    }
+    const backup = {
+      type: 'panel-choferes-backup',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      drivers, importBatches, discarded, baja, activityLog
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `respaldo_choferes_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Respaldo completo descargado');
+  }
+
+  // Fusiona un arreglo por id: agrega solo lo que no exista ya, nunca borra ni reemplaza lo actual.
+  function mergeArrayById(current, incoming){
+    if(!Array.isArray(incoming)) return 0;
+    const ids = new Set(current.map(x=> x && x.id));
+    let added = 0;
+    incoming.forEach(item=>{
+      if(item && item.id && !ids.has(item.id)){
+        current.push(item);
+        ids.add(item.id);
+        added++;
+      }
+    });
+    return added;
+  }
+
+  async function handleImportBackupFile(file){
+    try{
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      if(!backup || typeof backup !== 'object' || !Array.isArray(backup.drivers)){
+        toast('El archivo no parece un respaldo válido de esta app');
+        return;
+      }
+
+      // Choferes: fusiona por id y, de paso, evita duplicar por nombre si ya existe.
+      const existingIds = new Set(drivers.map(d=> d && d.id));
+      const existingNames = new Set(drivers.map(d=> (d.nombre || '').trim().toLowerCase()).filter(Boolean));
+      let addedDrivers = 0;
+      backup.drivers.forEach(d=>{
+        if(!d || !d.id || existingIds.has(d.id)) return;
+        const norm = (d.nombre || '').trim().toLowerCase();
+        if(norm && existingNames.has(norm)) return; // ya existe alguien con ese nombre: no duplicar
+        drivers.push(d);
+        existingIds.add(d.id);
+        if(norm) existingNames.add(norm);
+        addedDrivers++;
+      });
+
+      const addedBatches = mergeArrayById(importBatches, backup.importBatches);
+      const addedDiscarded = mergeArrayById(discarded, backup.discarded);
+      const addedBaja = mergeArrayById(baja, backup.baja);
+      const addedLog = mergeArrayById(activityLog, backup.activityLog);
+      activityLog.sort((a,b)=> new Date(b.at) - new Date(a.at)); // reordena cronológicamente tras fusionar
+
+      saveData(); saveBatches(); saveDiscarded(); saveBaja(); saveLog();
+      render();
+
+      toast(`Respaldo agregado: ${addedDrivers} choferes, ${addedDiscarded} descartados, ${addedBaja} bajas, ${addedLog} movimientos de bitácora (nada de lo que ya tenías se borró)`);
+    }catch(err){
+      console.error('Error importando respaldo', err);
+      toast('No se pudo leer el archivo. Verifica que sea un .json exportado con "Descargar respaldo completo".');
+    }
+  }
+
   /* ---------- borrar todo ---------- */
   function clearAllData(){
     if(drivers.length === 0 && importBatches.length === 0 && discarded.length === 0 && baja.length === 0){ toast('No hay datos que borrar'); return; }
@@ -3492,6 +3575,13 @@ En revisión de documentos con Jaky"></textarea>
 
     document.getElementById('btnProcess').addEventListener('click', handleProcess);
     document.getElementById('btnExport').addEventListener('click', exportCSV);
+    document.getElementById('btnExportBackup').addEventListener('click', exportFullBackup);
+    document.getElementById('btnImportBackup').addEventListener('click', ()=> document.getElementById('fileImportBackup').click());
+    document.getElementById('fileImportBackup').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(file) handleImportBackupFile(file);
+      e.target.value = '';
+    });
     document.getElementById('btnClearAll').addEventListener('click', clearAllData);
     document.getElementById('tabTable').addEventListener('click', ()=> switchView('table'));
     document.getElementById('tabMetrics').addEventListener('click', ()=> switchView('metrics'));

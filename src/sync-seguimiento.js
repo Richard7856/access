@@ -50,6 +50,12 @@
       .then(function (f) { return f && f.length ? f[0] : null; });
   }
 
+  function cuantos(v) {
+    var n = 0;
+    CAJAS.forEach(function (k) { if (v && Array.isArray(v[k])) n += v[k].length; });
+    return n;
+  }
+
   function estadoLocal() {
     var v = {};
     CAJAS.forEach(function (k) {
@@ -75,16 +81,33 @@
         publicando = false;
         return;
       }
-      return fetch(REST + '?on_conflict=clave', {
+      var nuevo = estadoLocal();
+      // Si lo que vamos a publicar tiene MENOS registros que lo que hay, se
+      // guarda antes una copia. "Borrar todo" vacía y publica: sin esto, un
+      // clic de una persona borraría el trabajo del equipo sin vuelta atrás.
+      var previo = (fila && cuantos(fila.valor) > cuantos(nuevo))
+        ? fetch(REST + '?on_conflict=clave', {
+            method: 'POST',
+            headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, H),
+            body: JSON.stringify({ clave: CLAVE + ':respaldo', valor: fila.valor }),
+          }).catch(function () {})
+        : Promise.resolve();
+
+      return previo.then(function () { return fetch(REST + '?on_conflict=clave', {
         method: 'POST',
         headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, H),
-        body: JSON.stringify({ clave: CLAVE, valor: estadoLocal() }),
-      }).then(function (r) {
+        body: JSON.stringify({ clave: CLAVE, valor: nuevo }),
+      }); }).then(function (r) {
         if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
         return r.json();
       }).then(function (filas) {
         if (filas && filas[0]) marcaRemota = filas[0].actualizado;
-        señal('✓ Guardado para el equipo');
+        if (fila && cuantos(fila.valor) > cuantos(nuevo)) {
+          señal('Se guardó una copia de lo anterior (' + cuantos(fila.valor) +
+                ' registros). Para recuperarla: window.restaurarRespaldo()', true);
+        } else {
+          señal('✓ Guardado para el equipo');
+        }
         publicando = false;
       });
     }).catch(function () {
@@ -159,6 +182,24 @@
     arrancarApp();
     señal('Sin conexión: trabajando solo en este navegador', true);
   });
+
+  /* Recuperar la copia previa. Se llama desde la consola del navegador
+     si alguien vació la tabla sin querer con "Borrar todo". */
+  window.restaurarRespaldo = function () {
+    return fetch(REST + '?select=valor&clave=eq.' + encodeURIComponent(CLAVE + ':respaldo'), { headers: H })
+      .then(function (r) { return r.json(); })
+      .then(function (f) {
+        if (!f || !f.length || !f[0].valor) throw new Error('no hay copia guardada');
+        return fetch(REST + '?on_conflict=clave', {
+          method: 'POST',
+          headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, H),
+          body: JSON.stringify({ clave: CLAVE, valor: f[0].valor }),
+        }).then(function () {
+          señal('✓ Copia restaurada. Recarga la página.');
+          return 'restaurado: recarga la página';
+        });
+      });
+  };
 
   /* ── Cambios de otros mientras la página está abierta ────────── */
   setInterval(function () {

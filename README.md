@@ -63,6 +63,17 @@ Los cambios de otros mientras la página está abierta se bajan, pero **no se
 repintan solos** —la app no expone su render— así que sale un aviso pidiendo
 recargar.
 
+> **Red contra "Borrar todo".** Ese botón vacía la tabla y, al ser compartida,
+> borraría la del equipo entero sin vuelta atrás. Antes de publicar un estado
+> con **menos** registros que el guardado, el sincronizador copia el anterior a
+> `seguimiento:estado:respaldo`. Para recuperarlo, en la consola del navegador:
+>
+> ```js
+> window.restaurarRespaldo()
+> ```
+>
+> Luego se recarga la página. Es **una sola copia**, la inmediatamente anterior.
+
 ## Cómo se comparte el Clasificador
 
 La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
