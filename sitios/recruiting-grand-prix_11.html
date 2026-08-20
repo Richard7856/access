@@ -1257,6 +1257,247 @@ function HistoryTable({ records, onRemove }) {
   );
 }
 
+// ── MINI-JUEGO: "Carrera Infinita" (estilo dinosaurio de Chrome) ────────
+const RUNNER_STORAGE_KEY = 'access-pack-runner-highscore';
+const RUNNER_W = 600;
+const RUNNER_H = 180;
+const RUNNER_GROUND_Y = 140;
+const RUNNER_CAR_W = 34;
+const RUNNER_CAR_H = 22;
+const RUNNER_GRAVITY = 0.9;
+const RUNNER_JUMP_VELOCITY = -13;
+const RUNNER_SCENARIO_STEP = 300; // unidades de distancia entre cambios de escenario
+
+function drawRunnerFrame(ctx, s) {
+  const scenario = SCENARIOS[s.scenarioIdx % SCENARIOS.length];
+
+  // cielo
+  const grad = ctx.createLinearGradient(0, 0, 0, RUNNER_H);
+  grad.addColorStop(0, scenario.skyTop);
+  grad.addColorStop(1, scenario.skyBottom);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, RUNNER_W, RUNNER_H);
+
+  // piso a rayas (se desplaza con groundX para dar sensación de velocidad)
+  ctx.fillStyle = 'rgba(27,27,58,0.85)';
+  ctx.fillRect(0, RUNNER_GROUND_Y, RUNNER_W, 4);
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([14, 14]);
+  ctx.lineDashOffset = s.groundX;
+  ctx.beginPath();
+  ctx.moveTo(0, RUNNER_GROUND_Y + 10);
+  ctx.lineTo(RUNNER_W, RUNNER_GROUND_Y + 10);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // auto
+  const carX = 60;
+  ctx.fillStyle = COIN_GOLD;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(carX, s.carY, RUNNER_CAR_W, RUNNER_CAR_H, 6) : ctx.rect(carX, s.carY, RUNNER_CAR_W, RUNNER_CAR_H);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(carX + 8, s.carY + RUNNER_CAR_H, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(carX + RUNNER_CAR_W - 8, s.carY + RUNNER_CAR_H, 4, 0, Math.PI * 2); ctx.fill();
+
+  // obstáculos
+  s.obstacles.forEach((o) => {
+    if (o.flying) {
+      const oy = RUNNER_GROUND_Y - RUNNER_CAR_H - 34;
+      ctx.fillStyle = '#9C6ADE';
+      ctx.strokeStyle = INK;
+      ctx.beginPath();
+      ctx.ellipse(o.x + o.w / 2, oy + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    } else {
+      const oy = RUNNER_GROUND_Y - o.h;
+      ctx.fillStyle = '#FF7A18';
+      ctx.strokeStyle = INK;
+      ctx.beginPath();
+      ctx.moveTo(o.x + o.w / 2, oy);
+      ctx.lineTo(o.x + o.w, oy + o.h);
+      ctx.lineTo(o.x, oy + o.h);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(o.x + o.w * 0.15, oy + o.h * 0.55, o.w * 0.7, o.h * 0.16);
+    }
+  });
+
+  // marcador (dibujado en el canvas, como el juego del dinosaurio)
+  ctx.font = "10px 'Press Start 2P', monospace";
+  ctx.fillStyle = 'rgba(27,27,58,0.8)';
+  ctx.textAlign = 'right';
+  ctx.fillText(String(Math.floor(s.distance)).padStart(5, '0') + 'm', RUNNER_W - 12, 22);
+  ctx.textAlign = 'left';
+  ctx.font = "8px 'Press Start 2P', monospace";
+  ctx.fillText(scenario.name, 12, 22);
+}
+
+function RunnerGame() {
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const stateRef = useRef({
+    carY: RUNNER_GROUND_Y - RUNNER_CAR_H, velY: 0, isJumping: false,
+    obstacles: [], speed: 6, distance: 0, scenarioIdx: 0, groundX: 0,
+  });
+
+  const [phase, setPhase] = useState('idle'); // idle | playing | over
+  const [lastScore, setLastScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => {
+    try { return Number(window.localStorage.getItem(RUNNER_STORAGE_KEY)) || 0; } catch (e) { return 0; }
+  });
+
+  const resetGame = useCallback(() => {
+    stateRef.current = {
+      carY: RUNNER_GROUND_Y - RUNNER_CAR_H, velY: 0, isJumping: false,
+      obstacles: [], speed: 6, distance: 0, scenarioIdx: 0, groundX: 0,
+    };
+    setPhase('playing');
+  }, []);
+
+  const jump = useCallback(() => {
+    if (phase === 'idle' || phase === 'over') { resetGame(); return; }
+    const s = stateRef.current;
+    if (!s.isJumping) { s.velY = RUNNER_JUMP_VELOCITY; s.isJumping = true; }
+  }, [phase, resetGame]);
+
+  // controles: barra espaciadora / flecha arriba (ignora si se está escribiendo en un input)
+  useEffect(() => {
+    function handleKey(e) {
+      const tag = (e.target && e.target.tagName) || '';
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [jump]);
+
+  // dibuja un frame estático cuando no se está jugando (pantalla de inicio / game over)
+  useEffect(() => {
+    if (phase === 'playing') return;
+    const ctx = canvasRef.current && canvasRef.current.getContext('2d');
+    if (ctx) drawRunnerFrame(ctx, { ...stateRef.current, obstacles: [] });
+  }, [phase]);
+
+  // loop principal del juego
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    function spawnObstacleMaybe() {
+      const s = stateRef.current;
+      const last = s.obstacles[s.obstacles.length - 1];
+      const minGap = 260 - Math.min(120, s.speed * 9);
+      if (!last || (RUNNER_W - last.x) > minGap + Math.random() * 100) {
+        const flying = Math.random() < 0.22 && s.distance > 350;
+        s.obstacles.push({
+          x: RUNNER_W + 10,
+          w: flying ? 22 : 14 + Math.random() * 10,
+          h: flying ? 14 : 16 + Math.random() * 14,
+          flying,
+        });
+      }
+    }
+
+    function loop() {
+      const s = stateRef.current;
+
+      s.velY += RUNNER_GRAVITY;
+      s.carY += s.velY;
+      if (s.carY > RUNNER_GROUND_Y - RUNNER_CAR_H) {
+        s.carY = RUNNER_GROUND_Y - RUNNER_CAR_H; s.velY = 0; s.isJumping = false;
+      }
+
+      s.groundX -= s.speed;
+      s.distance += s.speed * 0.12;
+      s.speed = Math.min(15, 6 + s.distance / 220);
+      s.scenarioIdx = Math.floor(s.distance / RUNNER_SCENARIO_STEP) % SCENARIOS.length;
+
+      spawnObstacleMaybe();
+      s.obstacles.forEach((o) => { o.x -= s.speed; });
+      s.obstacles = s.obstacles.filter((o) => o.x + o.w > -10);
+
+      const carX = 60;
+      const carBox = { x: carX, y: s.carY, w: RUNNER_CAR_W, h: RUNNER_CAR_H };
+      for (const o of s.obstacles) {
+        const oy = o.flying ? RUNNER_GROUND_Y - RUNNER_CAR_H - 34 : RUNNER_GROUND_Y - o.h;
+        const hit = carBox.x < o.x + o.w && carBox.x + carBox.w > o.x && carBox.y < oy + o.h && carBox.y + carBox.h > oy;
+        if (hit) {
+          const finalScore = Math.floor(s.distance);
+          setLastScore(finalScore);
+          setHighScore((prev) => {
+            const hs = Math.max(prev, finalScore);
+            try { window.localStorage.setItem(RUNNER_STORAGE_KEY, String(hs)); } catch (e) { /* sin storage */ }
+            return hs;
+          });
+          setPhase('over');
+          return;
+        }
+      }
+
+      drawRunnerFrame(ctx, s);
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [phase]);
+
+  const handleTap = () => jump();
+
+  return (
+    <section className="p-4 md:p-5" style={chunkyPanelStyle('#EAF3FF')}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5" style={{ color: COIN_GOLD_DARK }} />
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '13px', color: INK }}>CARRERA INFINITA</h2>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#3B4A6B', background: '#fff', border: `2px solid ${INK}` }}>
+          <Trophy className="w-3.5 h-3.5" style={{ color: COIN_GOLD_DARK }} />
+          Récord: {highScore}m
+        </div>
+      </div>
+      <p className="mb-3 text-[11px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#5b5b7a' }}>
+        Espacio / ↑ o toca la pista para saltar los conos. El escenario cambia cada {RUNNER_SCENARIO_STEP}m — ¡y no saltes cuando pase el dron! 🛸
+      </p>
+
+      <div className="relative mx-auto" style={{ maxWidth: RUNNER_W, borderRadius: 12, overflow: 'hidden', border: `3px solid ${INK}` }}>
+        <canvas
+          ref={canvasRef}
+          width={RUNNER_W}
+          height={RUNNER_H}
+          onClick={handleTap}
+          style={{ display: 'block', width: '100%', height: 'auto', cursor: 'pointer' }}
+        />
+        {phase !== 'playing' && (
+          <div className="absolute inset-0 flex items-center justify-center text-center px-4" style={{ background: 'rgba(10,10,20,0.45)' }}>
+            <div className="px-4 py-3 rounded-lg" style={{ background: '#fff', border: `2.5px solid ${INK}`, boxShadow: `0 3px 0 ${INK}` }}>
+              {phase === 'idle' ? (
+                <>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: INK, marginBottom: 6 }}>🏁 CARRERA INFINITA</div>
+                  <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: '12px', color: '#5b5b7a' }}>Espacio / toca para empezar</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: '#C4211B', marginBottom: 6 }}>💥 ¡CHOCASTE!</div>
+                  <div style={{ fontFamily: FONT_BODY, fontWeight: 800, fontSize: '13px', color: INK }}>Distancia: {lastScore}m</div>
+                  <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: '11px', color: '#5b5b7a', marginTop: 2 }}>Récord: {highScore}m</div>
+                  <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: '11px', color: '#5b5b7a', marginTop: 6 }}>Espacio / toca para reintentar</div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ── APP PRINCIPAL ─────────────────────────────────────────────────────────
 function RecruitingGrandPrix() {
   useArcadeFonts();
@@ -1632,6 +1873,7 @@ function RecruitingGrandPrix() {
           <LeaderboardPanel recruiterStats={recruiterStats} leaderNames={leaderNames} />
         </div>
         <HistoryTable records={sortedRecords} onRemove={handleRemoveRecord} />
+        <RunnerGame />
       </main>
     </div>
   );

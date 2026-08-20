@@ -36,6 +36,12 @@ reemplazarse**: si dos personas registran al mismo tiempo, no se pierde ninguna.
 Y lo que se borra a propósito se recuerda, para que la siguiente unión no lo
 resucite. Es lo que corresponde a una lista donde casi todo son altas nuevas.
 
+Desde la v11 hay una caja aparte, `access-pack-runner-highscore`: el récord
+del minijuego *Carrera Infinita*. **No se comparte a propósito** — es la marca
+personal de cada quien corriendo, no dato de trabajo. Si algún día se quiere como
+récord de la casa, hay que sincronizarla como el Seguimiento (envolviendo
+`Storage.prototype.setItem`), porque el hook de React solo alcanza `records`.
+
 Desde la v7 la app trae además su propio `localStorage`. Los dos conviven bien:
 el navegador guarda una copia que pinta al instante y aguanta sin internet, y
 Supabase sigue siendo la lista del equipo — al abrir, lo compartido pisa lo
