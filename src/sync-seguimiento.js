@@ -28,6 +28,7 @@
     'driverTrackerDiscarded_v1',
     'driverTrackerBaja_v1',
     'driverTrackerLog_v1',
+    'driverTrackerVacantes_v1',   // v36: plantilla de vacantes (objeto, no arreglo)
   ];
 
   var REST = CFG.url + '/rest/v1/despacho_estado';

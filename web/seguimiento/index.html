@@ -112,6 +112,8 @@
 
   .sucursal-td.suc-pending{background:var(--amber-soft);}
   .sucursal-td.suc-done{background:var(--success-soft);}
+  .sucursal-hint{margin-top:5px; font-size:10.5px; font-weight:600; color:var(--accent); line-height:1.3;}
+  .sucursal-hint-unmatched{color:var(--ink-soft); font-weight:500; font-style:italic;}
 
   .fecha-td{font-size:12px; min-width:170px;}
   .fecha-input{width:100%; border:1px solid transparent; background:transparent; font-family:var(--font-mono); font-size:12px; color:var(--ink); padding:5px 6px; border-radius:6px; color-scheme:light;}
@@ -330,6 +332,9 @@
   .pending-board{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:16px; align-items:start;}
   .pending-column{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; max-height:72vh; overflow-y:auto;}
   .pending-column-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface);}
+  .pending-recruiter-filter{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); font-weight:500;}
+  .pending-recruiter-filter select{font-family:var(--font-body); font-size:13px; padding:7px 10px; border:1px solid var(--border); border-radius:7px; background:#FBFCFE; color:var(--ink); min-width:140px;}
+  .pending-recruiter-filter select:focus{outline:2px solid var(--accent); outline-offset:1px;}
   .pending-column-title{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--ink);}
   .pending-column-count{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); background:#F1F3F6; padding:2px 8px; border-radius:10px; flex-shrink:0;}
   .pending-card{border-radius:8px; padding:10px 12px; margin-bottom:8px; background:#FAFBFC; border:1px solid var(--border); border-left:4px solid var(--ink-soft);}
@@ -371,6 +376,30 @@
   .stage-stat-row{display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-radius:8px; background:#FAFBFC; border:1px solid var(--border);}
   .stage-stat-label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--ink);}
   .stage-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+
+  /* Vacantes */
+  .vac-progress-track{background:#EEF1F5; border-radius:6px; height:14px; overflow:hidden; min-width:110px;}
+  .vac-progress-fill{height:100%; border-radius:6px; transition:width .25s ease;}
+  .vac-progress-fill.vac-low{background:var(--danger);}
+  .vac-progress-fill.vac-mid{background:var(--amber);}
+  .vac-progress-fill.vac-full{background:var(--success);}
+  .vac-progress-cell{display:flex; align-items:center; gap:8px;}
+  .vac-progress-pct{font-family:var(--font-mono); font-size:12px; font-weight:700; white-space:nowrap;}
+  .vac-summary-bar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:16px;}
+  .vac-summary-bar .btn-secondary, .vac-summary-bar .btn-ghost{flex-shrink:0;}
+  .vac-summary-text{font-size:12.5px; color:var(--ink-soft); flex:1; min-width:220px;}
+  .vac-summary-text b{color:var(--ink);}
+  .vac-process-total{font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--ink); margin-bottom:4px;}
+  .vac-process-none{font-size:12px; color:var(--ink-soft);}
+  .vac-process-chips{display:flex; flex-wrap:wrap; gap:4px;}
+  .vac-process-chip{display:inline-block; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; white-space:nowrap;}
+  .vac-process-chip.vp-jaky{background:var(--jaky-soft); color:var(--jaky);}
+  .vac-process-chip.vp-dani{background:var(--dani-soft); color:var(--dani);}
+  .vac-process-chip.vp-alta{background:var(--alta-soft); color:var(--alta);}
+  .vac-process-chip.vp-carga{background:var(--success-soft); color:var(--success);}
+  .vac-process-chip.vp-sin{background:#F1F3F6; color:var(--ink-soft);}
+  .vac-recruiter-cell{display:flex; flex-wrap:wrap; gap:4px;}
+  .vac-recruiter-chip{display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--accent-soft); color:var(--accent); white-space:nowrap;}
   .stage-stat-value{font-family:var(--font-mono); font-size:13px; color:var(--ink-soft); font-weight:600;}
 
   .table-scroll-x{width:100%; overflow-x:auto;}
@@ -424,6 +453,7 @@
     <button id="tabProjAmazon" class="view-tab" type="button">📦 Amazon <span id="projAmazonCount"></span></button>
     <button id="tabProjLiverpool" class="view-tab" type="button">🛍️ Liverpool <span id="projLiverpoolCount"></span></button>
     <button id="tabProjLacomer" class="view-tab" type="button">🛒 La Comer <span id="projLacomerCount"></span></button>
+    <button id="tabVacantes" class="view-tab" type="button">🎯 Vacantes <span id="vacantesCount"></span></button>
     <button id="tabMetrics" class="view-tab" type="button">📊 Métricas</button>
     <button id="tabBaja" class="view-tab" type="button">⛔ Baja <span id="bajaCount"></span></button>
     <button id="tabDiscarded" class="view-tab" type="button">🗑 Descartados <span id="discardedCount"></span></button>
@@ -638,6 +668,11 @@ En revisión de documentos con Jaky"></textarea>
     </section>
   </div>
 
+  <div id="viewVacantes" style="display:none;">
+    <div id="vacantesContent"></div>
+    <input type="file" id="fileImportVacantes" accept=".xlsx,.xls,.csv" style="display:none">
+  </div>
+
   <div id="viewMetrics" style="display:none;">
     <div id="metricsContent"></div>
   </div>
@@ -820,6 +855,7 @@ En revisión de documentos con Jaky"></textarea>
   const DISCARDED_KEY = 'driverTrackerDiscarded_v1';
   const BAJA_KEY = 'driverTrackerBaja_v1';
   const LOG_KEY = 'driverTrackerLog_v1';
+  const VACANTES_KEY = 'driverTrackerVacantes_v1';
   const RECRUITERS = ['Valentina','Sharon','Arely','David','Jose','Sandra','free'];
   const STATUS_LABELS = { Jaky:'Jaky · Validación docs.', Dani:'Dani · Onboarding', Alta:'Pre alta · Coordinadores' };
 
@@ -828,6 +864,10 @@ En revisión de documentos con Jaky"></textarea>
   let discarded = []; // choferes marcados como "Descartado": se quitan de la tabla pero quedan archivados aquí
   let baja = []; // choferes marcados como "Baja" (con motivo): se archivan aparte de los descartados
   let activityLog = []; // bitácora: cada movimiento importante (estatus, carga, descarte, baja, borrado…) con su nota
+  let vacantesTemplate = []; // plantilla de vacantes por sucursal importada de Excel: { sucursal, sucursalNorm, cliente, estatusTienda, ubicacion, prioridad, vacantes }
+  let vacantesImportedAt = null;
+  let vacantesFileName = '';
+  let lastSucursalStats = null; // se recalcula cada render() para el "hint" de vacantes en la celda Sucursal
 
   /* ---------- persistence ---------- */
   function loadData(){
@@ -914,6 +954,32 @@ En revisión de documentos con Jaky"></textarea>
     saveLog();
   }
 
+  function loadVacantes(){
+    try{
+      const raw = localStorage.getItem(VACANTES_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if(parsed && Array.isArray(parsed.items)){
+        vacantesTemplate = parsed.items;
+        vacantesImportedAt = parsed.importedAt || null;
+        vacantesFileName = parsed.fileName || '';
+      } else {
+        vacantesTemplate = [];
+        vacantesImportedAt = null;
+        vacantesFileName = '';
+      }
+    }catch(e){
+      console.error('Error leyendo plantilla de vacantes', e);
+      vacantesTemplate = [];
+    }
+  }
+  function saveVacantes(){
+    try{
+      localStorage.setItem(VACANTES_KEY, JSON.stringify({
+        items: vacantesTemplate, importedAt: vacantesImportedAt, fileName: vacantesFileName
+      }));
+    }catch(e){ console.error('Error guardando plantilla de vacantes', e); }
+  }
+
   /* ---------- helpers ---------- */
   function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -956,6 +1022,96 @@ En revisión de documentos con Jaky"></textarea>
     if(hours < 8) return 'elapsed-green';
     if(hours < 24) return 'elapsed-amber';
     return 'elapsed-red';
+  }
+
+  /* ---------- vacantes: porcentaje por candidato y emparejamiento con la plantilla ---------- */
+  // Sin estatus 0% · Jaky 60% · Dani 70% · Alta (pre alta) 90% · Carga realizada 100%.
+  function candidatePercent(d){
+    if(d.cargaRealizada) return 100;
+    if(d.estatus === 'Alta') return 90;
+    if(d.estatus === 'Dani') return 70;
+    if(d.estatus === 'Jaky') return 60;
+    return 0;
+  }
+
+  // Normaliza un nombre de sucursal para poder comparar "L. TEPEYAC" (plantilla) con
+  // "Tepeyac" (como lo capturó el reclutador): mayúsculas, sin acentos, sin prefijos comunes.
+  function normalizeSucursalKey(s){
+    return String(s || '')
+      .toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/^\d+\s*-\s*/, '')
+      .replace(/^L\.\s*/, '')
+      .replace(/[^A-Z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Busca en la plantilla la sucursal que mejor corresponde al texto libre del candidato:
+  // 1) coincidencia exacta normalizada, 2) una contiene a la otra, 3) traslape de palabras (>=50%).
+  function findVacancyMatch(sucursalRaw){
+    const key = normalizeSucursalKey(sucursalRaw);
+    if(!key || vacantesTemplate.length === 0) return null;
+
+    let match = vacantesTemplate.find(v => v.sucursalNorm === key);
+    if(match) return match;
+
+    match = vacantesTemplate.find(v => v.sucursalNorm.includes(key) || key.includes(v.sucursalNorm));
+    if(match) return match;
+
+    const aTokens = new Set(key.split(' ').filter(t => t.length >= 3));
+    if(aTokens.size === 0) return null;
+    let best = null, bestScore = 0;
+    vacantesTemplate.forEach(v=>{
+      const bTokens = new Set(v.sucursalNorm.split(' ').filter(t => t.length >= 3));
+      if(bTokens.size === 0) return;
+      let overlap = 0;
+      aTokens.forEach(t=>{ if(bTokens.has(t)) overlap++; });
+      const score = overlap / Math.min(aTokens.size, bTokens.size);
+      if(score > bestScore){ bestScore = score; best = v; }
+    });
+    return bestScore >= 0.5 ? best : null;
+  }
+
+  // Agrupa a TODOS los choferes activos (incluye los ya con carga realizada; excluye
+  // descartados y bajas) por la sucursal de la plantilla a la que corresponden.
+  function computeSucursalStats(){
+    const byTemplate = vacantesTemplate.map(v => ({ vacante: v, candidatos: [], sumaPorcentaje: 0 }));
+    const unmatched = new Map();
+
+    drivers.forEach(d=>{
+      if(!d.sucursal) return;
+      const pct = candidatePercent(d);
+      const match = findVacancyMatch(d.sucursal);
+      if(match){
+        const idx = vacantesTemplate.indexOf(match);
+        byTemplate[idx].candidatos.push(d);
+        byTemplate[idx].sumaPorcentaje += pct;
+      } else {
+        const key = normalizeSucursalKey(d.sucursal);
+        if(!unmatched.has(key)) unmatched.set(key, { label: d.sucursal, candidatos: [], sumaPorcentaje: 0 });
+        const bucket = unmatched.get(key);
+        bucket.candidatos.push(d);
+        bucket.sumaPorcentaje += pct;
+      }
+    });
+
+    return { byTemplate, unmatched };
+  }
+
+  // Info corta para la celda Sucursal de cada fila: vacantes de la meta + cuántos en proceso ahí.
+  function getSucursalHint(d){
+    if(!d.sucursal || !lastSucursalStats) return null;
+    const match = findVacancyMatch(d.sucursal);
+    if(match){
+      const idx = vacantesTemplate.indexOf(match);
+      const bucket = lastSucursalStats.byTemplate[idx];
+      return { matched:true, vacantes: match.vacantes, enProceso: bucket ? bucket.candidatos.length : 1 };
+    }
+    if(vacantesTemplate.length === 0) return null;
+    const key = normalizeSucursalKey(d.sucursal);
+    const bucket = lastSucursalStats.unmatched.get(key);
+    return { matched:false, vacantes:null, enProceso: bucket ? bucket.candidatos.length : 1 };
   }
 
   function uid(){ return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -1500,6 +1656,15 @@ En revisión de documentos con Jaky"></textarea>
     inpSuc.type = 'text'; inpSuc.className = 'cell-input'; inpSuc.value = d.sucursal || ''; inpSuc.placeholder = 'Sucursal';
     inpSuc.addEventListener('change', ()=> updateField(d.id, 'sucursal', inpSuc.value));
     tdSuc.appendChild(inpSuc);
+    const sucHint = getSucursalHint(d);
+    if(sucHint){
+      const hintEl = document.createElement('div');
+      hintEl.className = 'sucursal-hint' + (sucHint.matched ? '' : ' sucursal-hint-unmatched');
+      hintEl.textContent = sucHint.matched
+        ? `🎯 ${sucHint.vacantes} vacante${sucHint.vacantes===1?'':'s'} · ${sucHint.enProceso} en proceso`
+        : `${sucHint.enProceso} en proceso · sin plantilla`;
+      tdSuc.appendChild(hintEl);
+    }
     tr.appendChild(tdSuc);
 
     // Fecha registro / alta (editables)
@@ -1675,6 +1840,7 @@ En revisión de documentos con Jaky"></textarea>
   }
 
   function render(){
+    lastSucursalStats = computeSucursalStats();
     const tbody = document.getElementById('tbody');
     const filtered = getFilteredDrivers();
     tbody.innerHTML = '';
@@ -1704,12 +1870,14 @@ En revisión de documentos con Jaky"></textarea>
     updateBajaTabBadge();
     updateProjectTabBadges();
     updateLogTabBadge();
+    updateVacantesTabBadge();
     if(currentView === 'pending') renderPendingView();
     if(currentView === 'completed') renderCompletedView();
     if(currentView === 'projAmazon') renderProjectView(PROJECT_TABS[0]);
     if(currentView === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
     if(currentView === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
     if(currentView === 'metrics') renderMetrics();
+    if(currentView === 'vacantes') renderVacantes();
     if(currentView === 'baja') renderBaja();
     if(currentView === 'log') renderLogTable();
     if(currentView === 'search') renderSearchTable();
@@ -2032,9 +2200,12 @@ En revisión de documentos con Jaky"></textarea>
 
   /* ---------- alta con carga (completados) ---------- */
   /* ---------- pendientes (tablero) ---------- */
+  let pendingReclutadorFilter = '';
+
   function computePendingGroups(){
     const now = Date.now();
-    const active = drivers.filter(d=> !d.cargaRealizada); // los "Alta con carga" ya no cuentan como pendientes
+    let active = drivers.filter(d=> !d.cargaRealizada); // los "Alta con carga" ya no cuentan como pendientes
+    if(pendingReclutadorFilter) active = active.filter(d=> d.reclutador === pendingReclutadorFilter);
     const groups = { Jaky: [], Dani: [], AltaPend: [], SinEstatus: [] };
     active.forEach(d=>{
       const ms = now - new Date(d.fechaRegistro).getTime();
@@ -2199,14 +2370,55 @@ En revisión de documentos con Jaky"></textarea>
 
     wrap.innerHTML = '';
 
+    // Barra superior: filtro por reclutador + exportar. Siempre visible, incluso sin resultados,
+    // para que se pueda quitar el filtro si no hay pendientes de ese reclutador.
+    const pendingToolbar = document.createElement('div');
+    pendingToolbar.className = 'table-toolbar';
+    pendingToolbar.style.marginBottom = '16px';
+
+    const filterWrap = document.createElement('label');
+    filterWrap.className = 'pending-recruiter-filter';
+    const filterText = document.createElement('span');
+    filterText.textContent = 'Reclutador';
+    const selRecl = document.createElement('select');
+    const optAll = document.createElement('option');
+    optAll.value = ''; optAll.textContent = 'Todos';
+    selRecl.appendChild(optAll);
+    RECRUITERS.forEach(r=>{
+      const opt = document.createElement('option');
+      opt.value = r; opt.textContent = r;
+      if(r === pendingReclutadorFilter) opt.selected = true;
+      selRecl.appendChild(opt);
+    });
+    selRecl.addEventListener('change', ()=>{
+      pendingReclutadorFilter = selRecl.value;
+      renderPendingView();
+    });
+    filterWrap.appendChild(filterText);
+    filterWrap.appendChild(selRecl);
+    pendingToolbar.appendChild(filterWrap);
+
+    const toolbarActions = document.createElement('div');
+    toolbarActions.className = 'toolbar-actions';
+    const btnExportPending = document.createElement('button');
+    btnExportPending.type = 'button';
+    btnExportPending.className = 'btn-secondary';
+    btnExportPending.textContent = '⇩ Exportar CSV (para presentar)';
+    pendingToolbar.appendChild(toolbarActions);
+    toolbarActions.appendChild(btnExportPending);
+    wrap.appendChild(pendingToolbar);
+
     const groups = computePendingGroups();
     const allEntries = [...groups.Jaky, ...groups.Dani, ...groups.AltaPend, ...groups.SinEstatus];
     const total = allEntries.length;
+    btnExportPending.addEventListener('click', ()=> exportPendingCSV(allEntries));
 
     if(total === 0){
       const empty = document.createElement('div');
       empty.className = 'card metrics-empty';
-      empty.textContent = '🎉 No hay pendientes. Todos los choferes activos están al día o ya completados.';
+      empty.textContent = pendingReclutadorFilter
+        ? `🎉 "${pendingReclutadorFilter}" no tiene pendientes en este momento.`
+        : '🎉 No hay pendientes. Todos los choferes activos están al día o ya completados.';
       wrap.appendChild(empty);
       return;
     }
@@ -2231,23 +2443,7 @@ En revisión de documentos con Jaky"></textarea>
       card.appendChild(val); card.appendChild(lab);
       kpiGrid.appendChild(card);
     });
-    wrap.appendChild(kpiGrid);
-
-    const pendingToolbar = document.createElement('div');
-    pendingToolbar.className = 'table-toolbar';
-    pendingToolbar.style.marginTop = '4px';
-    const toolbarSpacer = document.createElement('div');
-    const toolbarActions = document.createElement('div');
-    toolbarActions.className = 'toolbar-actions';
-    const btnExportPending = document.createElement('button');
-    btnExportPending.type = 'button';
-    btnExportPending.className = 'btn-secondary';
-    btnExportPending.textContent = '⇩ Exportar CSV (para presentar)';
-    btnExportPending.addEventListener('click', ()=> exportPendingCSV(allEntries));
-    toolbarActions.appendChild(btnExportPending);
-    pendingToolbar.appendChild(toolbarSpacer);
-    pendingToolbar.appendChild(toolbarActions);
-    wrap.appendChild(pendingToolbar);
+    wrap.insertBefore(kpiGrid, pendingToolbar);
 
     const board = document.createElement('div');
     board.className = 'pending-board';
@@ -2747,6 +2943,301 @@ En revisión de documentos con Jaky"></textarea>
     holder.appendChild(card);
   }
 
+  /* ---------- vacantes: pestaña de avance por sucursal ---------- */
+  function vacPctClass(pct){
+    if(pct >= 100) return 'vac-full';
+    if(pct >= 50) return 'vac-mid';
+    return 'vac-low';
+  }
+
+  function buildVacProgressCell(pct){
+    const cell = document.createElement('div');
+    cell.className = 'vac-progress-cell';
+    const track = document.createElement('div');
+    track.className = 'vac-progress-track';
+    const fill = document.createElement('div');
+    fill.className = 'vac-progress-fill ' + vacPctClass(pct);
+    fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    track.appendChild(fill);
+    const label = document.createElement('span');
+    label.className = 'vac-progress-pct';
+    label.style.color = pct >= 100 ? 'var(--success)' : (pct >= 50 ? 'var(--amber-ink)' : 'var(--danger)');
+    label.textContent = Math.round(pct) + '%';
+    cell.appendChild(track);
+    cell.appendChild(label);
+    return cell;
+  }
+
+  // Desglose de "en proceso" por etapa: cuántos van en Jaky / Dani / Pre alta / carga realizada / sin estatus.
+  function buildProcessBreakdown(candidatos){
+    const cell = document.createElement('div');
+    cell.className = 'vac-process-cell';
+    if(candidatos.length === 0){
+      const none = document.createElement('span');
+      none.className = 'vac-process-none';
+      none.textContent = '0 en proceso';
+      cell.appendChild(none);
+      return cell;
+    }
+    const counts = { Jaky:0, Dani:0, Alta:0, carga:0, sin:0 };
+    candidatos.forEach(d=>{
+      if(d.cargaRealizada) counts.carga++;
+      else if(d.estatus === 'Jaky') counts.Jaky++;
+      else if(d.estatus === 'Dani') counts.Dani++;
+      else if(d.estatus === 'Alta') counts.Alta++;
+      else counts.sin++;
+    });
+    const total = document.createElement('div');
+    total.className = 'vac-process-total';
+    total.textContent = `${candidatos.length} en proceso`;
+    cell.appendChild(total);
+
+    const chips = document.createElement('div');
+    chips.className = 'vac-process-chips';
+    const defs = [
+      { n: counts.Jaky, label: 'Jaky', cls: 'vp-jaky' },
+      { n: counts.Dani, label: 'Dani', cls: 'vp-dani' },
+      { n: counts.Alta, label: 'Pre alta', cls: 'vp-alta' },
+      { n: counts.carga, label: 'Carga ✓', cls: 'vp-carga' },
+      { n: counts.sin, label: 'Sin estatus', cls: 'vp-sin' }
+    ];
+    defs.forEach(def=>{
+      if(def.n === 0) return;
+      const chip = document.createElement('span');
+      chip.className = 'vac-process-chip ' + def.cls;
+      chip.textContent = `${def.n} ${def.label}`;
+      chips.appendChild(chip);
+    });
+    cell.appendChild(chips);
+    return cell;
+  }
+
+  // Reclutador(es) que llevan la sucursal, con cuántos candidatos lleva cada uno.
+  function buildRecruiterList(candidatos){
+    const cell = document.createElement('div');
+    cell.className = 'vac-recruiter-cell';
+    if(candidatos.length === 0){
+      cell.textContent = '—';
+      return cell;
+    }
+    const byRecl = {};
+    candidatos.forEach(d=>{
+      const r = d.reclutador || 'free';
+      byRecl[r] = (byRecl[r] || 0) + 1;
+    });
+    Object.keys(byRecl).sort((a,b)=> byRecl[b] - byRecl[a]).forEach(r=>{
+      const chip = document.createElement('span');
+      chip.className = 'vac-recruiter-chip';
+      chip.textContent = candidatos.length > 1 ? `${r} (${byRecl[r]})` : r;
+      cell.appendChild(chip);
+    });
+    return cell;
+  }
+
+  function renderVacantes(){
+    const wrap = document.getElementById('vacantesContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    // Barra superior: importar / reemplazar / quitar plantilla.
+    const summaryBar = document.createElement('div');
+    summaryBar.className = 'vac-summary-bar';
+    const summaryText = document.createElement('div');
+    summaryText.className = 'vac-summary-text';
+    if(vacantesTemplate.length > 0){
+      const totalVac = vacantesTemplate.reduce((s,i)=> s + i.vacantes, 0);
+      summaryText.innerHTML = `Plantilla: <b>${vacantesFileName || 'archivo cargado'}</b> · <b>${vacantesTemplate.length}</b> sucursales · <b>${totalVac}</b> vacantes en total · importada el ${formatDateTime(vacantesImportedAt)}`;
+    } else {
+      summaryText.textContent = 'Aún no has cargado una plantilla de vacantes. Importa el Excel con las columnas Sucursal, Cliente, Ubicación, Prioridad y Vacantes.';
+    }
+    const btnImportVac = document.createElement('button');
+    btnImportVac.type = 'button';
+    btnImportVac.className = 'btn-secondary';
+    btnImportVac.textContent = vacantesTemplate.length > 0 ? '⇧ Reemplazar plantilla' : '⇧ Importar plantilla de vacantes';
+    btnImportVac.addEventListener('click', ()=> document.getElementById('fileImportVacantes').click());
+    summaryBar.appendChild(summaryText);
+    summaryBar.appendChild(btnImportVac);
+    if(vacantesTemplate.length > 0){
+      const btnClearVac = document.createElement('button');
+      btnClearVac.type = 'button';
+      btnClearVac.className = 'btn-ghost';
+      btnClearVac.textContent = 'Quitar plantilla';
+      btnClearVac.addEventListener('click', clearVacantesTemplate);
+      summaryBar.appendChild(btnClearVac);
+    }
+    wrap.appendChild(summaryBar);
+
+    if(vacantesTemplate.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'Importa el Excel de vacantes por sucursal para ver aquí cuántas plazas hay, cuántos candidatos llevas en proceso y tu % de avance hacia la meta.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const stats = computeSucursalStats();
+    const totalVacantes = vacantesTemplate.reduce((s,i)=> s + i.vacantes, 0);
+    const totalEnProceso = stats.byTemplate.reduce((s,b)=> s + b.candidatos.length, 0);
+    const sumaGlobal = stats.byTemplate.reduce((s,b)=> s + b.sumaPorcentaje, 0);
+    const pctGlobal = totalVacantes > 0 ? (sumaGlobal / (totalVacantes * 100)) * 100 : 0;
+
+    const kpiGrid = document.createElement('div');
+    kpiGrid.className = 'metrics-grid';
+    const kpis = [
+      { value: totalVacantes, label: 'Vacantes totales (meta)', cls: '' },
+      { value: totalEnProceso, label: 'Candidatos en proceso', cls: 'kpi-jaky' },
+      { value: Math.round(pctGlobal) + '%', label: 'Avance global consolidado', cls: vacPctClass(pctGlobal) === 'vac-full' ? 'kpi-success' : (vacPctClass(pctGlobal) === 'vac-mid' ? 'kpi-amber' : 'kpi-red') }
+    ];
+    kpis.forEach(k=>{
+      const card = document.createElement('div');
+      card.className = 'kpi-card ' + k.cls;
+      const val = document.createElement('div'); val.className = 'kpi-value'; val.textContent = k.value;
+      const lab = document.createElement('div'); lab.className = 'kpi-label'; lab.textContent = k.label;
+      card.appendChild(val); card.appendChild(lab);
+      kpiGrid.appendChild(card);
+    });
+    wrap.appendChild(kpiGrid);
+
+    // Tabla principal: una fila por sucursal de la plantilla, ordenada de la más atrasada a la más cubierta.
+    const rows = stats.byTemplate.map(b=>{
+      const pct = b.vacante.vacantes > 0 ? (b.sumaPorcentaje / (b.vacante.vacantes * 100)) * 100 : 0;
+      return { ...b, pct };
+    }).sort((a,b)=> a.pct - b.pct);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const titleRow = document.createElement('div');
+    titleRow.style.display = 'flex';
+    titleRow.style.justifyContent = 'space-between';
+    titleRow.style.alignItems = 'center';
+    titleRow.style.marginBottom = '14px';
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.style.margin = '0';
+    title.textContent = 'Avance por sucursal';
+    const btnExportVac = document.createElement('button');
+    btnExportVac.type = 'button';
+    btnExportVac.className = 'btn-secondary';
+    btnExportVac.textContent = '⇩ Exportar CSV';
+    btnExportVac.addEventListener('click', ()=> exportVacantesCSV(rows));
+    titleRow.appendChild(title);
+    titleRow.appendChild(btnExportVac);
+    card.appendChild(titleRow);
+
+    const table = document.createElement('table');
+    table.className = 'discarded-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Sucursal</th><th>Cliente</th><th>Prioridad</th><th>Vacantes</th><th>En proceso (por etapa)</th><th>Reclutador(es)</th><th>Suma %</th><th>% Consolidado</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      const tdSuc = document.createElement('td'); tdSuc.textContent = r.vacante.sucursal;
+      const tdCli = document.createElement('td'); tdCli.textContent = r.vacante.cliente || '—';
+      const tdPrio = document.createElement('td'); tdPrio.textContent = r.vacante.prioridad || '—';
+      const tdVac = document.createElement('td'); tdVac.className = 'mono'; tdVac.textContent = r.vacante.vacantes;
+      const tdProc = document.createElement('td'); tdProc.appendChild(buildProcessBreakdown(r.candidatos));
+      const tdRecl = document.createElement('td'); tdRecl.appendChild(buildRecruiterList(r.candidatos));
+      const tdSuma = document.createElement('td'); tdSuma.className = 'mono'; tdSuma.textContent = r.sumaPorcentaje + '%';
+      const tdPct = document.createElement('td');
+      tdPct.appendChild(buildVacProgressCell(r.pct));
+      tr.appendChild(tdSuc); tr.appendChild(tdCli); tr.appendChild(tdPrio);
+      tr.appendChild(tdVac); tr.appendChild(tdProc); tr.appendChild(tdRecl); tr.appendChild(tdSuma); tr.appendChild(tdPct);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const tableScroll = document.createElement('div');
+    tableScroll.className = 'table-scroll-x';
+    tableScroll.appendChild(table);
+    card.appendChild(tableScroll);
+    wrap.appendChild(card);
+
+    // Candidatos cuya sucursal no coincidió con ninguna fila de la plantilla (revisar nombres).
+    if(stats.unmatched.size > 0){
+      const unCard = document.createElement('div');
+      unCard.className = 'card';
+      const unTitle = document.createElement('h3');
+      unTitle.className = 'metrics-section-title';
+      unTitle.textContent = '⚠️ Sucursales sin plantilla (revisar nombre)';
+      unCard.appendChild(unTitle);
+      const unTable = document.createElement('table');
+      unTable.className = 'discarded-table';
+      const unThead = document.createElement('thead');
+      unThead.innerHTML = '<tr><th>Sucursal (como está capturada)</th><th>Candidatos</th></tr>';
+      unTable.appendChild(unThead);
+      const unTbody = document.createElement('tbody');
+      [...stats.unmatched.values()].sort((a,b)=> b.candidatos.length - a.candidatos.length).forEach(b=>{
+        const tr = document.createElement('tr');
+        const tdLabel = document.createElement('td'); tdLabel.textContent = b.label;
+        const tdCount = document.createElement('td'); tdCount.className = 'mono'; tdCount.textContent = b.candidatos.length;
+        tr.appendChild(tdLabel); tr.appendChild(tdCount);
+        unTbody.appendChild(tr);
+      });
+      unTable.appendChild(unTbody);
+      const unScroll = document.createElement('div');
+      unScroll.className = 'table-scroll-x';
+      unScroll.appendChild(unTable);
+      unCard.appendChild(unScroll);
+      wrap.appendChild(unCard);
+    }
+  }
+
+  function exportVacantesCSV(rows){
+    if(!rows || rows.length === 0){ toast('No hay datos de vacantes para exportar'); return; }
+    const headers = ['Sucursal','Cliente','Prioridad','Vacantes','En proceso','Jaky','Dani','Pre alta','Carga realizada','Sin estatus','Reclutadores','Suma %','% Consolidado'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(r=>{
+      const c = { Jaky:0, Dani:0, Alta:0, carga:0, sin:0 };
+      const byRecl = {};
+      r.candidatos.forEach(d=>{
+        if(d.cargaRealizada) c.carga++;
+        else if(d.estatus === 'Jaky') c.Jaky++;
+        else if(d.estatus === 'Dani') c.Dani++;
+        else if(d.estatus === 'Alta') c.Alta++;
+        else c.sin++;
+        const rec = d.reclutador || 'free';
+        byRecl[rec] = (byRecl[rec] || 0) + 1;
+      });
+      const reclStr = Object.keys(byRecl).sort((a,b)=> byRecl[b]-byRecl[a]).map(rr=> `${rr} (${byRecl[rr]})`).join(' · ');
+      const line = [
+        r.vacante.sucursal, r.vacante.cliente, r.vacante.prioridad,
+        r.vacante.vacantes, r.candidatos.length,
+        c.Jaky, c.Dani, c.Alta, c.carga, c.sin, reclStr,
+        r.sumaPorcentaje + '%', Math.round(r.pct) + '%'
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `avance_vacantes_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('CSV de vacantes exportado');
+  }
+
+  function updateVacantesTabBadge(){
+    const el = document.getElementById('vacantesCount');
+    if(!el) return;
+    el.innerHTML = '';
+    if(vacantesTemplate.length > 0){
+      const stats = computeSucursalStats();
+      const totalVacantes = vacantesTemplate.reduce((s,i)=> s + i.vacantes, 0);
+      const sumaGlobal = stats.byTemplate.reduce((s,b)=> s + b.sumaPorcentaje, 0);
+      const pctGlobal = totalVacantes > 0 ? Math.round((sumaGlobal / (totalVacantes * 100)) * 100) : 0;
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.style.background = pctGlobal >= 100 ? 'var(--success)' : (pctGlobal >= 50 ? 'var(--amber)' : 'var(--danger)');
+      badge.textContent = pctGlobal + '%';
+      el.appendChild(badge);
+    }
+  }
+
   function renderLog(){
     const wrap = document.getElementById('logContent');
     if(!wrap) return;
@@ -3188,6 +3679,7 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('viewProjLiverpool').style.display = view === 'projLiverpool' ? '' : 'none';
     document.getElementById('viewProjLacomer').style.display = view === 'projLacomer' ? '' : 'none';
     document.getElementById('viewMetrics').style.display = view === 'metrics' ? '' : 'none';
+    document.getElementById('viewVacantes').style.display = view === 'vacantes' ? '' : 'none';
     document.getElementById('viewBaja').style.display = view === 'baja' ? '' : 'none';
     document.getElementById('viewDiscarded').style.display = view === 'discarded' ? '' : 'none';
     document.getElementById('viewLog').style.display = view === 'log' ? '' : 'none';
@@ -3199,6 +3691,7 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('tabProjLiverpool').classList.toggle('active', view === 'projLiverpool');
     document.getElementById('tabProjLacomer').classList.toggle('active', view === 'projLacomer');
     document.getElementById('tabMetrics').classList.toggle('active', view === 'metrics');
+    document.getElementById('tabVacantes').classList.toggle('active', view === 'vacantes');
     document.getElementById('tabBaja').classList.toggle('active', view === 'baja');
     document.getElementById('tabDiscarded').classList.toggle('active', view === 'discarded');
     document.getElementById('tabLog').classList.toggle('active', view === 'log');
@@ -3209,6 +3702,7 @@ En revisión de documentos con Jaky"></textarea>
     if(view === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
     if(view === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
     if(view === 'metrics') renderMetrics();
+    if(view === 'vacantes') renderVacantes();
     if(view === 'baja') renderBaja();
     if(view === 'discarded') renderDiscarded();
     if(view === 'log') renderLog();
@@ -3491,6 +3985,87 @@ En revisión de documentos con Jaky"></textarea>
     }
   }
 
+  /* ---------- vacantes: importar plantilla por sucursal ---------- */
+  const VACANTES_HEADER_SYNONYMS = {
+    sucursal: ['SUCURSAL'],
+    cliente: ['CLIENTE'],
+    estatusTienda: ['ESTATUS DE TIENDA','ESTATUS TIENDA'],
+    ubicacion: ['UBICACION'],
+    prioridad: ['PRIORIDAD'],
+    vacantes: ['VACANTES','VACANTE','NUM VACANTES','NUMERO DE VACANTES','NO VACANTES']
+  };
+
+  async function handleImportVacantesFile(file){
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:'array', cellDates:true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+      if(json.length === 0){ toast('El archivo no tiene filas de datos'); return; }
+
+      const hmap = {};
+      Object.keys(json[0]).forEach(h=>{
+        const n = normalizeHeader(h);
+        for(const key in VACANTES_HEADER_SYNONYMS){
+          if(!hmap[key] && VACANTES_HEADER_SYNONYMS[key].includes(n)) hmap[key] = h;
+        }
+      });
+      if(!hmap.sucursal || !hmap.vacantes){
+        toast('El archivo debe tener al menos las columnas "Sucursal" y "Vacantes"');
+        return;
+      }
+
+      const items = [];
+      json.forEach(row=>{
+        const sucursalRaw = String(row[hmap.sucursal] || '').trim();
+        if(!sucursalRaw) return;
+        const vacantesNum = parseInt(row[hmap.vacantes], 10);
+        items.push({
+          sucursal: sucursalRaw,
+          sucursalNorm: normalizeSucursalKey(sucursalRaw),
+          cliente: hmap.cliente ? String(row[hmap.cliente] || '').trim() : '',
+          estatusTienda: hmap.estatusTienda ? String(row[hmap.estatusTienda] || '').trim() : '',
+          ubicacion: hmap.ubicacion ? String(row[hmap.ubicacion] || '').trim() : '',
+          prioridad: hmap.prioridad ? String(row[hmap.prioridad] || '').trim() : '',
+          vacantes: isNaN(vacantesNum) ? 0 : vacantesNum
+        });
+      });
+
+      if(items.length === 0){ toast('No se encontraron sucursales válidas en el archivo'); return; }
+
+      const applyImport = ()=>{
+        vacantesTemplate = items;
+        vacantesImportedAt = new Date().toISOString();
+        vacantesFileName = file.name;
+        saveVacantes();
+        render();
+        if(currentView === 'vacantes') renderVacantes();
+        const totalVac = items.reduce((s,i)=> s + i.vacantes, 0);
+        toast(`Plantilla cargada: ${items.length} sucursales, ${totalVac} vacantes en total`);
+      };
+
+      if(vacantesTemplate.length > 0){
+        if(!confirm(`Ya tienes una plantilla cargada (${vacantesTemplate.length} sucursales). ¿Reemplazarla con "${file.name}" (${items.length} sucursales)?`)) return;
+      }
+      applyImport();
+    }catch(err){
+      console.error('Error importando plantilla de vacantes', err);
+      toast('No se pudo leer el archivo. Verifica que sea un .xlsx, .xls o .csv válido.');
+    }
+  }
+
+  function clearVacantesTemplate(){
+    if(vacantesTemplate.length === 0){ toast('No hay plantilla cargada'); return; }
+    if(!confirm('¿Quitar la plantilla de vacantes cargada? Esto no afecta a los choferes, solo deja de mostrar la meta por sucursal.')) return;
+    vacantesTemplate = [];
+    vacantesImportedAt = null;
+    vacantesFileName = '';
+    saveVacantes();
+    render();
+    renderVacantes();
+    toast('Plantilla de vacantes eliminada');
+  }
+
   function deleteImportBatch(batchId){
     const batch = importBatches.find(b=>b.id===batchId);
     if(!batch) return;
@@ -3561,6 +4136,7 @@ En revisión de documentos con Jaky"></textarea>
     loadDiscarded();
     loadBaja();
     loadLog();
+    loadVacantes();
     initReclutadorFilter();
     render();
     updateHeaderClock();
@@ -3587,6 +4163,12 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('tabMetrics').addEventListener('click', ()=> switchView('metrics'));
     document.getElementById('tabDiscarded').addEventListener('click', ()=> switchView('discarded'));
     document.getElementById('tabLog').addEventListener('click', ()=> switchView('log'));
+    document.getElementById('tabVacantes').addEventListener('click', ()=> switchView('vacantes'));
+    document.getElementById('fileImportVacantes').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(file) handleImportVacantesFile(file);
+      e.target.value = '';
+    });
     document.getElementById('tabSearch').addEventListener('click', ()=> switchView('search'));
     document.getElementById('tabBaja').addEventListener('click', ()=> switchView('baja'));
     document.getElementById('tabPending').addEventListener('click', (e)=>{
