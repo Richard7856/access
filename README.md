@@ -10,7 +10,7 @@ sin PHP, sin instalación.
 | `/despacho/actualizar` | subir el Excel del día · **con clave** | escribe los compartidos |
 | `/torre` | leads por día/semana/mes, embudo, estatus | tu archivo, en tu navegador |
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
-| `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
+| `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **compartidos** (Supabase + Storage) |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
 | `/seguimiento` | choferes: estatus, bitácora, búsqueda | **compartidos** (Supabase) |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
@@ -18,11 +18,37 @@ sin PHP, sin instalación.
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
 solo él. Ahí puede tener sentido — son herramientas de análisis personal.
 
-**El Gestor de Expedientes no guarda nada**, ni siquiera en el navegador: no usa
-localStorage ni IndexedDB, todo vive en memoria (`const state = {}`). Si recargas
-o cierras la pestaña a media captura, se pierde el trabajo y los documentos
-adjuntos. Hacerlo persistente es más caro que el resto porque además de datos
-maneja **archivos** (PDF e imágenes), que irían a Supabase Storage.
+## Cómo se comparte el Gestor de Expedientes
+
+La app no guardaba nada: todo vivía en `const state = {}` y los documentos son
+píxeles en memoria — recargar perdía el trabajo. Ahora los datos del candidato
+van a la fila `expedientes:estado` y cada documento (el PDF o la foto
+**original**, tal como se subió) al bucket `expedientes`, en la ruta
+`idDelCandidato/categoría`.
+
+La app es un solo `<script>` de nivel superior, así que sus funciones son
+globales y `sync-expedientes.js` (cargado después de ella) se engancha sin
+tocar su lógica:
+
+- **`loadFileIntoDocument`** → además de procesar el documento, sube el archivo
+  original al bucket.
+- **`renderTabs` / `updateSpeeches` / `reprocessDocument`** → programan publicar
+  (1.5 s de respiro): toda mutación —altas y bajas de candidatos, cada tecla en
+  un campo, los ajustes de un documento— termina pasando por alguna de las tres.
+- **Al abrir** → baja la fila y reconstruye cada documento llamando a la
+  **propia** `loadFileIntoDocument` de la app con el archivo bajado del bucket:
+  mismo pipeline, cero código duplicado. Los ajustes guardados (brillo,
+  contraste, nitidez) se re-aplican después.
+- **Cada 25 s** → si alguien más guardó, avisa para recargar (a media captura
+  sería peor pisar el foco). Antes de publicar comprueba si el otro ya guardó,
+  como el Clasificador: protección, no fusión.
+
+El bucket **no tiene permiso de borrado** desde la web: los archivos de
+candidatos eliminados quedan huérfanos (costo menor, se limpian a mano si
+estorban) y así el respaldo siempre encuentra sus documentos. Antes de publicar
+un estado con **menos** candidatos que el guardado se copia el anterior a
+`expedientes:estado:respaldo`; se recupera con
+`window.restaurarRespaldoExpedientes()` en la consola.
 
 ## Cómo se comparte la Carrera
 
@@ -178,6 +204,9 @@ para no mezclarse con las tablas de la app de mascotas:
   *Restaurar*.
 - **Bucket `despacho`** — las infografías y los videos. Lectura pública; el
   permiso de subida se retiró después de cargarlos.
+- **Bucket `expedientes`** — los documentos del Gestor de Expedientes (PDF y
+  fotos, máx. 15 MB). Lectura pública, subir y reemplazar con la clave
+  publicable, **sin borrado**: lo subido no se puede destruir desde la web.
 
 La clave que aparece en `conexion.js` es la **publicable** (`sb_publishable_…`).
 Es normal que sea visible: así funciona Supabase. Lo que protege son las

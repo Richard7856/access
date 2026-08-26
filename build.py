@@ -35,7 +35,8 @@ OTRAS = [
     ("dashboard",          "torre",        "Torre de Reclutamiento",       []),
     ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento",
      ["/sync-clasificador.js"]),
-    ("index",              "expedientes",  "Gestor de Expedientes",        []),
+    ("index",              "expedientes",  "Gestor de Expedientes",
+     ["/sync-expedientes.js"]),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
     ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes",
      ["head:/sync-seguimiento.js"]),
@@ -430,7 +431,7 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
-for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js"):
+for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
