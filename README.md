@@ -112,19 +112,47 @@ La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
 `load()` + `refreshAll()`. `sync-clasificador.js` se engancha ahí **sin tocar su
 lógica**:
 
-- **al abrir** → baja el estado del equipo y lo carga
-- **al guardar** → lo publica 1.5 s después (para no mandar uno por tecla)
-- **cada 20 s** → si alguien más guardó, lo trae y repinta
+- **al abrir** → baja lo del equipo y lo **fusiona** con lo local
+- **al guardar** → fusiona y publica 1.5 s después (para no mandar uno por tecla)
+- **cada 20 s** → si alguien más guardó, fusiona y repinta
 
 Si no hay internet sigue funcionando en local y avisa. La clave de IA
 (`clasificador_ai`) **no se comparte**: es de cada quien.
 
-> **Aviso de choque:** si dos personas editan a la vez, antes de publicar se
-> comprueba si el otro ya guardó. Si sí, **no se pisa**: sale un aviso rojo
-> pidiendo recargar. Es una protección, no una fusión — el estado se guarda
-> entero, así que dos personas trabajando al mismo tiempo se estorban. Para
-> turnarse va bien; para edición simultánea de verdad haría falta partir el
-> estado por reclutador.
+> **Por qué fusión y no reemplazo.** La primera versión guardaba el estado
+> ENTERO: el segundo en guardar recibía un candado rojo y, al recargar, lo
+> remoto **pisaba su trabajo**. Con seis personas capturando a la vez eso
+> pasaba todo el día — "no guarda la memoria" — y el equipo dejó de confiar
+> en la herramienta. Ahora se fusiona de **tres vías** (base = lo último
+> sincronizado en este navegador, local, remoto), registro por registro:
+> lo agregado por cualquiera se queda, la edición local gana, lo que no
+> tocaste toma lo remoto, y el borrado se respeta (aunque una edición ajena
+> le gana al borrado). Al abrir, la fusión también **rescata** el trabajo
+> que quedó atorado en un navegador sin publicarse.
+
+Detalles con historia, para no re-aprenderlos:
+
+- Los registros del Clasificador **no traen id** (las altas son objetos
+  pelones), así que el sincronizador les sella un `_sid`: huella del contenido
+  con **claves ordenadas** — `jsonb` de Postgres reordena las claves de los
+  objetos, y comparar con `JSON.stringify` a secas ve "distinto" donde no lo
+  hay. La app arrastra el `_sid` sola porque `persist()` guarda los objetos
+  completos.
+- **Publicar lleva cerrojo optimista**: un UPDATE condicionado a que la fila
+  siga como se leyó (`actualizado=eq.marca`; el trigger de la tabla cambia la
+  marca en cada UPDATE). Si otro ganó la carrera, se vuelve a traer, fusionar
+  y publicar. Sin el cerrojo, la base de quien perdía tomaba sus propios
+  registros por "borrados por otro" y los tiraba.
+- `idSeq` avanza con un salto aleatorio por navegador: dos personas creando
+  candidatos a la vez generaban el mismo `c12` y la fusión los tomaba por el
+  mismo registro.
+- **Red contra "Limpiar todo"**: antes de publicar con menos registros que lo
+  guardado se copia lo anterior a `clasificador:estado:respaldo`. Se recupera
+  con `window.restaurarRespaldoClasificador()` (limpia también la base local,
+  para que la fusión no vuelva a aceptar el borrado).
+- Editar **el mismo campo del mismo registro** a la vez sigue siendo "uno
+  gana": la fusión es por registro, no por campo. Para el uso real (cada
+  quien captura lo suyo) no estorba.
 
 ## Estructura
 
