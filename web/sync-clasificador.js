@@ -199,8 +199,11 @@
       }
       if (MAPAS.indexOf(k) >= 0) { salida[k] = fusionarMapa(base[k], local[k], remoto[k]); return; }
       if (MAXIMOS.indexOf(k) >= 0) {
+        // Máximo puro. El salto anticolisión de idSeq se aplica UNA vez por
+        // sesión en aplicar(): sumarlo aquí hacía que la unión nunca fuera
+        // igual a lo remoto y cada navegador abierto publicara y repintara
+        // cada 20 s sin haber cambios.
         salida[k] = Math.max(+base[k] || 0, +local[k] || 0, +remoto[k] || 0);
-        if (k === 'idSeq') salida[k] += saltoPropio;
         return;
       }
       // escalares y campos que no conocemos: si lo local cambió, gana; si no, lo remoto
@@ -231,9 +234,14 @@
   }
 
   /* Aplica un estado fusionado a la app: almacén + reconstrucción. */
+  var yaSalte = false;
   function aplicar(v) {
     try { localStorage.setItem(LOCAL, JSON.stringify(v)); } catch (e) { return; }
     if (typeof load === 'function') load();
+    // El salto anticolisión, una vez por sesión: dos navegadores creando
+    // candidatos a la vez generaban el mismo id y la fusión los tomaba por
+    // el mismo registro.
+    if (!yaSalte && typeof window.idSeq === 'number') { window.idSeq += saltoPropio; yaSalte = true; }
     if (typeof refreshAll === 'function') refreshAll();
   }
 
@@ -270,14 +278,16 @@
       }
 
       return pasos.then(function () {
+        // La unión se aplica ANTES de intentar publicar: aunque la
+        // publicación falle, aquí ya se ve lo del equipo.
+        if (!iguales(union, local)) {
+          aplicar(union);
+          if (esSondeo) señal('✓ Actualizado con los cambios del equipo');
+        }
         if (remoto && iguales(union, remoto)) {
           // Nada nuevo que publicar: la fila ya es la unión.
           marcaRemota = fila.actualizado;
           escribirBase(union);
-          if (!iguales(union, local)) {
-            aplicar(union);
-            if (esSondeo) señal('✓ Actualizado con los cambios del equipo');
-          }
           if (!esSondeo) señal('✓ Guardado para el equipo');
           publicando = false;
           return;
@@ -297,10 +307,6 @@
           }
           marcaRemota = filas[0].actualizado;
           escribirBase(union);
-          if (!iguales(union, local)) {
-            aplicar(union);
-            if (esSondeo) señal('✓ Actualizado con los cambios del equipo');
-          }
           if (remoto && cuantos(union) < cuantos(remoto)) {
             señal('Se publicó con menos registros (' + cuantos(union) + ' de ' + cuantos(remoto) +
                   '). Hay copia de lo anterior: window.restaurarRespaldoClasificador()', true);
