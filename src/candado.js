@@ -30,11 +30,25 @@
   var H = { apikey: CFG.key, Authorization: 'Bearer ' + CFG.key, 'Content-Type': 'application/json' };
 
   function hash(texto) {
+    if (!window.crypto || !crypto.subtle) {
+      return Promise.reject(new Error('sin crypto.subtle'));
+    }
     var datos = new TextEncoder().encode('candado:' + texto);
     return crypto.subtle.digest('SHA-256', datos).then(function (buf) {
       return Array.from(new Uint8Array(buf)).map(function (b) {
         return b.toString(16).padStart(2, '0');
       }).join('');
+    });
+  }
+
+  /* ¿Coincide lo escrito con el hash guardado? Se prueba recortando los
+     espacios de las orillas Y tal cual: en el teléfono es facilísimo que
+     se cuele un espacio al copiar la palabra de WhatsApp. */
+  function coincide(valor, hGuardado) {
+    return hash(valor.trim()).then(function (h) {
+      if (h === hGuardado) return true;
+      if (valor === valor.trim()) return false;
+      return hash(valor).then(function (h2) { return h2 === hGuardado; });
     });
   }
 
@@ -71,6 +85,8 @@
       'position:fixed;inset:0;z-index:2147483647;background:#F4F6FA;' +
       'display:flex;align-items:center;justify-content:center;' +
       'font-family:Inter,system-ui,sans-serif;color:#1B1B3A';
+    var fallos = 0;
+    telon.fallos = function () { return ++fallos; };
     telon.innerHTML =
       '<div style="background:#fff;border:1px solid #dfe4ec;border-radius:12px;' +
       'box-shadow:0 10px 30px rgba(27,27,58,.12);padding:30px 28px;width:min(360px,88vw)">' +
@@ -78,15 +94,31 @@
       '<h1 style="font-size:17px;margin:0 0 4px;font-weight:700">AccessPack</h1>' +
       '<p id="candadoTexto" style="font-size:13.5px;color:#5a6172;margin:0 0 16px;line-height:1.45"></p>' +
       '<form id="candadoForm">' +
-      '<input id="candadoPw" type="password" autocomplete="current-password" placeholder="Palabra clave" ' +
-      'style="width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border:1px solid #cdd4e0;border-radius:8px;margin-bottom:8px">' +
-      '<input id="candadoPw2" type="password" autocomplete="new-password" placeholder="Repítela" ' +
+      // autocomplete=off: Chrome en el teléfono rellenaba solo una contraseña
+      // guardada vieja y la persona juraba que escribía la buena.
+      '<div style="position:relative;margin-bottom:8px">' +
+      '<input id="candadoPw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Palabra clave" ' +
+      'style="width:100%;box-sizing:border-box;font-size:16px;padding:10px 40px 10px 12px;border:1px solid #cdd4e0;border-radius:8px">' +
+      '<button type="button" id="candadoOjo" title="Ver lo que escribí" ' +
+      'style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;font-size:16px;cursor:pointer;padding:4px">👁</button>' +
+      '</div>' +
+      '<input id="candadoPw2" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Repítela" ' +
       'style="display:none;width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border:1px solid #cdd4e0;border-radius:8px;margin-bottom:8px">' +
       '<button type="submit" id="candadoBtn" style="width:100%;font-size:14.5px;font-weight:600;padding:10px 12px;border:0;' +
       'border-radius:8px;background:#1B6EF3;color:#fff;cursor:pointer">Entrar</button>' +
       '<p id="candadoError" style="font-size:12.5px;color:#B3261E;margin:10px 0 0;min-height:16px"></p>' +
       '</form></div>';
     document.documentElement.appendChild(telon);
+    // El ojito: ver lo escrito. En el teléfono los puntitos esconden el
+    // espacio de más o la mayúscula que el teclado metió solo.
+    var ojo = telon.querySelector('#candadoOjo');
+    ojo.addEventListener('click', function () {
+      var i = telon.querySelector('#candadoPw');
+      var visible = i.type === 'text';
+      i.type = visible ? 'password' : 'text';
+      ojo.textContent = visible ? '👁' : '🙈';
+      i.focus();
+    });
   }
   function quitarTelon() {
     if (telon && telon.parentNode) telon.parentNode.removeChild(telon);
@@ -103,10 +135,17 @@
     ver('candadoForm').onsubmit = function (ev) {
       ev.preventDefault();
       var valor = ver('candadoPw').value;
-      if (!valor) return;
-      hash(valor).then(function (h) {
-        if (h === hGuardado) { recordar(h); quitarTelon(); }
-        else { error('Palabra clave incorrecta.'); ver('candadoPw').value = ''; ver('candadoPw').focus(); }
+      if (!valor.trim()) return;
+      coincide(valor, hGuardado).then(function (ok) {
+        if (ok) { recordar(hGuardado); quitarTelon(); return; }
+        var n = telon && telon.fallos ? telon.fallos() : 1;
+        error(n >= 2
+          ? 'Sigue sin coincidir. Usa el ojito 👁 para ver lo que escribiste: revisa mayúsculas y que no se cuele un espacio.'
+          : 'Palabra clave incorrecta.');
+        ver('candadoPw').value = '';
+        ver('candadoPw').focus();
+      }).catch(function () {
+        error('Este navegador no puede comprobar la palabra (necesita ser reciente y entrar por https).');
       });
     };
     setTimeout(function () { var i = ver('candadoPw'); if (i) i.focus(); }, 50);
@@ -122,8 +161,10 @@
     ver('candadoBtn').textContent = 'Guardar y entrar';
     ver('candadoForm').onsubmit = function (ev) {
       ev.preventDefault();
-      var v1 = ver('candadoPw').value, v2 = ver('candadoPw2').value;
-      if ((v1 || '').length < 4) return error('Muy corta: mínimo 4 letras.');
+      // Se guarda RECORTADA: un espacio invisible en las orillas al crearla
+      // dejaría fuera a todo el equipo aunque escribieran "la buena".
+      var v1 = ver('candadoPw').value.trim(), v2 = ver('candadoPw2').value.trim();
+      if (v1.length < 4) return error('Muy corta: mínimo 4 letras.');
       if (v1 !== v2) return error('Las dos no coinciden.');
       hash(v1).then(function (h) {
         return guardarHash(h).then(function () { recordar(h); quitarTelon(); });
