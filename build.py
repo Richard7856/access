@@ -34,16 +34,16 @@ OTRAS = [
     # (prefijo del archivo, carpeta destino, nombre, scripts extra)
     ("dashboard",          "torre",        "Torre de Reclutamiento",       []),
     ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento",
-     ["/sync-clasificador.js"]),
+     ["head:/candado.js", "/sync-clasificador.js"]),
     ("index",              "expedientes",  "Gestor de Expedientes",
      ["/sync-expedientes.js"]),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
     ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes",
-     ["head:/sync-seguimiento.js"]),
+     ["head:/candado.js", "head:/sync-seguimiento.js"]),
     # Claude no siempre nombra igual el archivo de la carrera, así que se
     # aceptan los dos prefijos que ha usado.
     (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",
-     ["/sync-carrera.js"]),
+     ["head:/candado.js", "/sync-carrera.js"]),
 ]
 
 # Proyecto de Supabase (mascotas). La clave es la publicable: es normal que
@@ -431,7 +431,7 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
-for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js"):
+for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js", "candado.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
