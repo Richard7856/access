@@ -14,6 +14,7 @@ sin PHP, sin instalación.
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
 | `/seguimiento` | choferes: estatus, bitácora, búsqueda | **compartidos** (Supabase) |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
+| `/examinados` | contraseñas Midot, quién pasó y el costo por periodo | **compartidos** (Supabase) |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
 solo él. Ahí puede tener sentido — son herramientas de análisis personal.
@@ -239,6 +240,26 @@ para no mezclarse con las tablas de la app de mascotas:
 La clave que aparece en `conexion.js` es la **publicable** (`sb_publishable_…`).
 Es normal que sea visible: así funciona Supabase. Lo que protege son las
 políticas RLS de arriba.
+
+## Cómo se comparte el Control de examinados
+
+La app ya guardaba en localStorage (tres cajas: filas de examinados, metadatos
+de la cuenta y usuarios de la Comer), pero era por navegador. Ahora vive en la
+fila `examinados:estado` y es la misma para todos.
+
+El enganche es distinto al del Seguimiento porque esta app **no arranca con
+`DOMContentLoaded`**: es un IIFE que corre al final de su script. `build.py` le
+parcha el bloque de Init para que espere `window.__esperarEquipoExaminados` (la
+promesa que baja lo del equipo) antes de arrancar — así abre ya con los datos
+compartidos — y para que deje `window.__recargarExaminados`, con lo que los
+cambios de otros **sí se repintan solos** (salvo que estés escribiendo en un
+campo: ahí avisa en lugar de interrumpir). Publicar es como en el Seguimiento:
+`Storage.prototype.setItem` envuelto, con 1.2 s de respiro.
+
+Red contra el borrado: antes de publicar con menos registros se copia lo
+anterior a `examinados:estado:respaldo` (`window.restaurarRespaldoExaminados()`
+lo devuelve). El aviso rojo solo sale con bajones grandes — borrar una fila de
+relleno es rutina.
 
 ## La palabra clave del Clasificador, el Seguimiento y la Carrera
 

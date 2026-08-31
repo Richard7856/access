@@ -13,6 +13,7 @@
     { url: '/analizador/',   nombre: 'Analizador',   icono: '📈' },
     { url: '/seguimiento/',  nombre: 'Seguimiento',  icono: '🚦' },
     { url: '/carrera/',      nombre: 'Carrera',      icono: '🏁' },
+    { url: '/examinados/',   nombre: 'Examinados',   icono: '📝' },
   ];
 
   var CSS =

@@ -44,6 +44,8 @@ OTRAS = [
     # aceptan los dos prefijos que ha usado.
     (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",
      ["head:/candado.js", "/sync-carrera.js"]),
+    ("control_examinados",  "examinados",  "Control de examinados",
+     ["head:/sync-examinados.js"]),
 ]
 
 # Proyecto de Supabase (mascotas). La clave es la publicable: es normal que
@@ -431,7 +433,7 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
-for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js", "candado.js"):
+for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js", "sync-examinados.js", "candado.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
@@ -471,6 +473,35 @@ for prefijo, destino, nombre, extra in OTRAS:
         if n != 1:
             morir("No encontré dónde declara la Carrera su estado «records» "
                   "para engancharle la memoria compartida.")
+
+    # El Control de examinados es un IIFE que arranca al final de su script —
+    # no hay DOMContentLoaded que interceptar como en el Seguimiento. Se le
+    # parcha el Init para que espere lo del equipo antes de arrancar y deje
+    # una manija (window.__recargarExaminados) con la que el sincronizador
+    # repinta cuando alguien más guarda.
+    if destino == "examinados":
+        contenido = sustituir(
+            contenido,
+            "  // ---------- Init ----------\n"
+            "  loadData();\n"
+            "  renderAll();\n"
+            "  loadComerData();\n"
+            "  renderComerTable();\n"
+            "  updateComerReclutadorList();",
+            "  // ---------- Init ----------\n"
+            "  // (memoria compartida: arranca cuando ya bajó lo del equipo, y el\n"
+            "  //  sincronizador repinta con esta misma manija)\n"
+            "  function arrancarExaminados(){\n"
+            "    loadData();\n"
+            "    renderAll();\n"
+            "    loadComerData();\n"
+            "    renderComerTable();\n"
+            "    updateComerReclutadorList();\n"
+            "  }\n"
+            "  window.__recargarExaminados = arrancarExaminados;\n"
+            "  if (window.__esperarEquipoExaminados) window.__esperarEquipoExaminados.then(arrancarExaminados);\n"
+            "  else arrancarExaminados();",
+            "arranque del Control de examinados")
 
     contenido = con_estilos_movil(contenido, fuente.name)
     for r in extra:
