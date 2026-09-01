@@ -272,29 +272,6 @@ anterior a `examinados:estado:respaldo` (`window.restaurarRespaldoExaminados()`
 lo devuelve). El aviso rojo solo sale con bajones grandes — borrar una fila de
 relleno es rutina.
 
-## La palabra clave del Clasificador, el Seguimiento y la Carrera
-
-Las tres páginas piden **una misma palabra clave** para entrar — sin correos ni
-cuentas. Funciona como la clave de `/actualizar`: la primera persona que abre
-la elige (y la comparte con el equipo), se guarda como hash SHA-256 en la fila
-`candado:paginas` de `despacho_estado`, y cada navegador la recuerda — no la
-vuelve a pedir hasta que la palabra cambie.
-
-El telón lo pinta `candado.js`, inyectado en el `<head>` de las tres páginas
-**antes** que las apps. No usa `DOMContentLoaded` a propósito: el sincronizador
-del Seguimiento intercepta ese registro y no hay que meterse en su camino — el
-telón se cuelga directo de `<html>`, que ya existe en el `<head>`.
-
-Es el mismo **candado ligero** de siempre, no seguridad real: se verifica en el
-navegador, así que quien sepa programar puede saltárselo, igual que siempre
-pudo leer los datos con la clave publicable. Sirve para lo que se pidió: que no
-entre cualquiera que tenga el enlace.
-
-- **Cambiarla u olvidarla:** borra la fila `candado:paginas` de
-  `despacho_estado`; la siguiente persona en abrir la vuelve a crear.
-- Sin internet, un navegador que ya había entrado pasa (la app de todos modos
-  trabaja local); uno nuevo no.
-
 ## La clave de /actualizar
 
 La eliges tú la primera vez que entras. Se guarda como hash SHA-256 en
