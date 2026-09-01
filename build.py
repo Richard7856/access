@@ -474,6 +474,18 @@ for prefijo, destino, nombre, extra in OTRAS:
             morir("No encontré dónde declara la Carrera su estado «records» "
                   "para engancharle la memoria compartida.")
 
+        # v13+: el Salón de la Fama y el archivo mensual dejaron de ser
+        # constantes — viven en cajas propias que el hook de records no
+        # alcanza. Su propio hook, junto a sus estados.
+        if "access-pack-hall-of-fame-v1" in contenido:
+            contenido, n = re.subn(
+                r"(  const \[monthlyArchive, setMonthlyArchive\] = useState\(.*?\);\n)",
+                r"\1  useSincronizacionExtrasCarrera(hallOfFame, setHallOfFame, monthlyArchive, setMonthlyArchive);  // memoria compartida\n",
+                contenido, count=1)
+            if n != 1:
+                morir("La Carrera trae Salón de la Fama/archivo persistentes pero no "
+                      "encontré sus estados para engancharles la memoria compartida.")
+
     # El Control de examinados es un IIFE que arranca al final de su script —
     # no hay DOMContentLoaded que interceptar como en el Seguimiento. Se le
     # parcha el Init para que espere lo del equipo antes de arrancar y deje

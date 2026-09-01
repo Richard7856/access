@@ -69,6 +69,17 @@ personal de cada quien corriendo, no dato de trabajo. Si algún día se quiere c
 récord de la casa, hay que sincronizarla como el Seguimiento (envolviendo
 `Storage.prototype.setItem`), porque el hook de React solo alcanza `records`.
 
+Desde la v13, "Cerrar mes" archiva el periodo, corona al campeón/a y deja el
+marcador en cero. El Salón de la Fama y el archivo mensual viven en cajas
+propias (`access-pack-hall-of-fame-v1` y `access-pack-monthly-archive-v1`) que
+el hook de `records` no alcanza — sin más, el historial de la casa viviría solo
+en el navegador de quien cierra el mes. Por eso `build.py` inserta un **segundo
+hook**, `useSincronizacionExtrasCarrera`, junto a sus estados: publica ambos en
+la fila `carrera:extras`, uniendo el Salón **por mes** (lo local pisa su propio
+mes) y el archivo **por clave** (cada cierre lleva marca de tiempo, nunca
+chocan). El reset del marcador viaja solo por la unión de `records`: el vaciado
+es un borrado a propósito y la memoria de borrados evita que resucite.
+
 Desde la v7 la app trae además su propio `localStorage`. Los dos conviven bien:
 el navegador guarda una copia que pinta al instante y aguanta sin internet, y
 Supabase sigue siendo la lista del equipo — al abrir, lo compartido pisa lo
