@@ -633,7 +633,7 @@
       const groupRows = groups.get(wk);
       const empties = groupRows.filter(isEmptyRow);
       const filled = groupRows.filter(r=>!isEmptyRow(r));
-      const ordered = empties.concat(filled);
+      const ordered = groupRows;   // orden estatico: nada sube ni baja
 
       html += `<tr class="week-row"><td colspan="8">${formatWeekLabel(wk)}<span class="count-tag">${empties.length} por llenar · ${filled.length} llenas</span></td></tr>`;
 
@@ -712,30 +712,15 @@
       updateReclutadorList();
       saveData();
     }
-    // Al salir del campo, ahora sí: reordenar. Si el foco ya iba a otra
-    // celda (Tab o clic), se le busca por fila+campo en la tabla nueva y
-    // se le devuelve, con el cursor donde estaba.
-    if(field === 'nombre' || field === 'correo' || field === 'fechaAsignada'){
-      setTimeout(()=>{
-        const act = document.activeElement;
-        let devolver = null;
-        if(act && act.dataset && act.dataset.field){
-          const tr = act.closest('tr');
-          if(tr && tr.dataset.id){
-            let pos = null; try{ pos = act.selectionStart; }catch(err){}
-            devolver = { id: tr.dataset.id, campo: act.dataset.field, pos };
-          }
-        }
-        renderTable();
-        renderMeta();
-        if(devolver){
-          const otra = document.querySelector(`tr[data-id="${devolver.id}"] [data-field="${devolver.campo}"]`);
-          if(otra){
-            otra.focus();
-            try{ if(devolver.pos != null) otra.setSelectionRange(devolver.pos, devolver.pos); }catch(err){}
-          }
-        }
-      }, 0);
+    // Nombre y correo NO repintan nada, ni al salir del campo: el
+    // repintado al terminar destruia el boton que el usuario iba
+    // tocando (la X de borrar, la casilla) y el clic se perdia.
+    // Solo cambiar el dia mueve la fila, a su semana.
+    if(field === 'fechaAsignada'){
+      renderTable();
+      renderMeta();
+    } else if(field === 'nombre' || field === 'correo'){
+      renderMeta();
     }
   });
 

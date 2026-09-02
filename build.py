@@ -553,33 +553,31 @@ for prefijo, destino, nombre, extra in OTRAS:
             "      updateReclutadorList();\n"
             "      saveData();\n"
             "    }\n"
-            "    // Al salir del campo, ahora sí: reordenar. Si el foco ya iba a otra\n"
-            "    // celda (Tab o clic), se le busca por fila+campo en la tabla nueva y\n"
-            "    // se le devuelve, con el cursor donde estaba.\n"
-            "    if(field === 'nombre' || field === 'correo' || field === 'fechaAsignada'){\n"
-            "      setTimeout(()=>{\n"
-            "        const act = document.activeElement;\n"
-            "        let devolver = null;\n"
-            "        if(act && act.dataset && act.dataset.field){\n"
-            "          const tr = act.closest('tr');\n"
-            "          if(tr && tr.dataset.id){\n"
-            "            let pos = null; try{ pos = act.selectionStart; }catch(err){}\n"
-            "            devolver = { id: tr.dataset.id, campo: act.dataset.field, pos };\n"
-            "          }\n"
-            "        }\n"
-            "        renderTable();\n"
-            "        renderMeta();\n"
-            "        if(devolver){\n"
-            "          const otra = document.querySelector(`tr[data-id=\"${devolver.id}\"] [data-field=\"${devolver.campo}\"]`);\n"
-            "          if(otra){\n"
-            "            otra.focus();\n"
-            "            try{ if(devolver.pos != null) otra.setSelectionRange(devolver.pos, devolver.pos); }catch(err){}\n"
-            "          }\n"
-            "        }\n"
-            "      }, 0);\n"
+            "    // Nombre y correo NO repintan nada, ni al salir del campo: el\n"
+            "    // repintado al terminar destruia el boton que el usuario iba\n"
+            "    // tocando (la X de borrar, la casilla) y el clic se perdia.\n"
+            "    // Solo cambiar el dia mueve la fila, a su semana.\n"
+            "    if(field === 'fechaAsignada'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    } else if(field === 'nombre' || field === 'correo'){\n"
+            "      renderMeta();\n"
             "    }\n"
             "  });",
             "reorden al terminar el campo del Control de examinados")
+
+        # Orden ESTATICO dentro de cada semana: el acomodo vacias-arriba /
+        # llenas-abajo movia los renglones mientras se capturaba ("sube y
+        # baja") y el equipo lo pidio quieto. La fila se queda donde esta.
+        contenido = sustituir(
+            contenido,
+            "      const empties = groupRows.filter(isEmptyRow);\n"
+            "      const filled = groupRows.filter(r=>!isEmptyRow(r));\n"
+            "      const ordered = empties.concat(filled);",
+            "      const empties = groupRows.filter(isEmptyRow);\n"
+            "      const filled = groupRows.filter(r=>!isEmptyRow(r));\n"
+            "      const ordered = groupRows;   // orden estatico: nada sube ni baja",
+            "orden estatico del Control de examinados")
 
     contenido = con_estilos_movil(contenido, fuente.name)
     for r in extra:
