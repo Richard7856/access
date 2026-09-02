@@ -515,6 +515,72 @@ for prefijo, destino, nombre, extra in OTRAS:
             "  else arrancarExaminados();",
             "arranque del Control de examinados")
 
+        # La app repintaba la tabla ENTERA en cada tecla de Examinado/Correo
+        # (para reordenar vacías/llenas): el campo con foco se destruía y no
+        # se podía terminar de escribir, y la fila se iba hasta abajo con la
+        # primera letra. El reorden se pospone a terminar el campo (change).
+        contenido = sustituir(
+            contenido,
+            "    // fields that affect grouping/sorting/numbering re-render the table;\n"
+            "    // free-text fields update live without losing focus\n"
+            "    if(field === 'paso' || field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    }",
+            "    // El reorden de la tabla espera a que TERMINES el campo (change):\n"
+            "    // repintar en cada tecla destruía el campo con foco y mandaba la\n"
+            "    // fila hasta abajo con la primera letra. Solo la casilla de\n"
+            "    // \"Pasó\" repinta al instante — es un clic, no se escribe.\n"
+            "    if(field === 'paso'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    } else if(field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){\n"
+            "      renderMeta();\n"
+            "    }",
+            "repintado por tecla del Control de examinados")
+
+        contenido = sustituir(
+            contenido,
+            "  document.getElementById('tbody').addEventListener('change', e=>{\n"
+            "    if(e.target.dataset.field === 'reclutador'){\n"
+            "      updateReclutadorList();\n"
+            "      saveData();\n"
+            "    }\n"
+            "  });",
+            "  document.getElementById('tbody').addEventListener('change', e=>{\n"
+            "    const field = e.target.dataset.field;\n"
+            "    if(field === 'reclutador'){\n"
+            "      updateReclutadorList();\n"
+            "      saveData();\n"
+            "    }\n"
+            "    // Al salir del campo, ahora sí: reordenar. Si el foco ya iba a otra\n"
+            "    // celda (Tab o clic), se le busca por fila+campo en la tabla nueva y\n"
+            "    // se le devuelve, con el cursor donde estaba.\n"
+            "    if(field === 'nombre' || field === 'correo' || field === 'fechaAsignada'){\n"
+            "      setTimeout(()=>{\n"
+            "        const act = document.activeElement;\n"
+            "        let devolver = null;\n"
+            "        if(act && act.dataset && act.dataset.field){\n"
+            "          const tr = act.closest('tr');\n"
+            "          if(tr && tr.dataset.id){\n"
+            "            let pos = null; try{ pos = act.selectionStart; }catch(err){}\n"
+            "            devolver = { id: tr.dataset.id, campo: act.dataset.field, pos };\n"
+            "          }\n"
+            "        }\n"
+            "        renderTable();\n"
+            "        renderMeta();\n"
+            "        if(devolver){\n"
+            "          const otra = document.querySelector(`tr[data-id=\"${devolver.id}\"] [data-field=\"${devolver.campo}\"]`);\n"
+            "          if(otra){\n"
+            "            otra.focus();\n"
+            "            try{ if(devolver.pos != null) otra.setSelectionRange(devolver.pos, devolver.pos); }catch(err){}\n"
+            "          }\n"
+            "        }\n"
+            "      }, 0);\n"
+            "    }\n"
+            "  });",
+            "reorden al terminar el campo del Control de examinados")
+
     contenido = con_estilos_movil(contenido, fuente.name)
     for r in extra:
         if r.startswith("head:"):

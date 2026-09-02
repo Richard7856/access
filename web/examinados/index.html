@@ -694,18 +694,48 @@
     }
     saveData();
 
-    // fields that affect grouping/sorting/numbering re-render the table;
-    // free-text fields update live without losing focus
-    if(field === 'paso' || field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){
+    // El reorden de la tabla espera a que TERMINES el campo (change):
+    // repintar en cada tecla destruía el campo con foco y mandaba la
+    // fila hasta abajo con la primera letra. Solo la casilla de
+    // "Pasó" repinta al instante — es un clic, no se escribe.
+    if(field === 'paso'){
       renderTable();
+      renderMeta();
+    } else if(field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){
       renderMeta();
     }
   });
 
   document.getElementById('tbody').addEventListener('change', e=>{
-    if(e.target.dataset.field === 'reclutador'){
+    const field = e.target.dataset.field;
+    if(field === 'reclutador'){
       updateReclutadorList();
       saveData();
+    }
+    // Al salir del campo, ahora sí: reordenar. Si el foco ya iba a otra
+    // celda (Tab o clic), se le busca por fila+campo en la tabla nueva y
+    // se le devuelve, con el cursor donde estaba.
+    if(field === 'nombre' || field === 'correo' || field === 'fechaAsignada'){
+      setTimeout(()=>{
+        const act = document.activeElement;
+        let devolver = null;
+        if(act && act.dataset && act.dataset.field){
+          const tr = act.closest('tr');
+          if(tr && tr.dataset.id){
+            let pos = null; try{ pos = act.selectionStart; }catch(err){}
+            devolver = { id: tr.dataset.id, campo: act.dataset.field, pos };
+          }
+        }
+        renderTable();
+        renderMeta();
+        if(devolver){
+          const otra = document.querySelector(`tr[data-id="${devolver.id}"] [data-field="${devolver.campo}"]`);
+          if(otra){
+            otra.focus();
+            try{ if(devolver.pos != null) otra.setSelectionRange(devolver.pos, devolver.pos); }catch(err){}
+          }
+        }
+      }, 0);
     }
   });
 
