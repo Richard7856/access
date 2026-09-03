@@ -263,14 +263,35 @@ El enganche es distinto al del Seguimiento porque esta app **no arranca con
 parcha el bloque de Init para que espere `window.__esperarEquipoExaminados` (la
 promesa que baja lo del equipo) antes de arrancar — así abre ya con los datos
 compartidos — y para que deje `window.__recargarExaminados`, con lo que los
-cambios de otros **sí se repintan solos** (salvo que estés escribiendo en un
-campo: ahí avisa en lugar de interrumpir). Publicar es como en el Seguimiento:
-`Storage.prototype.setItem` envuelto, con 1.2 s de respiro.
+cambios de otros **sí se repintan solos**. Publicar sale de envolver
+`Storage.prototype.setItem`, con 1.2 s de respiro.
+
+> **Por qué fusión y no reemplazo.** La primera versión guardaba el estado
+> ENTERO, como el Seguimiento — y con varias personas capturando a la vez
+> **borraba trabajo** (reproducido con dos navegadores: la captura del primero
+> desaparecía de todos lados al publicar el segundo). Ahora fusiona de **tres
+> vías** como el Clasificador: filas por `id`, la lista de la Comer por
+> `número`, los metadatos campo por campo, con cerrojo optimista al publicar.
+> Lo agregado por cualquiera se queda, la edición local gana, el borrado se
+> respeta.
+
+Dos cuidados propios de esta app:
+
+- La app escribe desde su **memoria** en cada tecla, así que la fusión se
+  **aplica** (almacén + repintado + base) solo cuando nadie tiene un campo con
+  foco; mientras tanto se publica la unión — nada se pierde — y la aplicación
+  se reintenta en unos segundos. La base solo avanza cuando la app ya
+  incorporó la unión; sin eso, la siguiente tecla pisaba la fusión y las filas
+  ajenas se leían como "borradas aquí".
+- Las **filas vacías nuevas de un navegador no se publican hasta llenarse**:
+  cada navegador recién abierto siembra 40 de relleno (y la Comer 40 números
+  fijos) y publicarlas duplicaría filas o pisaría con vacío los números que
+  otros ya llenaron.
 
 Red contra el borrado: antes de publicar con menos registros se copia lo
 anterior a `examinados:estado:respaldo` (`window.restaurarRespaldoExaminados()`
-lo devuelve). El aviso rojo solo sale con bajones grandes — borrar una fila de
-relleno es rutina.
+lo devuelve y limpia la base local). El aviso rojo solo sale con bajones
+grandes — borrar una fila de relleno es rutina.
 
 ## La clave de /actualizar
 
