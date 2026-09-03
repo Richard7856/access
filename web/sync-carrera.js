@@ -150,4 +150,111 @@
       return function () { clearInterval(id); };
     }, []);
   };
+
+  /* ═══ Salón de la Fama y archivo mensual (fila carrera:extras) ═══
+     Cajas nuevas de la v13: "Cerrar mes" archiva el periodo y corona
+     al campeón/a, pero el hook de records no las alcanza — sin esto,
+     el historial de la casa viviría solo en el navegador de quien
+     cierra el mes. build.py inserta este hook junto a sus estados.
+
+     La unión es sencilla porque casi todo son agregados:
+       · Salón de la Fama → por mes (lo local pisa su propio mes)
+       · archivo mensual  → por clave (cada cierre trae marca de
+         tiempo propia, así que nunca chocan)                        */
+  var CLAVE_EXTRAS = 'carrera:extras';
+
+  function traerExtras() {
+    return fetch(REST + '?select=valor,actualizado&clave=eq.' + encodeURIComponent(CLAVE_EXTRAS), { headers: H })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (f) { return f && f.length ? f[0] : null; });
+  }
+
+  function guardarExtras(valor) {
+    return fetch(REST + '?on_conflict=clave', {
+      method: 'POST',
+      headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, H),
+      body: JSON.stringify({ clave: CLAVE_EXTRAS, valor: valor }),
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  window.useSincronizacionExtrasCarrera = function (hall, setHall, archivo, setArchivo) {
+    var useEffect = React.useEffect, useRef = React.useRef;
+    var cargado = useRef(false);
+    var marca = useRef(null);
+    var publicando = useRef(false);
+    var temporizador = useRef(null);
+    var previos = useRef('');
+
+    function unirHall(local, remoto) {
+      var porMes = {};
+      (remoto || []).forEach(function (e) { if (e && e.month) porMes[e.month] = e; });
+      (local || []).forEach(function (e) { if (e && e.month) porMes[e.month] = e; });
+      return Object.keys(porMes).map(function (m) { return porMes[m]; });
+    }
+    function unirArchivo(local, remoto) { return Object.assign({}, remoto || {}, local || {}); }
+    function firmaDe(h, a) { return JSON.stringify([h, a]); }
+
+    /* 1 · al abrir, unir lo del equipo con lo local */
+    useEffect(function () {
+      traerExtras().then(function (fila) {
+        marca.current = fila ? fila.actualizado : null;
+        var v = (fila && fila.valor) || {};
+        var h = unirHall(hall, v.hall);
+        var a = unirArchivo(archivo, v.archivo);
+        previos.current = firmaDe(h, a);
+        cargado.current = true;
+        setHall(h);
+        setArchivo(a);
+      }).catch(function () {
+        previos.current = firmaDe(hall, archivo);
+        cargado.current = true;
+      });
+    }, []);
+
+    /* 2 · al cambiar (cerrar un mes), unir con lo remoto y publicar */
+    useEffect(function () {
+      if (!cargado.current) return;
+      if (firmaDe(hall, archivo) === previos.current) return;
+      clearTimeout(temporizador.current);
+      temporizador.current = setTimeout(function () {
+        publicando.current = true;
+        traerExtras().then(function (fila) {
+          var v = (fila && fila.valor) || {};
+          var h = unirHall(hall, v.hall);
+          var a = unirArchivo(archivo, v.archivo);
+          return guardarExtras({ hall: h, archivo: a }).then(function (filas) {
+            if (filas && filas[0]) marca.current = filas[0].actualizado;
+            previos.current = firmaDe(h, a);
+            if (firmaDe(hall, archivo) !== previos.current) { setHall(h); setArchivo(a); }
+            señal('✓ Salón de la Fama guardado para el equipo');
+          });
+        }).catch(function () {
+          señal('No se pudo guardar el Salón de la Fama: revisa tu conexión', true);
+        }).then(function () { publicando.current = false; });
+      }, ESPERA);
+    }, [hall, archivo]);
+
+    /* 3 · cada tanto, traer coronaciones de otros (cambian poco) */
+    useEffect(function () {
+      var id = setInterval(function () {
+        if (publicando.current || !cargado.current) return;
+        traerExtras().then(function (fila) {
+          if (!fila || fila.actualizado === marca.current) return;
+          marca.current = fila.actualizado;
+          var v = fila.valor || {};
+          var h = unirHall([], v.hall);
+          var a = unirArchivo({}, v.archivo);
+          if (firmaDe(h, a) !== previos.current) {
+            previos.current = firmaDe(h, a);
+            setHall(h);
+            setArchivo(a);
+          }
+        }).catch(function () {});
+      }, SONDEO * 2);
+      return function () { clearInterval(id); };
+    }, []);
+  };
 })();

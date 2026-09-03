@@ -143,7 +143,7 @@ const RECRUITERS = [
   { name: 'Jose', hex: '#4CD137', dark: '#2E9E1E' },
   { name: 'Sharon', hex: '#FFC312', dark: '#D69C00' },
   { name: 'Valentina', hex: '#9C6ADE', dark: '#6E44AE' },
-  { name: 'Sandra', hex: '#FF7F27', dark: '#D65E12' },
+  { name: 'Sandra', hex: '#FF7F27', dark: '#D65E12', gender: 'f' },
 ];
 
 const PRIORITY_CONFIG = {
@@ -159,11 +159,32 @@ const DANGER_ZONE_MIN_ALTAS = 2;   // mínimo de altas esperado para el jueves
 const DANGER_ZONE_DAY_OFFSET = 3;  // 0=lunes ... 3=jueves
 const DANGER_ZONE_HOUR = 14;       // 2:00 pm
 
-// Salón de la Fama: agrega aquí un objeto por cada mes que quieras
-// reconocer, con { month, name, count }.
-const HALL_OF_FAME = [
+// Salón de la Fama: persistente en el navegador. Esta semilla se usa la
+// primera vez que se carga (o si el almacenamiento local está vacío).
+const HALL_OF_FAME_STORAGE_KEY = 'access-pack-hall-of-fame-v1';
+const HALL_OF_FAME_SEED = [
   { month: 'Julio', name: 'Jose', count: 11 },
+  { month: 'Agosto', name: 'Sandra', count: 15 },
 ];
+function loadHallOfFame() {
+  try {
+    const raw = window.localStorage.getItem(HALL_OF_FAME_STORAGE_KEY);
+    if (!raw) return HALL_OF_FAME_SEED;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : HALL_OF_FAME_SEED;
+  } catch (e) { return HALL_OF_FAME_SEED; }
+}
+
+// Archivo mensual: al "cerrar el mes" las altas actuales se guardan aquí
+// antes de vaciar el marcador, para no perder el historial.
+const MONTHLY_ARCHIVE_KEY = 'access-pack-monthly-archive-v1';
+function loadMonthlyArchive() {
+  try {
+    const raw = window.localStorage.getItem(MONTHLY_ARCHIVE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (e) { return {}; }
+}
 
 const SCENARIOS = [
   { name: 'Día despejado', skyTop: '#67B3FF', skyBottom: '#A8D8FF', decor: 'clouds', cloudTint: '#FFFFFF' },
@@ -184,6 +205,68 @@ const YIMI_LINES = [
   (n) => `¡Reporte de avance YA, ${n}!`,
   (n) => `${n}, ¡dame resultados no excusas!`,
 ];
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+// ── FRASE MOTIVADORA DEL DÍA: rota sola cada día del año, sin mantenimiento ──
+const MOTIVATIONAL_PHRASES = [
+  'Cada alta que registras hoy es una carrera menos por ganar mañana. ¡Vamos! 🏁',
+  'Un correo, una llamada, una alta: así se construyen los récords. 💪',
+  'Hoy es un excelente día para sumar una estrella más a tu carril. ⭐',
+  'Tu mejor tiempo todavía no llega — ¡ve por él! 🚀',
+  'El equipo avanza cuando cada quien mete el acelerador a fondo. 🏎️',
+  'Pequeños logros de hoy son el podio de mañana. 🏆',
+  'Respira, sonríe y dale con todo — el marcador está esperando tu nombre. 😊',
+  'No necesitas ser el más rápido, solo constante. Sigue avanzando. 🐢➡️🏁',
+  'Cada candidato que ayudas a conectar cambia una historia. Gracias por eso. 💛',
+  'Hoy tu esfuerzo cuenta doble: para ti y para el equipo. 🙌',
+  'El café ya está listo, la pista también. ¡A rodar! ☕🏁',
+  'Una alta a la vez, un objetivo a la vez. Vas muy bien. ✅',
+  'El único carril lento es el que nunca arrancó. ¡Arranca! 🏎️💨',
+  'Confía en tu proceso: cada llamada te acerca a la meta. 📞',
+  'Hoy puede ser tu mejor día del mes. Solo hace falta empezar. ✨',
+  'El marcador cambia cuando tú decides moverte. Adelante. 🔥',
+  'Menos vueltas, más resultados: enfócate en lo que sí puedes cerrar hoy. 🎯',
+  "Recuerda: cada 'sí' empezó con un intento. Sigue intentando. 💫",
+  'El equipo cree en ti — y hoy es un gran día para demostrarlo. 🌟',
+  'Un poco de nitro en tu actitud y todo se ve distinto. ⚡',
+  'No corras solo por el podio, corre por disfrutar el camino. 🛣️',
+  'Hoy suma una victoria chiquita: eso también cuenta. 🥇',
+  'La constancia gana más carreras que la prisa. Ve a tu ritmo, pero ve. 🐾',
+  'Cada alta es una historia de éxito que ayudaste a empezar. 📖',
+  'El motor ya está encendido, solo falta que aprietes el acelerador. 🚗',
+  'Vas mejor de lo que crees. Sigue así. 💚',
+  'Hoy es un buen día para romper tu propio récord. 📈',
+  'Tu esfuerzo de hoy es la ventaja de mañana. 🏅',
+  'Sonríe: hasta Jefe Yimi sabe que este equipo no se detiene. 😄',
+  'Una llamada más puede ser la que cambie tu semana. Hazla. ☎️',
+  'El camino se hace fácil cuando lo disfrutas. ¡A darle! 🎉',
+  'No hay atajos, pero sí buena compañía: este equipo corre junto. 🤝',
+  'Cada alta suma, cada intento cuenta, cada día importa. 🙏',
+  'Hoy tienes todo lo necesario para sumar una más. ¡Vamos por ella! 🏁',
+  'Las grandes carreras se ganan con pequeñas vueltas consistentes. 🔄',
+  'Que el ruido del día no apague tus ganas de avanzar. 🔊🏆',
+  'El mejor momento para empezar fue ayer. El segundo mejor es ahora. ⏱️',
+  'Confía, insiste, persiste: la meta está más cerca de lo que crees. 🌈',
+  'Hoy no compites contra nadie más que contra tu ayer. Supéralo. 🚀',
+  '¡Feliz carrera! Que cada alta de hoy valga una sonrisa. 😊🏆',
+];
+
+function getPreviousMonthName(date = new Date()) {
+  return MONTH_NAMES[(date.getMonth() + 11) % 12];
+}
+
+function dayOfYear(date = new Date()) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / 86400000);
+}
+
+function getDailyPhrase(date = new Date()) {
+  return MOTIVATIONAL_PHRASES[dayOfYear(date) % MOTIVATIONAL_PHRASES.length];
+}
 
 function todayISO() {
   const d = new Date();
@@ -446,6 +529,17 @@ function LedTicker({ items }) {
   );
 }
 
+// ── FRASE MOTIVADORA DEL DÍA: cambia sola cada día, sin que nadie la edite ──
+function DailyMotivation() {
+  const phrase = useMemo(() => getDailyPhrase(), []);
+  return (
+    <div className="px-4 py-3 flex items-center gap-2.5" style={chunkyPanelStyle('#FFF3C2')}>
+      <Sparkles className="w-5 h-5 shrink-0" style={{ color: COIN_GOLD_DARK }} />
+      <p className="text-xs md:text-sm" style={{ fontFamily: FONT_BODY, fontWeight: 800, color: INK }}>{phrase}</p>
+    </div>
+  );
+}
+
 function LeaderStar() {
   return (
     <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10" style={{ animation: 'starSpin 2.2s linear infinite' }}>
@@ -486,7 +580,8 @@ function FunControlsPanel({ onBanana, onYimi, onSasha, onSurprise, onCelebrate }
 }
 
 // ── SALÓN DE LA FAMA: muñeco saludando + medalla del mes ────────────────
-function WavingChampion({ hex }) {
+function WavingChampion({ hex, gender }) {
+  const isFemale = gender === 'f';
   return (
     <div className="relative shrink-0" style={{ width: 66, height: 82 }}>
       <div className="absolute -top-1 -left-1" style={{ animation: 'sparkle 1.4s ease-in-out infinite' }}>
@@ -497,8 +592,18 @@ function WavingChampion({ hex }) {
       </div>
       <svg width="66" height="82" viewBox="0 0 66 82">
         <ellipse cx="33" cy="79" rx="17" ry="2.4" fill="rgba(27,27,58,0.2)" />
-        <rect x="22" y="58" width="8" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
-        <rect x="36" y="58" width="8" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
+        {isFemale ? (
+          <>
+            <rect x="21" y="58" width="10" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
+            <rect x="35" y="58" width="10" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
+            <path d="M17 58 L18 66 C18 69 48 69 48 66 L49 58 Z" fill={hex} stroke={INK} strokeWidth="1.6" />
+          </>
+        ) : (
+          <>
+            <rect x="22" y="58" width="8" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
+            <rect x="36" y="58" width="8" height="17" rx="3" fill="#2C3E6B" stroke={INK} strokeWidth="1.6" />
+          </>
+        )}
         <rect x="20" y="73" width="12" height="5" rx="2" fill={INK} />
         <rect x="34" y="73" width="12" height="5" rx="2" fill={INK} />
         <path d="M18 60 L18 39 C18 31 24 26 33 26 C42 26 48 31 48 39 L48 60 Z" fill={hex} stroke={INK} strokeWidth="2" />
@@ -508,15 +613,39 @@ function WavingChampion({ hex }) {
           <path d="M47 41 C54 39 58 31 56 24" stroke={hex} strokeWidth="7" strokeLinecap="round" fill="none" />
           <circle cx="56" cy="23" r="3.6" fill="#F2C08C" stroke={INK} strokeWidth="1.3" />
         </g>
-        <path d="M29 33 L26 26 L31 28 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
-        <path d="M37 33 L40 26 L35 28 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+        {isFemale ? (
+          <>
+            <path d="M28 30 L32 33 L28 36 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+            <path d="M38 30 L34 33 L38 36 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+            <circle cx="33" cy="33" r="1.6" fill="#D6203A" stroke={INK} strokeWidth="0.8" />
+          </>
+        ) : (
+          <>
+            <path d="M29 33 L26 26 L31 28 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+            <path d="M37 33 L40 26 L35 28 Z" fill="#D6203A" stroke={INK} strokeWidth="1" />
+          </>
+        )}
         <circle cx="33" cy="47" r="7" fill={COIN_GOLD} stroke={INK} strokeWidth="1.8" />
         <polygon points="33,42 34.3,45.6 38,45.6 35,47.8 36.1,51.4 33,49.1 29.9,51.4 31,47.8 28,45.6 31.7,45.6" fill="#fff" opacity="0.85" />
+        {isFemale && (
+          <>
+            <path d="M22 13 C20 21 20 31 22 39" stroke="#3A2E26" strokeWidth="5" strokeLinecap="round" fill="none" />
+            <path d="M44 13 C46 21 46 31 44 39" stroke="#3A2E26" strokeWidth="5" strokeLinecap="round" fill="none" />
+          </>
+        )}
         <circle cx="33" cy="15" r="12" fill="#F2C08C" stroke={INK} strokeWidth="2" />
         <path d="M21 13 C21 5 26 2 33 2 C40 2 45 5 45 13 C41 9 37 8 33 8 C29 8 25 9 21 13 Z" fill="#3A2E26" stroke={INK} strokeWidth="1.4" />
         <circle cx="28" cy="16" r="1.4" fill={INK} />
         <circle cx="38" cy="16" r="1.4" fill={INK} />
         <path d="M27 20 C29 23 37 23 39 20" stroke={INK} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+        {isFemale && (
+          <>
+            <path d="M24.5 13.5 L22.5 11.5" stroke={INK} strokeWidth="1" strokeLinecap="round" />
+            <path d="M31 12.5 L30 10.5" stroke={INK} strokeWidth="1" strokeLinecap="round" />
+            <path d="M35 12.5 L36 10.5" stroke={INK} strokeWidth="1" strokeLinecap="round" />
+            <path d="M41.5 13.5 L43.5 11.5" stroke={INK} strokeWidth="1" strokeLinecap="round" />
+          </>
+        )}
       </svg>
     </div>
   );
@@ -526,11 +655,13 @@ function HallOfFameCard({ entry }) {
   const recruiter = RECRUITERS.find((r) => r.name === entry.name);
   const hex = recruiter ? recruiter.hex : COIN_GOLD_DARK;
   const dark = recruiter ? recruiter.dark : '#8a6a00';
+  const gender = recruiter ? recruiter.gender : undefined;
+  const championLabel = gender === 'f' ? 'Campeona' : 'Campeón';
   return (
     <div className="flex items-center gap-3 px-3 py-3" style={chunkyPanelStyle('#FFFFFF')}>
-      <WavingChampion hex={hex} />
+      <WavingChampion hex={hex} gender={gender} />
       <div className="flex-1 min-w-0">
-        <div className="text-[11px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#7c7c94' }}>Campeón de {entry.month}</div>
+        <div className="text-[11px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#7c7c94' }}>{championLabel} de {entry.month}</div>
         <div className="text-base truncate" style={{ fontFamily: FONT_BODY, fontWeight: 800, color: INK }}>{entry.name}</div>
         <div className="flex items-baseline gap-1 mt-0.5" style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: dark }}>
           {entry.count}<span style={{ fontSize: '8px', color: '#94a3b8', fontFamily: FONT_BODY }}> altas</span>
@@ -555,6 +686,79 @@ function HallOfFame({ entries }) {
         {entries.map((e) => <HallOfFameCard key={e.month} entry={e} />)}
       </div>
     </section>
+  );
+}
+
+// ── CERRAR MES: archiva las altas actuales, corona al campeón/a y ───────
+// deja el marcador en cero para arrancar el mes siguiente ────────────────
+function CloseMonthPanel({ recruiterStats, onConfirm }) {
+  const suggested = useMemo(() => {
+    const withAltas = recruiterStats.filter((s) => s.totalCount > 0);
+    if (!withAltas.length) return null;
+    return [...withAltas].sort((a, b) => b.totalCount - a.totalCount)[0];
+  }, [recruiterStats]);
+
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(getPreviousMonthName());
+  const [winner, setWinner] = useState(suggested ? suggested.name : RECRUITERS[0].name);
+  const [count, setCount] = useState(suggested ? suggested.totalCount : 0);
+
+  const handleOpen = () => {
+    setMonth(getPreviousMonthName());
+    setWinner(suggested ? suggested.name : RECRUITERS[0].name);
+    setCount(suggested ? suggested.totalCount : 0);
+    setOpen(true);
+  };
+
+  const inputStyle = { border: `2px solid ${INK}`, fontFamily: FONT_BODY, fontWeight: 700, color: INK, borderRadius: '8px' };
+  const labelStyle = { fontFamily: FONT_BODY, fontWeight: 700, color: '#5b5b7a', fontSize: '10px' };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={handleOpen}
+        style={{ ...chunkyButtonStyle('#DCE4FF', false), fontFamily: FONT_BODY, fontWeight: 800, fontSize: '11px', color: INK, padding: '9px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+        🗓️ Cerrar mes y empezar de nuevo
+      </button>
+    );
+  }
+
+  return (
+    <div className="p-4" style={chunkyPanelStyle('#FFF7EE')}>
+      <div className="flex items-center gap-2 mb-2">
+        <Trophy className="w-4 h-4" style={{ color: COIN_GOLD_DARK }} />
+        <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: '11px', color: INK }}>CERRAR MES</h3>
+      </div>
+      <p className="text-[11px] mb-3" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#5b5b7a' }}>
+        Guarda las altas de este periodo en el historial, corona al campeón/a en el Salón de la Fama y deja el marcador en cero para arrancar de nuevo.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+        <label style={labelStyle}>
+          Mes que cierra
+          <input value={month} onChange={(e) => setMonth(e.target.value)} className="mt-1 w-full px-2 py-1.5 text-xs" style={inputStyle} />
+        </label>
+        <label style={labelStyle}>
+          Campeón/a
+          <select value={winner} onChange={(e) => setWinner(e.target.value)} className="mt-1 w-full px-2 py-1.5 text-xs" style={inputStyle}>
+            {RECRUITERS.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+          </select>
+        </label>
+        <label style={labelStyle}>
+          Altas
+          <input type="number" min="0" value={count} onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))} className="mt-1 w-full px-2 py-1.5 text-xs" style={inputStyle} />
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button"
+          onClick={() => { onConfirm(month.trim() || getPreviousMonthName(), winner, count); setOpen(false); }}
+          style={{ ...chunkyButtonStyle('#D2F5D2', false), fontFamily: FONT_BODY, fontWeight: 800, fontSize: '11px', color: INK, padding: '9px 14px', cursor: 'pointer' }}>
+          ✅ Confirmar y archivar
+        </button>
+        <button type="button" onClick={() => setOpen(false)}
+          style={{ ...chunkyButtonStyle('#F1F1F6', false), fontFamily: FONT_BODY, fontWeight: 800, fontSize: '11px', color: INK, padding: '9px 14px', cursor: 'pointer' }}>
+          Cancelar
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1266,23 +1470,46 @@ const RUNNER_GROUND_Y = 140;
 const RUNNER_CAR_W = 34;
 const RUNNER_CAR_H = 22;
 const RUNNER_GRAVITY = 0.9;
+const RUNNER_GLIDE_GRAVITY = 0.26;        // gravedad reducida al mantener presionado mientras cae (planeo de capa)
 const RUNNER_JUMP_VELOCITY = -13;
+const RUNNER_JUMP_CUTOFF = -4.5;          // si sueltas antes, el salto se corta aquí (salto corto vs. salto alto)
+const RUNNER_JUMP_BUFFER_MS = 130;        // tocar justo antes de aterrizar = salta apenas toca el piso
+const RUNNER_DOUBLE_TAP_MS = 260;         // ventana para el doble toque en el aire (Golpe de Murciélago)
+const RUNNER_GROUNDPOUND_VELY = 19;
+const RUNNER_NEARMISS_GAP = 9;            // separación (px) para contar un "casi-choque"
+const RUNNER_SWAG_PER_NEARMISS = 16;
+const RUNNER_SWAG_PER_SMASH = 34;
+const RUNNER_SWAG_MAX = 100;
+const RUNNER_BATMODE_MS = 5200;
+const RUNNER_BATMODE_SPEED_MULT = 1.3;
+const RUNNER_YIMI_MIN_GAP = 380;
+const RUNNER_YIMI_MAX_GAP = 640;
+const RUNNER_YIMI_DURATION_MS = 2600;
+const RUNNER_FRAME_MS = 16;
 const RUNNER_SCENARIO_STEP = 300; // unidades de distancia entre cambios de escenario
 
 function drawRunnerFrame(ctx, s) {
   const scenario = SCENARIOS[s.scenarioIdx % SCENARIOS.length];
+  const bat = s.batMode;
+  const carX = 60;
 
-  // cielo
+  // cielo (se vuelve noir-neón en Modo Murciélago)
+  const topColor = bat ? '#241B45' : scenario.skyTop;
+  const bottomColor = bat ? '#4A2E7A' : scenario.skyBottom;
   const grad = ctx.createLinearGradient(0, 0, 0, RUNNER_H);
-  grad.addColorStop(0, scenario.skyTop);
-  grad.addColorStop(1, scenario.skyBottom);
+  grad.addColorStop(0, topColor);
+  grad.addColorStop(1, bottomColor);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, RUNNER_W, RUNNER_H);
+  if (bat && Math.random() < 0.02) {
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.fillRect(0, 0, RUNNER_W, RUNNER_H);
+  }
 
   // piso a rayas (se desplaza con groundX para dar sensación de velocidad)
-  ctx.fillStyle = 'rgba(27,27,58,0.85)';
+  ctx.fillStyle = bat ? 'rgba(18,10,38,0.9)' : 'rgba(27,27,58,0.85)';
   ctx.fillRect(0, RUNNER_GROUND_Y, RUNNER_W, 4);
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.strokeStyle = bat ? 'rgba(255,195,18,0.65)' : 'rgba(255,255,255,0.55)';
   ctx.lineWidth = 2;
   ctx.setLineDash([14, 14]);
   ctx.lineDashOffset = s.groundX;
@@ -1292,9 +1519,30 @@ function drawRunnerFrame(ctx, s) {
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // capa (detrás del auto, ondea con el tiempo)
+  if (bat) {
+    const wave = Math.sin(Date.now() / 80) * 4;
+    ctx.fillStyle = 'rgba(60,52,137,0.92)';
+    ctx.beginPath();
+    ctx.moveTo(carX + 2, s.carY + 4);
+    ctx.quadraticCurveTo(carX - 14 + wave, s.carY + RUNNER_CAR_H * 0.6, carX - 6, s.carY + RUNNER_CAR_H + 6);
+    ctx.quadraticCurveTo(carX - 2, s.carY + RUNNER_CAR_H * 0.8, carX + 4, s.carY + RUNNER_CAR_H - 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // partículas: polvo de aterrizaje/picada y chispas de casi-choque
+  s.particles.forEach((p) => {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
   // auto
-  const carX = 60;
-  ctx.fillStyle = COIN_GOLD;
+  ctx.fillStyle = bat ? '#3C3489' : COIN_GOLD;
   ctx.strokeStyle = INK;
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1304,15 +1552,47 @@ function drawRunnerFrame(ctx, s) {
   ctx.beginPath(); ctx.arc(carX + 8, s.carY + RUNNER_CAR_H, 4, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(carX + RUNNER_CAR_W - 8, s.carY + RUNNER_CAR_H, 4, 0, Math.PI * 2); ctx.fill();
 
+  // orejas de murciélago
+  if (bat) {
+    ctx.fillStyle = '#1B1B3A';
+    ctx.beginPath();
+    ctx.moveTo(carX + 6, s.carY); ctx.lineTo(carX + 9, s.carY - 7); ctx.lineTo(carX + 13, s.carY);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(carX + RUNNER_CAR_W - 13, s.carY); ctx.lineTo(carX + RUNNER_CAR_W - 9, s.carY - 7); ctx.lineTo(carX + RUNNER_CAR_W - 6, s.carY);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // estela vertical durante el Golpe de Murciélago (picada)
+  if (s.groundPounding) {
+    ctx.strokeStyle = 'rgba(255,195,18,0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(carX + RUNNER_CAR_W / 2, s.carY - 2);
+    ctx.lineTo(carX + RUNNER_CAR_W / 2, s.carY - 16);
+    ctx.stroke();
+  }
+
   // obstáculos
   s.obstacles.forEach((o) => {
-    if (o.flying) {
+    if (o.type === 'flying') {
       const oy = RUNNER_GROUND_Y - RUNNER_CAR_H - 34;
-      ctx.fillStyle = '#9C6ADE';
+      ctx.fillStyle = s.yimiActive ? '#E24B4A' : '#9C6ADE';
       ctx.strokeStyle = INK;
       ctx.beginPath();
       ctx.ellipse(o.x + o.w / 2, oy + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
+    } else if (o.type === 'crate') {
+      const oy = RUNNER_GROUND_Y - o.h;
+      ctx.fillStyle = '#8A5A32';
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(o.x, oy, o.w, o.h, 3) : ctx.rect(o.x, oy, o.w, o.h);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(o.x + 3, oy + o.h * 0.5); ctx.lineTo(o.x + o.w - 3, oy + o.h * 0.5); ctx.stroke();
     } else {
       const oy = RUNNER_GROUND_Y - o.h;
       ctx.fillStyle = '#FF7A18';
@@ -1328,6 +1608,36 @@ function drawRunnerFrame(ctx, s) {
     }
   });
 
+  // Jefe Yimi cruzando de fondo con su línea
+  if (s.yimiActive) {
+    const t = 1 - Math.max(0, s.yimiUntil - Date.now()) / RUNNER_YIMI_DURATION_MS;
+    const yx = -40 + Math.min(1, Math.max(0, t)) * (RUNNER_W + 80);
+    ctx.fillStyle = 'rgba(27,27,58,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(yx, 38, 16, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (s.yimiMessage) {
+      ctx.font = "7px 'Press Start 2P', monospace";
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.yimiMessage, 12, 42);
+    }
+  }
+
+  // HUD: medidor de Modo Murciélago
+  const gaugeW = 120;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(12, RUNNER_H - 20, gaugeW, 10);
+  ctx.fillStyle = bat ? '#FFC312' : '#7F77DD';
+  ctx.fillRect(12, RUNNER_H - 20, gaugeW * Math.min(1, s.swag / RUNNER_SWAG_MAX), 10);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(12, RUNNER_H - 20, gaugeW, 10);
+  ctx.font = "7px 'Press Start 2P', monospace";
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.textAlign = 'left';
+  ctx.fillText(bat ? '🦇 MODO MURCIÉLAGO' : 'SWAG', 14, RUNNER_H - 24);
+
   // marcador (dibujado en el canvas, como el juego del dinosaurio)
   ctx.font = "10px 'Press Start 2P', monospace";
   ctx.fillStyle = 'rgba(27,27,58,0.8)';
@@ -1338,13 +1648,59 @@ function drawRunnerFrame(ctx, s) {
   ctx.fillText(scenario.name, 12, 22);
 }
 
+function runnerStartJump(s) {
+  s.velY = RUNNER_JUMP_VELOCITY;
+  s.grounded = false;
+  s.groundPounding = false;
+}
+
+function runnerSpawnParticles(s, x, y, count, color) {
+  for (let i = 0; i < count; i++) {
+    s.particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 3,
+      vy: -Math.random() * 2 - 0.5,
+      life: 22, maxLife: 22, color,
+      size: 2 + Math.random() * 2,
+    });
+  }
+}
+
+function runnerSpawnObstacleMaybe(s) {
+  const last = s.obstacles[s.obstacles.length - 1];
+  const minGap = 260 - Math.min(120, s.speed * 9);
+  if (last && (RUNNER_W - last.x) <= minGap + Math.random() * 100) return;
+  const roll = Math.random();
+  const yimiBoost = s.yimiActive ? 0.18 : 0;
+  let type = 'cone';
+  if (s.distance > 200 && roll < 0.16 + (s.distance > 500 ? 0.06 : 0)) type = 'crate';
+  else if (s.distance > 320 && roll < 0.3 + yimiBoost) type = 'flying';
+  if (type === 'flying') {
+    s.obstacles.push({ x: RUNNER_W + 10, w: 22, h: 14, type, minGap: Infinity, scored: false });
+  } else if (type === 'crate') {
+    s.obstacles.push({ x: RUNNER_W + 10, w: 22, h: 34 + Math.random() * 6, type, scored: false });
+  } else {
+    s.obstacles.push({ x: RUNNER_W + 10, w: 14 + Math.random() * 10, h: 16 + Math.random() * 14, type, minGap: Infinity, scored: false });
+  }
+}
+
+function runnerInitialState() {
+  return {
+    carY: RUNNER_GROUND_Y - RUNNER_CAR_H, velY: 0,
+    grounded: true, jumpHeld: false, groundPounding: false,
+    lastPressTime: 0, jumpBufferTimer: 0,
+    obstacles: [], particles: [],
+    speed: 6, distance: 0, scenarioIdx: 0, groundX: 0,
+    swag: 0, batMode: false, batModeUntil: 0,
+    yimiActive: false, yimiUntil: 0, yimiMessage: '',
+    nextYimiAt: RUNNER_YIMI_MIN_GAP + Math.random() * 120,
+  };
+}
+
 function RunnerGame() {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
-  const stateRef = useRef({
-    carY: RUNNER_GROUND_Y - RUNNER_CAR_H, velY: 0, isJumping: false,
-    obstacles: [], speed: 6, distance: 0, scenarioIdx: 0, groundX: 0,
-  });
+  const stateRef = useRef(runnerInitialState());
 
   const [phase, setPhase] = useState('idle'); // idle | playing | over
   const [lastScore, setLastScore] = useState(0);
@@ -1353,35 +1709,65 @@ function RunnerGame() {
   });
 
   const resetGame = useCallback(() => {
-    stateRef.current = {
-      carY: RUNNER_GROUND_Y - RUNNER_CAR_H, velY: 0, isJumping: false,
-      obstacles: [], speed: 6, distance: 0, scenarioIdx: 0, groundX: 0,
-    };
+    stateRef.current = runnerInitialState();
     setPhase('playing');
   }, []);
 
-  const jump = useCallback(() => {
+  // pulsar: si está inactivo/game over reinicia; si está en el piso salta;
+  // si está en el aire, un segundo toque rápido dispara el Golpe de Murciélago,
+  // o deja el salto "guardado" por si toca justo antes de aterrizar
+  const onPressStart = useCallback(() => {
     if (phase === 'idle' || phase === 'over') { resetGame(); return; }
     const s = stateRef.current;
-    if (!s.isJumping) { s.velY = RUNNER_JUMP_VELOCITY; s.isJumping = true; }
+    const now = Date.now();
+    s.jumpHeld = true;
+    if (s.grounded) {
+      runnerStartJump(s);
+    } else if (!s.groundPounding) {
+      if (now - s.lastPressTime < RUNNER_DOUBLE_TAP_MS) {
+        s.groundPounding = true;
+        s.velY = RUNNER_GROUNDPOUND_VELY;
+      } else {
+        s.jumpBufferTimer = RUNNER_JUMP_BUFFER_MS;
+      }
+    }
+    s.lastPressTime = now;
   }, [phase, resetGame]);
+
+  // soltar: si sigue subiendo, corta el salto (altura variable, estilo Mario)
+  const onPressEnd = useCallback(() => {
+    const s = stateRef.current;
+    s.jumpHeld = false;
+    if (s.velY < 0) s.velY = Math.max(s.velY, RUNNER_JUMP_CUTOFF);
+  }, []);
 
   // controles: barra espaciadora / flecha arriba (ignora si se está escribiendo en un input)
   useEffect(() => {
-    function handleKey(e) {
+    function handleKeyDown(e) {
       const tag = (e.target && e.target.tagName) || '';
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) return;
-      if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (e.repeat) return;
+        onPressStart();
+      }
     }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [jump]);
+    function handleKeyUp(e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp') onPressEnd();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [onPressStart, onPressEnd]);
 
   // dibuja un frame estático cuando no se está jugando (pantalla de inicio / game over)
   useEffect(() => {
     if (phase === 'playing') return;
     const ctx = canvasRef.current && canvasRef.current.getContext('2d');
-    if (ctx) drawRunnerFrame(ctx, { ...stateRef.current, obstacles: [] });
+    if (ctx) drawRunnerFrame(ctx, { ...stateRef.current, obstacles: [], particles: [] });
   }, [phase]);
 
   // loop principal del juego
@@ -1390,55 +1776,114 @@ function RunnerGame() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    function spawnObstacleMaybe() {
-      const s = stateRef.current;
-      const last = s.obstacles[s.obstacles.length - 1];
-      const minGap = 260 - Math.min(120, s.speed * 9);
-      if (!last || (RUNNER_W - last.x) > minGap + Math.random() * 100) {
-        const flying = Math.random() < 0.22 && s.distance > 350;
-        s.obstacles.push({
-          x: RUNNER_W + 10,
-          w: flying ? 22 : 14 + Math.random() * 10,
-          h: flying ? 14 : 16 + Math.random() * 14,
-          flying,
-        });
-      }
-    }
-
     function loop() {
       const s = stateRef.current;
+      const now = Date.now();
 
-      s.velY += RUNNER_GRAVITY;
-      s.carY += s.velY;
-      if (s.carY > RUNNER_GROUND_Y - RUNNER_CAR_H) {
-        s.carY = RUNNER_GROUND_Y - RUNNER_CAR_H; s.velY = 0; s.isJumping = false;
+      if (s.batMode && now > s.batModeUntil) s.batMode = false;
+
+      // física vertical: picada fija, o gravedad normal / reducida (planeo) al mantener presionado cayendo
+      if (s.groundPounding) {
+        s.velY = RUNNER_GROUNDPOUND_VELY;
+      } else {
+        const gravity = (s.velY > 0 && s.jumpHeld && !s.grounded) ? RUNNER_GLIDE_GRAVITY : RUNNER_GRAVITY;
+        s.velY += gravity;
       }
+      s.carY += s.velY;
 
-      s.groundX -= s.speed;
-      s.distance += s.speed * 0.12;
+      const groundLevel = RUNNER_GROUND_Y - RUNNER_CAR_H;
+      if (s.carY >= groundLevel) {
+        if (s.groundPounding) runnerSpawnParticles(s, 60 + RUNNER_CAR_W / 2, RUNNER_GROUND_Y, 8, 'rgba(255,255,255,0.85)');
+        s.carY = groundLevel;
+        s.velY = 0;
+        s.grounded = true;
+        s.groundPounding = false;
+        if (s.jumpBufferTimer > 0) { runnerStartJump(s); s.jumpBufferTimer = 0; }
+      } else {
+        s.grounded = false;
+      }
+      if (s.jumpBufferTimer > 0) s.jumpBufferTimer -= RUNNER_FRAME_MS;
+
+      s.particles.forEach((p) => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 1; });
+      s.particles = s.particles.filter((p) => p.life > 0);
+
+      const speedMult = s.batMode ? RUNNER_BATMODE_SPEED_MULT : 1;
+      s.groundX -= s.speed * speedMult;
+      s.distance += s.speed * speedMult * 0.12;
       s.speed = Math.min(15, 6 + s.distance / 220);
       s.scenarioIdx = Math.floor(s.distance / RUNNER_SCENARIO_STEP) % SCENARIOS.length;
 
-      spawnObstacleMaybe();
-      s.obstacles.forEach((o) => { o.x -= s.speed; });
-      s.obstacles = s.obstacles.filter((o) => o.x + o.w > -10);
+      // Jefe Yimi: rondas periódicas que suben la densidad de "memos" voladores
+      if (!s.yimiActive && s.distance > s.nextYimiAt) {
+        s.yimiActive = true;
+        s.yimiUntil = now + RUNNER_YIMI_DURATION_MS;
+        s.yimiMessage = pick(YIMI_LINES)('recluta');
+      } else if (s.yimiActive && now > s.yimiUntil) {
+        s.yimiActive = false;
+        s.nextYimiAt = s.distance + RUNNER_YIMI_MIN_GAP + Math.random() * (RUNNER_YIMI_MAX_GAP - RUNNER_YIMI_MIN_GAP);
+      }
+
+      runnerSpawnObstacleMaybe(s);
+      s.obstacles.forEach((o) => { o.x -= s.speed * speedMult; });
 
       const carX = 60;
       const carBox = { x: carX, y: s.carY, w: RUNNER_CAR_W, h: RUNNER_CAR_H };
-      for (const o of s.obstacles) {
-        const oy = o.flying ? RUNNER_GROUND_Y - RUNNER_CAR_H - 34 : RUNNER_GROUND_Y - o.h;
-        const hit = carBox.x < o.x + o.w && carBox.x + carBox.w > o.x && carBox.y < oy + o.h && carBox.y + carBox.h > oy;
-        if (hit) {
-          const finalScore = Math.floor(s.distance);
-          setLastScore(finalScore);
-          setHighScore((prev) => {
-            const hs = Math.max(prev, finalScore);
-            try { window.localStorage.setItem(RUNNER_STORAGE_KEY, String(hs)); } catch (e) { /* sin storage */ }
-            return hs;
-          });
-          setPhase('over');
+      let died = false;
+
+      s.obstacles.forEach((o) => {
+        if (o.type === 'crate') {
+          const oy = RUNNER_GROUND_Y - o.h;
+          const hit = carBox.x < o.x + o.w && carBox.x + carBox.w > o.x && carBox.y < oy + o.h && carBox.y + carBox.h > oy;
+          if (hit) {
+            if (s.groundPounding || s.batMode) {
+              if (!o.destroyed) {
+                o.destroyed = true;
+                s.swag = Math.min(RUNNER_SWAG_MAX, s.swag + RUNNER_SWAG_PER_SMASH);
+                runnerSpawnParticles(s, o.x + o.w / 2, oy + o.h / 2, 10, '#8A5A32');
+              }
+            } else {
+              died = true;
+            }
+          }
           return;
         }
+        const oy = o.type === 'flying' ? RUNNER_GROUND_Y - RUNNER_CAR_H - 34 : RUNNER_GROUND_Y - o.h;
+        const hit = carBox.x < o.x + o.w && carBox.x + carBox.w > o.x && carBox.y < oy + o.h && carBox.y + carBox.h > oy;
+        if (hit) { if (!s.batMode) died = true; return; }
+        if (!o.scored && o.x < carBox.x + carBox.w && o.x + o.w > carBox.x) {
+          let gap = 0;
+          if (carBox.y + carBox.h <= oy) gap = oy - (carBox.y + carBox.h);
+          else if (oy + o.h <= carBox.y) gap = carBox.y - (oy + o.h);
+          o.minGap = Math.min(o.minGap, gap);
+        }
+        if (!o.scored && o.x + o.w < carBox.x) {
+          o.scored = true;
+          if (o.minGap < RUNNER_NEARMISS_GAP) {
+            s.swag = Math.min(RUNNER_SWAG_MAX, s.swag + RUNNER_SWAG_PER_NEARMISS);
+            runnerSpawnParticles(s, carX + RUNNER_CAR_W, s.carY + RUNNER_CAR_H / 2, 5, '#FFC312');
+          }
+        }
+      });
+
+      s.obstacles = s.obstacles.filter((o) => o.x + o.w > -10 && !o.destroyed);
+
+      if (!s.batMode && s.swag >= RUNNER_SWAG_MAX) {
+        s.batMode = true;
+        s.batModeUntil = now + RUNNER_BATMODE_MS;
+        s.swag = 0;
+        runnerSpawnParticles(s, carX + RUNNER_CAR_W / 2, s.carY + RUNNER_CAR_H / 2, 16, '#FFC312');
+      }
+
+      if (died) {
+        const finalScore = Math.floor(s.distance);
+        setLastScore(finalScore);
+        setHighScore((prev) => {
+          const hs = Math.max(prev, finalScore);
+          try { window.localStorage.setItem(RUNNER_STORAGE_KEY, String(hs)); } catch (e) { /* sin storage */ }
+          return hs;
+        });
+        setPhase('over');
+        return;
       }
 
       drawRunnerFrame(ctx, s);
@@ -1449,14 +1894,12 @@ function RunnerGame() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [phase]);
 
-  const handleTap = () => jump();
-
   return (
     <section className="p-4 md:p-5" style={chunkyPanelStyle('#EAF3FF')}>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5" style={{ color: COIN_GOLD_DARK }} />
-          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '13px', color: INK }}>CARRERA INFINITA</h2>
+          <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: '13px', color: INK }}>CARRERA INFINITA 🦇</h2>
         </div>
         <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#3B4A6B', background: '#fff', border: `2px solid ${INK}` }}>
           <Trophy className="w-3.5 h-3.5" style={{ color: COIN_GOLD_DARK }} />
@@ -1464,7 +1907,7 @@ function RunnerGame() {
         </div>
       </div>
       <p className="mb-3 text-[11px]" style={{ fontFamily: FONT_BODY, fontWeight: 700, color: '#5b5b7a' }}>
-        Espacio / ↑ o toca la pista para saltar los conos. El escenario cambia cada {RUNNER_SCENARIO_STEP}m — ¡y no saltes cuando pase el dron! 🛸
+        Mantén presionado para saltar más alto y planear al caer. Toca dos veces en el aire para el Golpe de Murciélago y rompe las cajas 📦. Llena la barra de swag para activar el Modo Murciélago 🦇 (invencible). ¡Y no saltes cuando pase el dron!
       </p>
 
       <div className="relative mx-auto" style={{ maxWidth: RUNNER_W, borderRadius: 12, overflow: 'hidden', border: `3px solid ${INK}` }}>
@@ -1472,8 +1915,10 @@ function RunnerGame() {
           ref={canvasRef}
           width={RUNNER_W}
           height={RUNNER_H}
-          onClick={handleTap}
-          style={{ display: 'block', width: '100%', height: 'auto', cursor: 'pointer' }}
+          onPointerDown={(e) => { e.preventDefault(); onPressStart(); }}
+          onPointerUp={onPressEnd}
+          onPointerLeave={onPressEnd}
+          style={{ display: 'block', width: '100%', height: 'auto', cursor: 'pointer', touchAction: 'none' }}
         />
         {phase !== 'playing' && (
           <div className="absolute inset-0 flex items-center justify-center text-center px-4" style={{ background: 'rgba(10,10,20,0.45)' }}>
@@ -1504,6 +1949,9 @@ function RecruitingGrandPrix() {
   useArcadeFonts();
   const [records, setRecords] = useState(loadStoredRecords);
   useSincronizacionCarrera(records, setRecords);  // memoria compartida
+  const [hallOfFame, setHallOfFame] = useState(loadHallOfFame);
+  const [monthlyArchive, setMonthlyArchive] = useState(loadMonthlyArchive);
+  useSincronizacionExtrasCarrera(hallOfFame, setHallOfFame, monthlyArchive, setMonthlyArchive);  // memoria compartida
   const [bossState, setBossState] = useState(null);
   const [attackEvent, setAttackEvent] = useState(null);
   const [trackEvent, setTrackEvent] = useState(null);
@@ -1522,6 +1970,14 @@ function RecruitingGrandPrix() {
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch (e) { /* almacenamiento no disponible */ }
   }, [records]);
+
+  // persistencia local: Salón de la Fama y archivo mensual
+  useEffect(() => {
+    try { window.localStorage.setItem(HALL_OF_FAME_STORAGE_KEY, JSON.stringify(hallOfFame)); } catch (e) { /* almacenamiento no disponible */ }
+  }, [hallOfFame]);
+  useEffect(() => {
+    try { window.localStorage.setItem(MONTHLY_ARCHIVE_KEY, JSON.stringify(monthlyArchive)); } catch (e) { /* almacenamiento no disponible */ }
+  }, [monthlyArchive]);
 
   const recruiterStats = useMemo(() => {
     return RECRUITERS.map((r) => {
@@ -1711,6 +2167,18 @@ function RecruitingGrandPrix() {
     setRecords((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
+  // cierra el periodo actual: archiva las altas de este mes, corona al
+  // campeón/a en el Salón de la Fama y deja el marcador en cero
+  const handleCloseMonth = useCallback((monthLabel, winnerName, winnerCount) => {
+    const label = (monthLabel || getPreviousMonthName()).trim() || getPreviousMonthName();
+    setMonthlyArchive((prev) => ({ ...prev, [`${label}-${Date.now()}`]: records }));
+    setHallOfFame((prev) => [...prev.filter((e) => e.month !== label), { month: label, name: winnerName, count: winnerCount }]);
+    setRecords([]);
+    pushNews(`🏆 ${winnerName.toUpperCase()} ES CAMPEÓN/A DE ${label.toUpperCase()} CON ${winnerCount} ALTAS`);
+    pushNews('🗓️ ¡NUEVO MES! EL MARCADOR VUELVE A CERO');
+    firePixelCoinRain([COIN_GOLD, '#FF4FA3', '#4CD137', '#29ABE2', '#9C6ADE']);
+  }, [records, pushNews]);
+
   return (
     <div className="min-h-screen relative" style={{ fontFamily: FONT_BODY }}>
       <style>{`
@@ -1848,8 +2316,10 @@ function RecruitingGrandPrix() {
       <ScenarioBanner scenario={scenario} visible={bannerVisible} />
       <AppHeader totalAltas={records.length} />
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-6 relative z-10">
+        <DailyMotivation />
         <LedTicker items={tickerNews} />
-        <HallOfFame entries={HALL_OF_FAME} />
+        <HallOfFame entries={hallOfFame} />
+        <CloseMonthPanel recruiterStats={recruiterStats} onConfirm={handleCloseMonth} />
         <FunControlsPanel
           onBanana={() => triggerTrackEvent('banana')}
           onYimi={triggerYimi}

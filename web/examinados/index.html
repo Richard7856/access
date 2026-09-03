@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de examinados — Pide un Access</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F5F1;
+    --surface:#FFFFFF;
+    --ink:#1E2A24;
+    --ink-soft:#5B6B62;
+    --forest:#234E42;
+    --forest-dark:#193A31;
+    --copper:#C1782E;
+    --copper-soft:#F3E3CE;
+    --pass:#2F7D5A;
+    --pass-bg:#E4F1EA;
+    --fail:#B54A3F;
+    --fail-bg:#F7E7E4;
+    --line:#E1DED5;
+    --line-strong:#CFCABB;
+    --week-bg:#EDEAE0;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Libre Franklin',-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--forest);
+    color:#fff;
+    padding:20px 28px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    align-items:flex-start;
+    justify-content:space-between;
+    border-bottom:3px solid var(--forest-dark);
+  }
+  .brand h1{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  .brand p{
+    margin:4px 0 0;
+    font-size:13px;
+    color:#CFE3DA;
+    max-width:520px;
+  }
+  .brand p span{ color:#fff; font-weight:500; }
+
+  /* ---------- Money panel ---------- */
+  .panel{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(108px,1fr));
+    gap:10px;
+  }
+  .panel .card{
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:var(--radius);
+    padding:10px 14px;
+    min-width:108px;
+  }
+  .panel .card .label{
+    font-size:11.5px;
+    color:#CFE3DA;
+    margin-bottom:6px;
+  }
+  .panel .card .amount{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:18px;
+    font-weight:600;
+    color:#fff;
+  }
+  .panel .card .count{
+    font-size:11px;
+    color:#A9C6B8;
+    margin-top:2px;
+  }
+  .panel .card.total{
+    background:var(--copper);
+    border-color:var(--copper);
+  }
+  .panel .card.total .label{ color:#3A2508; }
+  .panel .card.total .amount{ color:#2A1B06; }
+  .panel .card.total .count{ color:#5A3D12; }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    max-width:1400px;
+    margin:22px auto 0;
+    padding:0 28px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .toolbar .left, .toolbar .right{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  button, .btn{
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    border-radius:var(--radius);
+    border:1px solid var(--line-strong);
+    background:var(--surface);
+    color:var(--ink);
+    padding:9px 16px;
+    cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  button:hover{ background:#EFEDE5; }
+  button.primary{
+    background:var(--forest);
+    border-color:var(--forest);
+    color:#fff;
+  }
+  button.primary:hover{ background:var(--forest-dark); }
+  input[type="text"], input[type="email"], input[type="search"], input[type="date"]{
+    font-family:inherit;
+    font-size:13.5px;
+    padding:8px 10px;
+    border-radius:var(--radius);
+    border:1px solid var(--line-strong);
+    background:var(--surface);
+    color:var(--ink);
+  }
+  input[type="search"]{ min-width:220px; }
+  #fileInput{ display:none; }
+
+  .toast{
+    position:fixed;
+    bottom:22px;
+    right:22px;
+    background:var(--forest);
+    color:#fff;
+    padding:12px 18px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+    opacity:0;
+    transform:translateY(10px);
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+
+  /* ---------- Table ---------- */
+  .table-wrap{
+    max-width:1400px;
+    margin:16px auto 60px;
+    padding:0 28px;
+  }
+  .table-scroll{
+    overflow-x:auto;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--surface);
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:980px;
+  }
+  thead th{
+    position:sticky;
+    top:0;
+    background:var(--surface);
+    text-align:left;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    padding:12px 14px;
+    border-bottom:2px solid var(--line-strong);
+    white-space:nowrap;
+    z-index:2;
+  }
+  tbody td{
+    padding:8px 14px;
+    border-bottom:1px solid var(--line);
+    vertical-align:middle;
+    font-size:13.5px;
+  }
+  tbody tr:hover{ background:#FAF9F5; }
+  tbody tr.is-pass{ background:var(--pass-bg); }
+  tbody tr.is-pass:hover{ background:#DBEFE2; }
+  tr.week-row td{
+    background:var(--week-bg);
+    border-bottom:1px solid var(--line-strong);
+    padding:9px 14px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--forest-dark);
+    position:sticky;
+    top:41px;
+    z-index:1;
+  }
+  tr.week-row td .count-tag{
+    font-weight:500;
+    color:var(--ink-soft);
+    margin-left:8px;
+  }
+  td.num{ font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); width:44px; text-align:right; }
+  td.day-input input{ width:132px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; }
+  td.pass-input input{
+    width:120px;
+    background:var(--copper-soft);
+    border-color:#E3C79A;
+    font-family:'IBM Plex Mono',monospace;
+    letter-spacing:0.4px;
+  }
+  td.name-input input, td.mail-input input{ width:170px; }
+  td.rec-input input{ width:110px; }
+  td.check{ text-align:center; width:56px; }
+  td.check input[type="checkbox"]{
+    width:19px;
+    height:19px;
+    accent-color:var(--pass);
+    cursor:pointer;
+  }
+  td.del{ width:36px; text-align:center; }
+  td.del button{
+    padding:4px 8px;
+    font-size:14px;
+    line-height:1;
+    color:var(--ink-soft);
+    border:none;
+    background:transparent;
+  }
+  td.del button:hover{ color:var(--fail); background:var(--fail-bg); border-radius:4px; }
+
+  .empty-state{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  footer.meta{
+    max-width:1400px;
+    margin:0 auto 30px;
+    padding:0 28px;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+
+  @media (max-width:720px){
+    header{ padding:16px; }
+    .panel{ grid-template-columns:repeat(2,1fr); }
+    .toolbar{ padding:0 16px; }
+    .table-wrap{ padding:0 16px; }
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 28px;
+    display:flex;
+    gap:4px;
+    border-bottom:1px solid var(--line-strong);
+  }
+  .tab-btn{
+    border:none;
+    border-radius:0;
+    background:transparent;
+    padding:14px 4px;
+    margin-right:22px;
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink-soft);
+    border-bottom:2px solid transparent;
+    cursor:pointer;
+  }
+  .tab-btn:hover{ color:var(--ink); background:transparent; }
+  .tab-btn.active{
+    color:var(--forest-dark);
+    border-bottom-color:var(--copper);
+  }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  /* ---------- Comer tab (simple two-column list) ---------- */
+  .comer-wrap{
+    max-width:640px;
+    margin:22px auto 60px;
+    padding:0 28px;
+  }
+  .comer-toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  table.comer-table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  table.comer-table thead th{
+    position:static;
+    text-align:left;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    padding:10px 14px;
+    border-bottom:2px solid var(--line-strong);
+    background:var(--surface);
+  }
+  table.comer-table td{
+    padding:7px 14px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+  }
+  table.comer-table td.c-num{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--ink-soft);
+    width:80px;
+  }
+  table.comer-table td.c-rec input{ width:100%; }
+  table.comer-table td.c-del{ width:32px; text-align:center; }
+  table.comer-table td.c-del button{
+    padding:3px 7px;
+    font-size:14px;
+    line-height:1;
+    color:var(--ink-soft);
+    border:none;
+    background:transparent;
+  }
+  table.comer-table td.c-del button:hover{ color:var(--fail); background:var(--fail-bg); border-radius:4px; }
+  table.comer-table tbody tr:hover{ background:#FAF9F5; }
+</style>
+<link rel="stylesheet" href="/movil.css">
+<script src="/sync-examinados.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Control de examinados</h1>
+    <p id="brandSub">Cuenta <span id="metaCuenta">—</span> · Posición <span id="metaPosicion">—</span> · <span id="metaPrueba">IntegriTEST</span></p>
+  </div>
+  <div class="panel" id="panel">
+    <div class="card"><div class="label">Hoy</div><div class="amount" id="amtHoy">$0</div><div class="count" id="cntHoy">0 pruebas</div></div>
+    <div class="card"><div class="label">Esta semana</div><div class="amount" id="amtSemana">$0</div><div class="count" id="cntSemana">0 pruebas</div></div>
+    <div class="card"><div class="label">Esta quincena</div><div class="amount" id="amtQuincena">$0</div><div class="count" id="cntQuincena">0 pruebas</div></div>
+    <div class="card total"><div class="label">Este mes</div><div class="amount" id="amtMes">$0</div><div class="count" id="cntMes">0 pruebas</div></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="examinados">Control de examinados</button>
+  <button class="tab-btn" data-tab="comer">Usuarios de la Comer</button>
+</div>
+
+<section class="tab-panel active" id="tab-examinados">
+
+  <div class="toolbar">
+    <div class="left">
+      <button class="primary" id="importBtn">Importar contraseñas (.txt)</button>
+      <input type="file" id="fileInput" accept=".txt">
+      <button id="addRowBtn">Agregar fila</button>
+    </div>
+    <div class="right">
+      <input type="search" id="searchInput" placeholder="Buscar por nombre, correo o reclutador…">
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Día</th>
+            <th>Contraseña Midot</th>
+            <th>Examinado</th>
+            <th>Correo electrónico</th>
+            <th>Pasó</th>
+            <th>Reclutador</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="meta" id="footerMeta"></footer>
+
+</section>
+
+<section class="tab-panel" id="tab-comer">
+
+  <div class="comer-wrap">
+    <div class="comer-toolbar">
+      <span style="font-size:12.5px;color:var(--ink-soft);">Lista consecutiva desde el 3887, un reclutador por número.</span>
+      <button id="comerAddBtn">Agregar fila</button>
+    </div>
+    <table class="comer-table">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Reclutador</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="comerTbody"></tbody>
+    </table>
+  </div>
+
+</section>
+
+<datalist id="reclutadorList"></datalist>
+<datalist id="comerReclutadorList"></datalist>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'control_examinados_rows_v2';
+  const OLD_STORAGE_KEY = 'control_examinados_rows_v1';
+  const META_KEY = 'control_examinados_meta_v1';
+  const INITIAL_ROWS = 40;
+  const COST_PER_PASS = 300;
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const DIAS = ['lun','mar','mié','jue','vie','sáb','dom'];
+
+  let rows = [];
+  let meta = { cuenta:'', posicion:'', prueba:'IntegriTEST General avanzado' };
+
+  function uid(){
+    return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function newRow(fechaAsignada){
+    return {
+      id: uid(),
+      password:'', nombre:'', correo:'', reclutador:'',
+      paso:false, fechaCompletada:null,
+      fechaAsignada: fechaAsignada || todayISO()
+    };
+  }
+
+  function loadData(){
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      try{ rows = JSON.parse(raw); }catch(e){ rows = []; }
+    } else {
+      // migrate from the previous version, if present
+      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+      if(oldRaw){
+        try{
+          const old = JSON.parse(oldRaw);
+          rows = old.map(r => ({
+            id: uid(),
+            password: r.password || '',
+            nombre: r.nombre || '',
+            correo: r.correo || '',
+            reclutador: r.reclutador || '',
+            paso: !!r.paso,
+            fechaCompletada: r.fecha || null,
+            fechaAsignada: r.fecha ? r.fecha.slice(0,10) : todayISO()
+          }));
+        }catch(e){ rows = []; }
+      }
+    }
+    if(!rows || !rows.length){
+      rows = [];
+      for(let i=0;i<INITIAL_ROWS;i++){ rows.push(newRow(todayISO())); }
+    }
+    // defensive fill for any legacy/missing fields
+    rows.forEach(r=>{
+      if(!r.id) r.id = uid();
+      if(!r.fechaAsignada) r.fechaAsignada = todayISO();
+    });
+
+    try{
+      const rawMeta = localStorage.getItem(META_KEY);
+      if(rawMeta){ meta = Object.assign(meta, JSON.parse(rawMeta)); }
+    }catch(e){}
+  }
+
+  function saveData(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    localStorage.setItem(META_KEY, JSON.stringify(meta));
+  }
+
+  // ---------- Date helpers ----------
+  function parseISODate(s){
+    const [y,m,d] = s.split('-').map(Number);
+    return new Date(y, m-1, d);
+  }
+  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function startOfWeek(d){ const s=startOfDay(d); const dow=(s.getDay()+6)%7; return addDays(s,-dow); }
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999); }
+  function quincenaRange(d){
+    if(d.getDate() <= 15){
+      return { start:startOfMonth(d), end:new Date(d.getFullYear(), d.getMonth(), 15, 23,59,59,999) };
+    }
+    return { start:new Date(d.getFullYear(), d.getMonth(), 16), end:endOfMonth(d) };
+  }
+  function isoDate(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function weekKeyFor(fechaAsignada){
+    return isoDate(startOfWeek(parseISODate(fechaAsignada)));
+  }
+  function formatDay(fechaAsignada){
+    const d = parseISODate(fechaAsignada);
+    return DIAS[(d.getDay()+6)%7] + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  function formatWeekLabel(weekKey){
+    const start = parseISODate(weekKey);
+    const end = addDays(start, 6);
+    const sameMonth = start.getMonth() === end.getMonth();
+    const startStr = start.getDate() + (sameMonth ? '' : ' de ' + MESES[start.getMonth()]);
+    const endStr = end.getDate() + ' de ' + MESES[end.getMonth()];
+    const year = end.getFullYear();
+    const curYear = new Date().getFullYear();
+    return 'Semana del ' + startStr + ' al ' + endStr + (year !== curYear ? ' de ' + year : '');
+  }
+
+  function fmtMXN(n){
+    return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 }).format(n);
+  }
+
+  function calcCosts(){
+    const now = new Date();
+    const dayStart = startOfDay(now), dayEnd = addDays(dayStart,1);
+    const weekStart = startOfWeek(now), weekEnd = addDays(weekStart,7);
+    const q = quincenaRange(now);
+    const mStart = startOfMonth(now), mEnd = endOfMonth(now);
+
+    let hoy=0, semana=0, quincena=0, mes=0;
+    let cHoy=0, cSemana=0, cQuincena=0, cMes=0;
+
+    rows.forEach(r=>{
+      if(!r.paso || !r.fechaCompletada) return;
+      const f = new Date(r.fechaCompletada);
+      if(f>=dayStart && f<dayEnd){ hoy+=COST_PER_PASS; cHoy++; }
+      if(f>=weekStart && f<weekEnd){ semana+=COST_PER_PASS; cSemana++; }
+      if(f>=q.start && f<=q.end){ quincena+=COST_PER_PASS; cQuincena++; }
+      if(f>=mStart && f<=mEnd){ mes+=COST_PER_PASS; cMes++; }
+    });
+
+    document.getElementById('amtHoy').textContent = fmtMXN(hoy);
+    document.getElementById('amtSemana').textContent = fmtMXN(semana);
+    document.getElementById('amtQuincena').textContent = fmtMXN(quincena);
+    document.getElementById('amtMes').textContent = fmtMXN(mes);
+    document.getElementById('cntHoy').textContent = cHoy + (cHoy===1?' prueba':' pruebas');
+    document.getElementById('cntSemana').textContent = cSemana + (cSemana===1?' prueba':' pruebas');
+    document.getElementById('cntQuincena').textContent = cQuincena + (cQuincena===1?' prueba':' pruebas');
+    document.getElementById('cntMes').textContent = cMes + (cMes===1?' prueba':' pruebas');
+  }
+
+  // ---------- Rendering ----------
+  function updateReclutadorList(){
+    const dl = document.getElementById('reclutadorList');
+    const names = [...new Set(rows.map(r=>r.reclutador).filter(Boolean))].sort();
+    dl.innerHTML = names.map(n=>`<option value="${escapeAttr(n)}">`).join('');
+  }
+
+  function escapeAttr(s){
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  }
+
+  function isEmptyRow(r){
+    return !r.nombre && !r.correo;
+  }
+
+  function renderTable(){
+    const tbody = document.getElementById('tbody');
+    const filter = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    let visible = rows.filter(r=>{
+      if(!filter) return true;
+      return (r.nombre||'').toLowerCase().includes(filter) ||
+             (r.correo||'').toLowerCase().includes(filter) ||
+             (r.reclutador||'').toLowerCase().includes(filter) ||
+             (r.password||'').toLowerCase().includes(filter);
+    });
+
+    if(!visible.length){
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">No hay filas que coincidan con la búsqueda.</div></td></tr>`;
+      return;
+    }
+
+    // group by week (ascending, oldest week first) then within a week: empty rows on top, filled rows on bottom
+    const groups = new Map();
+    visible.forEach(r=>{
+      const wk = weekKeyFor(r.fechaAsignada);
+      if(!groups.has(wk)) groups.set(wk, []);
+      groups.get(wk).push(r);
+    });
+    const weekKeys = [...groups.keys()].sort();
+
+    let html = '';
+    let counter = 0;
+
+    weekKeys.forEach(wk=>{
+      const groupRows = groups.get(wk);
+      const empties = groupRows.filter(isEmptyRow);
+      const filled = groupRows.filter(r=>!isEmptyRow(r));
+      const ordered = groupRows;   // orden estatico: nada sube ni baja
+
+      html += `<tr class="week-row"><td colspan="8">${formatWeekLabel(wk)}<span class="count-tag">${empties.length} por llenar · ${filled.length} llenas</span></td></tr>`;
+
+      ordered.forEach(r=>{
+        counter++;
+        html += `
+        <tr class="${r.paso ? 'is-pass' : ''}" data-id="${r.id}">
+          <td class="num">${counter}</td>
+          <td class="day-input"><input type="date" value="${r.fechaAsignada}" data-field="fechaAsignada"></td>
+          <td class="pass-input"><input class="mono" type="text" value="${escapeAttr(r.password)}" data-field="password" placeholder="—"></td>
+          <td class="name-input"><input type="text" value="${escapeAttr(r.nombre)}" data-field="nombre" placeholder="Nombre"></td>
+          <td class="mail-input"><input type="email" value="${escapeAttr(r.correo)}" data-field="correo" placeholder="correo@ejemplo.com"></td>
+          <td class="check"><input type="checkbox" data-field="paso" ${r.paso ? 'checked' : ''}></td>
+          <td class="rec-input"><input type="text" value="${escapeAttr(r.reclutador)}" data-field="reclutador" list="reclutadorList" placeholder="Reclutador"></td>
+          <td class="del"><button title="Eliminar fila" data-action="delete">×</button></td>
+        </tr>`;
+      });
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  function renderMeta(){
+    document.getElementById('metaCuenta').textContent = meta.cuenta || '—';
+    document.getElementById('metaPosicion').textContent = meta.posicion || '—';
+    document.getElementById('metaPrueba').textContent = meta.prueba || 'IntegriTEST';
+    const total = rows.length;
+    const pasaron = rows.filter(r=>r.paso).length;
+    const vacias = rows.filter(isEmptyRow).length;
+    document.getElementById('footerMeta').textContent =
+      `${total} registros en la lista · ${vacias} sin llenar · ${pasaron} completados`;
+  }
+
+  function renderAll(){
+    renderTable();
+    updateReclutadorList();
+    calcCosts();
+    renderMeta();
+  }
+
+  // ---------- Events ----------
+  document.getElementById('tbody').addEventListener('input', e=>{
+    const field = e.target.dataset.field;
+    if(!field) return;
+    const tr = e.target.closest('tr');
+    const id = tr.dataset.id;
+    const row = rows.find(r=>r.id===id);
+    if(!row) return;
+
+    if(field === 'paso'){
+      row.paso = e.target.checked;
+      row.fechaCompletada = row.paso ? (row.fechaCompletada || new Date().toISOString()) : row.fechaCompletada;
+      calcCosts();
+    } else if(field === 'fechaAsignada'){
+      row.fechaAsignada = e.target.value || todayISO();
+    } else {
+      row[field] = e.target.value;
+    }
+    saveData();
+
+    // El reorden de la tabla espera a que TERMINES el campo (change):
+    // repintar en cada tecla destruía el campo con foco y mandaba la
+    // fila hasta abajo con la primera letra. Solo la casilla de
+    // "Pasó" repinta al instante — es un clic, no se escribe.
+    if(field === 'paso'){
+      renderTable();
+      renderMeta();
+    } else if(field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){
+      renderMeta();
+    }
+  });
+
+  document.getElementById('tbody').addEventListener('change', e=>{
+    const field = e.target.dataset.field;
+    if(field === 'reclutador'){
+      updateReclutadorList();
+      saveData();
+    }
+    // Nombre y correo NO repintan nada, ni al salir del campo: el
+    // repintado al terminar destruia el boton que el usuario iba
+    // tocando (la X de borrar, la casilla) y el clic se perdia.
+    // Solo cambiar el dia mueve la fila, a su semana.
+    if(field === 'fechaAsignada'){
+      renderTable();
+      renderMeta();
+    } else if(field === 'nombre' || field === 'correo'){
+      renderMeta();
+    }
+  });
+
+  document.getElementById('tbody').addEventListener('click', e=>{
+    if(e.target.dataset.action === 'delete'){
+      const tr = e.target.closest('tr');
+      const id = tr.dataset.id;
+      rows = rows.filter(r=>r.id!==id);
+      saveData();
+      renderAll();
+      showToast('Fila eliminada');
+    }
+  });
+
+  document.getElementById('addRowBtn').addEventListener('click', ()=>{
+    rows.push(newRow(todayISO()));
+    saveData();
+    renderAll();
+    showToast('Fila agregada');
+  });
+
+  document.getElementById('searchInput').addEventListener('input', renderTable);
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    document.getElementById('fileInput').click();
+  });
+
+  document.getElementById('fileInput').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      handleImport(ev.target.result);
+      e.target.value = '';
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+
+  function handleImport(text){
+    const lines = text.split(/\r?\n/).map(l=>l.trim());
+
+    lines.forEach(l=>{
+      const cuentaM = l.match(/^Nombre de la cuenta:\s*(.+)$/i);
+      const posM = l.match(/^Nombre de la posici[oó]n:\s*(.+)$/i);
+      const pruebaM = l.match(/^Prueba:\s*(.+)$/i);
+      if(cuentaM) meta.cuenta = cuentaM[1].trim();
+      if(posM) meta.posicion = posM[1].trim();
+      if(pruebaM) meta.prueba = pruebaM[1].trim();
+    });
+
+    const passwords = lines.filter(l=>{
+      if(!l) return false;
+      if(l.includes(':')) return false;
+      if(/https?:\/\//i.test(l)) return false;
+      if(!/^[A-Za-z0-9]{6,12}$/.test(l)) return false;
+      if(!/[0-9]/.test(l) || !/[A-Za-z]/.test(l)) return false;
+      return true;
+    });
+
+    if(!passwords.length){
+      showToast('No se encontraron contraseñas en el archivo');
+      renderAll();
+      return;
+    }
+
+    // fill rows that have no password yet, oldest fechaAsignada first
+    let target = rows.filter(r=>!r.password).sort((a,b)=>a.fechaAsignada.localeCompare(b.fechaAsignada));
+    let idx = 0;
+    for(; idx < passwords.length && idx < target.length; idx++){
+      target[idx].password = passwords[idx];
+    }
+    // if more passwords than empty slots, create new rows dated today
+    for(; idx < passwords.length; idx++){
+      const r = newRow(todayISO());
+      r.password = passwords[idx];
+      rows.push(r);
+    }
+
+    saveData();
+    renderAll();
+    showToast(`${passwords.length} contraseña(s) importada(s)`);
+  }
+
+  let toastTimer = null;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+  }
+
+  // ---------- Tabs ----------
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- "Usuarios de la Comer" tab ----------
+  const COMER_KEY = 'usuarios_comer_v1';
+  const COMER_START = 3887;
+  const COMER_INITIAL_ROWS = 40;
+
+  let comerRows = [];
+
+  function loadComerData(){
+    try{
+      const raw = localStorage.getItem(COMER_KEY);
+      if(raw) comerRows = JSON.parse(raw);
+    }catch(e){ comerRows = []; }
+    if(!comerRows || !comerRows.length){
+      comerRows = [];
+      for(let i=0;i<COMER_INITIAL_ROWS;i++){
+        comerRows.push({ numero: COMER_START + i, reclutador:'' });
+      }
+    }
+  }
+
+  function saveComerData(){
+    localStorage.setItem(COMER_KEY, JSON.stringify(comerRows));
+  }
+
+  function nextComerNumero(){
+    if(!comerRows.length) return COMER_START;
+    return Math.max(...comerRows.map(r=>r.numero)) + 1;
+  }
+
+  function updateComerReclutadorList(){
+    const dl = document.getElementById('comerReclutadorList');
+    const names = [...new Set(comerRows.map(r=>r.reclutador).filter(Boolean))].sort();
+    dl.innerHTML = names.map(n=>`<option value="${escapeAttr(n)}">`).join('');
+  }
+
+  function renderComerTable(){
+    const tbody = document.getElementById('comerTbody');
+    comerRows.sort((a,b)=>a.numero-b.numero);
+    tbody.innerHTML = comerRows.map(r=>`
+      <tr data-num="${r.numero}">
+        <td class="c-num">${r.numero}</td>
+        <td class="c-rec"><input type="text" value="${escapeAttr(r.reclutador)}" data-field="reclutador" list="comerReclutadorList" placeholder="Nombre del reclutador"></td>
+        <td class="c-del"><button title="Eliminar fila" data-action="delete">×</button></td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('comerTbody').addEventListener('input', e=>{
+    if(e.target.dataset.field !== 'reclutador') return;
+    const numero = Number(e.target.closest('tr').dataset.num);
+    const row = comerRows.find(r=>r.numero===numero);
+    if(!row) return;
+    row.reclutador = e.target.value;
+    saveComerData();
+  });
+
+  document.getElementById('comerTbody').addEventListener('change', e=>{
+    if(e.target.dataset.field === 'reclutador'){
+      updateComerReclutadorList();
+      saveComerData();
+    }
+  });
+
+  document.getElementById('comerTbody').addEventListener('click', e=>{
+    if(e.target.dataset.action === 'delete'){
+      const numero = Number(e.target.closest('tr').dataset.num);
+      comerRows = comerRows.filter(r=>r.numero!==numero);
+      saveComerData();
+      renderComerTable();
+      updateComerReclutadorList();
+      showToast(`Número ${numero} eliminado`);
+    }
+  });
+
+  document.getElementById('comerAddBtn').addEventListener('click', ()=>{
+    const n = nextComerNumero();
+    comerRows.push({ numero:n, reclutador:'' });
+    saveComerData();
+    renderComerTable();
+    showToast(`Número ${n} agregado`);
+  });
+
+  // ---------- Init ----------
+  // (memoria compartida: arranca cuando ya bajó lo del equipo, y el
+  //  sincronizador repinta con esta misma manija)
+  function arrancarExaminados(){
+    loadData();
+    renderAll();
+    loadComerData();
+    renderComerTable();
+    updateComerReclutadorList();
+  }
+  window.__recargarExaminados = arrancarExaminados;
+  if (window.__esperarEquipoExaminados) window.__esperarEquipoExaminados.then(arrancarExaminados);
+  else arrancarExaminados();
+})();
+</script>
+
+<script src="/nav.js"></script>
+</body>
+</html>

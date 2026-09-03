@@ -10,19 +10,46 @@ sin PHP, sin instalación.
 | `/despacho/actualizar` | subir el Excel del día · **con clave** | escribe los compartidos |
 | `/torre` | leads por día/semana/mes, embudo, estatus | tu archivo, en tu navegador |
 | `/clasificador` | reportes del equipo, pipeline, altas | **compartidos** (Supabase) |
-| `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **nada: se pierde al recargar** |
+| `/expedientes` | ingreso de candidatos: Excel + PDF/fotos | **compartidos** (Supabase + Storage) |
 | `/analizador` | reporte mensual de bajas y descarte | tu archivo, en tu navegador |
 | `/seguimiento` | choferes: estatus, bitácora, búsqueda | **compartidos** (Supabase) |
 | `/carrera` | marcador del equipo: pista, altas, clasificación | **compartidas** (Supabase) |
+| `/examinados` | contraseñas Midot, quién pasó y el costo por periodo | **compartidos** (Supabase) |
 
 **Torre y Analizador siguen siendo locales**: cada quien sube su archivo y lo ve
 solo él. Ahí puede tener sentido — son herramientas de análisis personal.
 
-**El Gestor de Expedientes no guarda nada**, ni siquiera en el navegador: no usa
-localStorage ni IndexedDB, todo vive en memoria (`const state = {}`). Si recargas
-o cierras la pestaña a media captura, se pierde el trabajo y los documentos
-adjuntos. Hacerlo persistente es más caro que el resto porque además de datos
-maneja **archivos** (PDF e imágenes), que irían a Supabase Storage.
+## Cómo se comparte el Gestor de Expedientes
+
+La app no guardaba nada: todo vivía en `const state = {}` y los documentos son
+píxeles en memoria — recargar perdía el trabajo. Ahora los datos del candidato
+van a la fila `expedientes:estado` y cada documento (el PDF o la foto
+**original**, tal como se subió) al bucket `expedientes`, en la ruta
+`idDelCandidato/categoría`.
+
+La app es un solo `<script>` de nivel superior, así que sus funciones son
+globales y `sync-expedientes.js` (cargado después de ella) se engancha sin
+tocar su lógica:
+
+- **`loadFileIntoDocument`** → además de procesar el documento, sube el archivo
+  original al bucket.
+- **`renderTabs` / `updateSpeeches` / `reprocessDocument`** → programan publicar
+  (1.5 s de respiro): toda mutación —altas y bajas de candidatos, cada tecla en
+  un campo, los ajustes de un documento— termina pasando por alguna de las tres.
+- **Al abrir** → baja la fila y reconstruye cada documento llamando a la
+  **propia** `loadFileIntoDocument` de la app con el archivo bajado del bucket:
+  mismo pipeline, cero código duplicado. Los ajustes guardados (brillo,
+  contraste, nitidez) se re-aplican después.
+- **Cada 25 s** → si alguien más guardó, avisa para recargar (a media captura
+  sería peor pisar el foco). Antes de publicar comprueba si el otro ya guardó,
+  como el Clasificador: protección, no fusión.
+
+El bucket **no tiene permiso de borrado** desde la web: los archivos de
+candidatos eliminados quedan huérfanos (costo menor, se limpian a mano si
+estorban) y así el respaldo siempre encuentra sus documentos. Antes de publicar
+un estado con **menos** candidatos que el guardado se copia el anterior a
+`expedientes:estado:respaldo`; se recupera con
+`window.restaurarRespaldoExpedientes()` en la consola.
 
 ## Cómo se comparte la Carrera
 
@@ -41,6 +68,17 @@ del minijuego *Carrera Infinita*. **No se comparte a propósito** — es la marc
 personal de cada quien corriendo, no dato de trabajo. Si algún día se quiere como
 récord de la casa, hay que sincronizarla como el Seguimiento (envolviendo
 `Storage.prototype.setItem`), porque el hook de React solo alcanza `records`.
+
+Desde la v13, "Cerrar mes" archiva el periodo, corona al campeón/a y deja el
+marcador en cero. El Salón de la Fama y el archivo mensual viven en cajas
+propias (`access-pack-hall-of-fame-v1` y `access-pack-monthly-archive-v1`) que
+el hook de `records` no alcanza — sin más, el historial de la casa viviría solo
+en el navegador de quien cierra el mes. Por eso `build.py` inserta un **segundo
+hook**, `useSincronizacionExtrasCarrera`, junto a sus estados: publica ambos en
+la fila `carrera:extras`, uniendo el Salón **por mes** (lo local pisa su propio
+mes) y el archivo **por clave** (cada cierre lleva marca de tiempo, nunca
+chocan). El reset del marcador viaja solo por la unión de `records`: el vaciado
+es un borrado a propósito y la memoria de borrados evita que resucite.
 
 Desde la v7 la app trae además su propio `localStorage`. Los dos conviven bien:
 el navegador guarda una copia que pinta al instante y aguanta sin internet, y
@@ -86,19 +124,47 @@ La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
 `load()` + `refreshAll()`. `sync-clasificador.js` se engancha ahí **sin tocar su
 lógica**:
 
-- **al abrir** → baja el estado del equipo y lo carga
-- **al guardar** → lo publica 1.5 s después (para no mandar uno por tecla)
-- **cada 20 s** → si alguien más guardó, lo trae y repinta
+- **al abrir** → baja lo del equipo y lo **fusiona** con lo local
+- **al guardar** → fusiona y publica 1.5 s después (para no mandar uno por tecla)
+- **cada 20 s** → si alguien más guardó, fusiona y repinta
 
 Si no hay internet sigue funcionando en local y avisa. La clave de IA
 (`clasificador_ai`) **no se comparte**: es de cada quien.
 
-> **Aviso de choque:** si dos personas editan a la vez, antes de publicar se
-> comprueba si el otro ya guardó. Si sí, **no se pisa**: sale un aviso rojo
-> pidiendo recargar. Es una protección, no una fusión — el estado se guarda
-> entero, así que dos personas trabajando al mismo tiempo se estorban. Para
-> turnarse va bien; para edición simultánea de verdad haría falta partir el
-> estado por reclutador.
+> **Por qué fusión y no reemplazo.** La primera versión guardaba el estado
+> ENTERO: el segundo en guardar recibía un candado rojo y, al recargar, lo
+> remoto **pisaba su trabajo**. Con seis personas capturando a la vez eso
+> pasaba todo el día — "no guarda la memoria" — y el equipo dejó de confiar
+> en la herramienta. Ahora se fusiona de **tres vías** (base = lo último
+> sincronizado en este navegador, local, remoto), registro por registro:
+> lo agregado por cualquiera se queda, la edición local gana, lo que no
+> tocaste toma lo remoto, y el borrado se respeta (aunque una edición ajena
+> le gana al borrado). Al abrir, la fusión también **rescata** el trabajo
+> que quedó atorado en un navegador sin publicarse.
+
+Detalles con historia, para no re-aprenderlos:
+
+- Los registros del Clasificador **no traen id** (las altas son objetos
+  pelones), así que el sincronizador les sella un `_sid`: huella del contenido
+  con **claves ordenadas** — `jsonb` de Postgres reordena las claves de los
+  objetos, y comparar con `JSON.stringify` a secas ve "distinto" donde no lo
+  hay. La app arrastra el `_sid` sola porque `persist()` guarda los objetos
+  completos.
+- **Publicar lleva cerrojo optimista**: un UPDATE condicionado a que la fila
+  siga como se leyó (`actualizado=eq.marca`; el trigger de la tabla cambia la
+  marca en cada UPDATE). Si otro ganó la carrera, se vuelve a traer, fusionar
+  y publicar. Sin el cerrojo, la base de quien perdía tomaba sus propios
+  registros por "borrados por otro" y los tiraba.
+- `idSeq` avanza con un salto aleatorio por navegador: dos personas creando
+  candidatos a la vez generaban el mismo `c12` y la fusión los tomaba por el
+  mismo registro.
+- **Red contra "Limpiar todo"**: antes de publicar con menos registros que lo
+  guardado se copia lo anterior a `clasificador:estado:respaldo`. Se recupera
+  con `window.restaurarRespaldoClasificador()` (limpia también la base local,
+  para que la fusión no vuelva a aceptar el borrado).
+- Editar **el mismo campo del mismo registro** a la vez sigue siendo "uno
+  gana": la fusión es por registro, no por campo. Para el uso real (cada
+  quien captura lo suyo) no estorba.
 
 ## Estructura
 
@@ -178,10 +244,54 @@ para no mezclarse con las tablas de la app de mascotas:
   *Restaurar*.
 - **Bucket `despacho`** — las infografías y los videos. Lectura pública; el
   permiso de subida se retiró después de cargarlos.
+- **Bucket `expedientes`** — los documentos del Gestor de Expedientes (PDF y
+  fotos, máx. 15 MB). Lectura pública, subir y reemplazar con la clave
+  publicable, **sin borrado**: lo subido no se puede destruir desde la web.
 
 La clave que aparece en `conexion.js` es la **publicable** (`sb_publishable_…`).
 Es normal que sea visible: así funciona Supabase. Lo que protege son las
 políticas RLS de arriba.
+
+## Cómo se comparte el Control de examinados
+
+La app ya guardaba en localStorage (tres cajas: filas de examinados, metadatos
+de la cuenta y usuarios de la Comer), pero era por navegador. Ahora vive en la
+fila `examinados:estado` y es la misma para todos.
+
+El enganche es distinto al del Seguimiento porque esta app **no arranca con
+`DOMContentLoaded`**: es un IIFE que corre al final de su script. `build.py` le
+parcha el bloque de Init para que espere `window.__esperarEquipoExaminados` (la
+promesa que baja lo del equipo) antes de arrancar — así abre ya con los datos
+compartidos — y para que deje `window.__recargarExaminados`, con lo que los
+cambios de otros **sí se repintan solos**. Publicar sale de envolver
+`Storage.prototype.setItem`, con 1.2 s de respiro.
+
+> **Por qué fusión y no reemplazo.** La primera versión guardaba el estado
+> ENTERO, como el Seguimiento — y con varias personas capturando a la vez
+> **borraba trabajo** (reproducido con dos navegadores: la captura del primero
+> desaparecía de todos lados al publicar el segundo). Ahora fusiona de **tres
+> vías** como el Clasificador: filas por `id`, la lista de la Comer por
+> `número`, los metadatos campo por campo, con cerrojo optimista al publicar.
+> Lo agregado por cualquiera se queda, la edición local gana, el borrado se
+> respeta.
+
+Dos cuidados propios de esta app:
+
+- La app escribe desde su **memoria** en cada tecla, así que la fusión se
+  **aplica** (almacén + repintado + base) solo cuando nadie tiene un campo con
+  foco; mientras tanto se publica la unión — nada se pierde — y la aplicación
+  se reintenta en unos segundos. La base solo avanza cuando la app ya
+  incorporó la unión; sin eso, la siguiente tecla pisaba la fusión y las filas
+  ajenas se leían como "borradas aquí".
+- Las **filas vacías nuevas de un navegador no se publican hasta llenarse**:
+  cada navegador recién abierto siembra 40 de relleno (y la Comer 40 números
+  fijos) y publicarlas duplicaría filas o pisaría con vacío los números que
+  otros ya llenaron.
+
+Red contra el borrado: antes de publicar con menos registros se copia lo
+anterior a `examinados:estado:respaldo` (`window.restaurarRespaldoExaminados()`
+lo devuelve y limpia la base local). El aviso rojo solo sale con bajones
+grandes — borrar una fila de relleno es rutina.
 
 ## La clave de /actualizar
 

@@ -35,7 +35,8 @@ OTRAS = [
     ("dashboard",          "torre",        "Torre de Reclutamiento",       []),
     ("TEAM_RECLUTAMIENTO", "clasificador", "Clasificador de Reclutamiento",
      ["/sync-clasificador.js"]),
-    ("index",              "expedientes",  "Gestor de Expedientes",        []),
+    ("index",              "expedientes",  "Gestor de Expedientes",
+     ["/sync-expedientes.js"]),
     ("Analizador_Leads",   "analizador",   "Analizador de Leads",          []),
     ("panel_choferes",     "seguimiento",  "Panel de Seguimiento de Choferes",
      ["head:/sync-seguimiento.js"]),
@@ -43,6 +44,8 @@ OTRAS = [
     # aceptan los dos prefijos que ha usado.
     (("grand", "recruiting-grand-prix"), "carrera", "Gran Carrera de Reclutamiento",
      ["/sync-carrera.js"]),
+    ("control_examinados",  "examinados",  "Control de examinados",
+     ["head:/sync-examinados.js"]),
 ]
 
 # Proyecto de Supabase (mascotas). La clave es la publicable: es normal que
@@ -430,7 +433,7 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
-for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js"):
+for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js", "sync-examinados.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
@@ -470,6 +473,111 @@ for prefijo, destino, nombre, extra in OTRAS:
         if n != 1:
             morir("No encontré dónde declara la Carrera su estado «records» "
                   "para engancharle la memoria compartida.")
+
+        # v13+: el Salón de la Fama y el archivo mensual dejaron de ser
+        # constantes — viven en cajas propias que el hook de records no
+        # alcanza. Su propio hook, junto a sus estados.
+        if "access-pack-hall-of-fame-v1" in contenido:
+            contenido, n = re.subn(
+                r"(  const \[monthlyArchive, setMonthlyArchive\] = useState\(.*?\);\n)",
+                r"\1  useSincronizacionExtrasCarrera(hallOfFame, setHallOfFame, monthlyArchive, setMonthlyArchive);  // memoria compartida\n",
+                contenido, count=1)
+            if n != 1:
+                morir("La Carrera trae Salón de la Fama/archivo persistentes pero no "
+                      "encontré sus estados para engancharles la memoria compartida.")
+
+    # El Control de examinados es un IIFE que arranca al final de su script —
+    # no hay DOMContentLoaded que interceptar como en el Seguimiento. Se le
+    # parcha el Init para que espere lo del equipo antes de arrancar y deje
+    # una manija (window.__recargarExaminados) con la que el sincronizador
+    # repinta cuando alguien más guarda.
+    if destino == "examinados":
+        contenido = sustituir(
+            contenido,
+            "  // ---------- Init ----------\n"
+            "  loadData();\n"
+            "  renderAll();\n"
+            "  loadComerData();\n"
+            "  renderComerTable();\n"
+            "  updateComerReclutadorList();",
+            "  // ---------- Init ----------\n"
+            "  // (memoria compartida: arranca cuando ya bajó lo del equipo, y el\n"
+            "  //  sincronizador repinta con esta misma manija)\n"
+            "  function arrancarExaminados(){\n"
+            "    loadData();\n"
+            "    renderAll();\n"
+            "    loadComerData();\n"
+            "    renderComerTable();\n"
+            "    updateComerReclutadorList();\n"
+            "  }\n"
+            "  window.__recargarExaminados = arrancarExaminados;\n"
+            "  if (window.__esperarEquipoExaminados) window.__esperarEquipoExaminados.then(arrancarExaminados);\n"
+            "  else arrancarExaminados();",
+            "arranque del Control de examinados")
+
+        # La app repintaba la tabla ENTERA en cada tecla de Examinado/Correo
+        # (para reordenar vacías/llenas): el campo con foco se destruía y no
+        # se podía terminar de escribir, y la fila se iba hasta abajo con la
+        # primera letra. El reorden se pospone a terminar el campo (change).
+        contenido = sustituir(
+            contenido,
+            "    // fields that affect grouping/sorting/numbering re-render the table;\n"
+            "    // free-text fields update live without losing focus\n"
+            "    if(field === 'paso' || field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    }",
+            "    // El reorden de la tabla espera a que TERMINES el campo (change):\n"
+            "    // repintar en cada tecla destruía el campo con foco y mandaba la\n"
+            "    // fila hasta abajo con la primera letra. Solo la casilla de\n"
+            "    // \"Pasó\" repinta al instante — es un clic, no se escribe.\n"
+            "    if(field === 'paso'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    } else if(field === 'fechaAsignada' || field === 'nombre' || field === 'correo'){\n"
+            "      renderMeta();\n"
+            "    }",
+            "repintado por tecla del Control de examinados")
+
+        contenido = sustituir(
+            contenido,
+            "  document.getElementById('tbody').addEventListener('change', e=>{\n"
+            "    if(e.target.dataset.field === 'reclutador'){\n"
+            "      updateReclutadorList();\n"
+            "      saveData();\n"
+            "    }\n"
+            "  });",
+            "  document.getElementById('tbody').addEventListener('change', e=>{\n"
+            "    const field = e.target.dataset.field;\n"
+            "    if(field === 'reclutador'){\n"
+            "      updateReclutadorList();\n"
+            "      saveData();\n"
+            "    }\n"
+            "    // Nombre y correo NO repintan nada, ni al salir del campo: el\n"
+            "    // repintado al terminar destruia el boton que el usuario iba\n"
+            "    // tocando (la X de borrar, la casilla) y el clic se perdia.\n"
+            "    // Solo cambiar el dia mueve la fila, a su semana.\n"
+            "    if(field === 'fechaAsignada'){\n"
+            "      renderTable();\n"
+            "      renderMeta();\n"
+            "    } else if(field === 'nombre' || field === 'correo'){\n"
+            "      renderMeta();\n"
+            "    }\n"
+            "  });",
+            "reorden al terminar el campo del Control de examinados")
+
+        # Orden ESTATICO dentro de cada semana: el acomodo vacias-arriba /
+        # llenas-abajo movia los renglones mientras se capturaba ("sube y
+        # baja") y el equipo lo pidio quieto. La fila se queda donde esta.
+        contenido = sustituir(
+            contenido,
+            "      const empties = groupRows.filter(isEmptyRow);\n"
+            "      const filled = groupRows.filter(r=>!isEmptyRow(r));\n"
+            "      const ordered = empties.concat(filled);",
+            "      const empties = groupRows.filter(isEmptyRow);\n"
+            "      const filled = groupRows.filter(r=>!isEmptyRow(r));\n"
+            "      const ordered = groupRows;   // orden estatico: nada sube ni baja",
+            "orden estatico del Control de examinados")
 
     contenido = con_estilos_movil(contenido, fuente.name)
     for r in extra:

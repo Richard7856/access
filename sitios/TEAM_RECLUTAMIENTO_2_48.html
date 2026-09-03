@@ -493,11 +493,12 @@
     </div>
     <div class="toolsel" id="toolSel">
       <button data-tool="rendimiento" class="active">📊 Rendimiento</button>
-      <button data-tool="asignacion">🎯 Asignación de leads</button>
-      <button data-tool="semanal" title="Requiere contraseña">📈 Reporte semanal 🔒</button>
     </div>
     <div class="spacer"></div>
     <button class="ghost" id="btnSaved" title="Los datos se guardan solos en este navegador">Guardado local</button>
+    <button class="ghost" id="btnExportData" title="Descarga un respaldo con toda la información">⬇ Exportar datos</button>
+    <button class="ghost" id="btnImportData" title="Carga un respaldo que exportaste antes">⬆ Importar datos</button>
+    <input type="file" id="importDataFile" accept=".json,application/json" style="display:none">
     <button class="ghost" id="btnResetPanel" title="Borra solo la herramienta activa">↻ Reiniciar panel</button>
     <button class="ghost danger" id="btnReset">Limpiar todo</button>
   </div>
@@ -505,14 +506,9 @@
   <!-- ============ TABS ============ -->
   <div class="tabs" id="tabs">
     <button data-tab="import" class="active">Importar <span class="b" id="tabCountImport">0</span></button>
-    <button data-tab="board">Tablero <span class="b" id="tabCountBoard">0</span></button>
-    <button data-tab="seguimiento" class="tool-rend-only">Seguimiento <span class="b" id="tabCountSeg">0</span></button>
-    <button data-tab="estatus" class="tool-rend-only">Estatus <span class="b" id="tabCountEst">0</span></button>
     <button data-tab="activos" class="tool-rend-only">Activos <span class="b" id="tabCountAct">0</span></button>
-    <button data-tab="reassign" class="tool-asig-only">Reasignar</button>
+    <button data-tab="kpis" class="tool-rend-only">KPIs <span class="b" id="tabCountKpi">0</span></button>
     <button data-tab="report" class="tool-rend-only">Reporte</button>
-    <button data-tab="valida" class="tool-rend-only">Validación <span class="b" id="tabCountValida">0</span></button>
-    <button data-tab="weekly" class="tool-sem-only">Reporte semanal</button>
   </div>
 
   <!-- ================= VISTA: IMPORTAR ================= -->
@@ -744,6 +740,31 @@
   </section>
 
   <!-- ================= VISTA: VALIDACIÓN DE EMPLEADOS ACTIVOS (por zona) ================= -->
+  <!-- ================= VISTA: KPIs POR RECLUTADOR ================= -->
+  <section class="view" id="view-kpis">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">KPIs por reclutador</h2>
+        <button class="primary sm" id="kpiPDF" style="background:#0f6b3f">⬇ PDF de KPIs</button>
+      </div>
+      <p class="lead">Mide el <b>Pipeline</b> de cada reclutador: cuántos candidatos lleva y en qué etapa (en proceso, evaluación, documentos, alta, no efectivo), sus proyectos y el detalle de a quién está trabajando. Filtra por reclutador, etapa o búsqueda. <b>Mide el pipeline, no las altas.</b></p>
+
+      <div style="background:#fcfbf7;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px">
+          <b>Filtrar:</b>
+          <select id="kpiRec" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px"></select>
+          <select id="kpiStage" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px"></select>
+          <input type="text" id="kpiSearch" placeholder="candidato, proyecto, teléfono…" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;min-width:200px">
+          <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="kpiActive"> solo activos</label>
+          <button class="ghost" id="kpiClear" style="padding:4px 10px;font-size:12px">Limpiar</button>
+          <span class="muted" id="kpiInfo" style="font-size:12px"></span>
+        </div>
+      </div>
+
+      <div id="kpiRender"></div>
+    </div>
+  </section>
+
   <section class="view" id="view-activos">
     <div class="panel">
       <h2>Validación de empleados activos · por zona</h2>
@@ -1079,7 +1100,9 @@ var state = {
   repHiddenCols: {},// columnas del reporte ocultas por el usuario (llave tabla#índice → etiqueta)
   estatus: [],      // estatus de candidatos (hoja "Estatus"): [{cand,tel,estatus,fase,coment,rec,proy,fecha,manual}] — importados del XLSX del sistema o capturados a mano
   estatusSync: 0,   // timestamp de la última importación del XLSX de estatus
-  altasFilter: {mode:'all', weeks:[], from:'', to:'', month:'', days:[]}, // qué semanas/fechas mostrar en la sección 05 · Altas
+  altasFilter: {mode:'all', weeks:[], from:'', to:'', month:'', days:[]},
+  altasEdFilter: {mode:'all', weeks:[], from:'', to:'', month:'', sort:'date_asc'}, // filtro/orden del EDITOR de altas (solo afecta la vista)
+  kpiFilter: {rec:'',stage:'',q:'',active:false}, // filtro de la pestaña KPIs // qué semanas/fechas mostrar en la sección 05 · Altas
   baseEmpleados: [], // BASE EMPLEADOS.xlsx: [{chofer, proyecto, tienda, zona}] para la columna Activos
   baseEmpleadosSync: 0, // timestamp de la última carga de la base
   bajas: {},         // candidatos marcados como baja en la hoja Activos: llave(nombre|zona) → true
@@ -1955,7 +1978,7 @@ function handleCallsImage(file){
    PERSISTENCIA
    ========================================================================== */
 function persist(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify({pools:state.pools, vacancies:state.vacancies, urgRegionMap:state.urgRegionMap, filters:state.filters, accountRules:state.accountRules, rulesVersion:RULES_VERSION, calls:state.calls, altas:state.altas, altasDoc:state.altasDoc, altasDocSync:state.altasDocSync, repHiddenCols:state.repHiddenCols, estatus:state.estatus, estatusSync:state.estatusSync, altasFilter:state.altasFilter, baseEmpleados:state.baseEmpleados, baseEmpleadosSync:state.baseEmpleadosSync, bajas:state.bajas, urgFuzzy:state.urgFuzzy, tool:state.tool, fuente:state.fuente, idSeq:idSeq})); }
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify({pools:state.pools, vacancies:state.vacancies, urgRegionMap:state.urgRegionMap, filters:state.filters, accountRules:state.accountRules, rulesVersion:RULES_VERSION, calls:state.calls, altas:state.altas, altasDoc:state.altasDoc, altasDocSync:state.altasDocSync, repHiddenCols:state.repHiddenCols, estatus:state.estatus, estatusSync:state.estatusSync, altasFilter:state.altasFilter, altasEdFilter:state.altasEdFilter, kpiFilter:state.kpiFilter, baseEmpleados:state.baseEmpleados, baseEmpleadosSync:state.baseEmpleadosSync, bajas:state.bajas, urgFuzzy:state.urgFuzzy, tool:state.tool, fuente:state.fuente, idSeq:idSeq})); }
   catch(e){ /* localStorage lleno o bloqueado: seguimos solo en memoria */ }
 }
 function load(){
@@ -1977,11 +2000,53 @@ function load(){
     state.repHiddenCols = d.repHiddenCols||{};
     state.estatus = d.estatus||[]; state.estatusSync = d.estatusSync||0;
     state.altasFilter = d.altasFilter||{mode:'all', weeks:[], from:'', to:'', month:'', days:[]};
+    state.altasEdFilter = d.altasEdFilter||{mode:'all', weeks:[], from:'', to:'', month:'', sort:'date_asc'};
+    state.kpiFilter = d.kpiFilter||{mode:'all', weeks:[], from:'', to:'', month:'', rec:''};
     state.baseEmpleados = d.baseEmpleados||[]; state.baseEmpleadosSync = d.baseEmpleadosSync||0; state.bajas = d.bajas||{};
-    state.urgFuzzy = d.urgFuzzy!==false; state.tool = d.tool||'rendimiento'; state.fuente = d.fuente||'';
+    state.urgFuzzy = d.urgFuzzy!==false; state.tool = 'rendimiento'; state.fuente = d.fuente||'';
     syncPool();
     idSeq = d.idSeq || ((state.pools.rendimiento.length+state.pools.asignacion.length)+2);
   }catch(e){}
+}
+
+/* ============================================================================
+   RESPALDO: exportar / importar TODA la información (para respaldo diario)
+   Exporta el mismo bloque que se guarda en el navegador a un archivo .json;
+   al importar, reemplaza el estado y recarga todo.
+   ========================================================================== */
+function exportData(){
+  try{
+    persist(); // asegura que lo último quede guardado
+    var raw = localStorage.getItem(STORE_KEY) || '{}';
+    var payload = JSON.parse(raw);
+    var wrap = { _app:'TEAM_RECLUTAMIENTO', _version:APP_VERSION, _exported:new Date().toISOString(), data:payload };
+    var blob = new Blob([JSON.stringify(wrap,null,2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date();
+    var stamp = d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'_'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2);
+    a.href=url; a.download='Respaldo_Reclutamiento_'+stamp+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+    toast('Respaldo exportado.');
+  }catch(e){ toast('No se pudo exportar el respaldo.', true); }
+}
+function importData(file){
+  var rd=new FileReader();
+  rd.onload=function(ev){
+    try{
+      var parsed=JSON.parse(ev.target.result);
+      // acepta el archivo con envoltura {data:...} o el objeto de datos directo
+      var payload = (parsed && parsed.data && typeof parsed.data==='object') ? parsed.data : parsed;
+      if(!payload || typeof payload!=='object'){ toast('El archivo no es un respaldo válido.', true); return; }
+      if(!confirm('Esto reemplazará la información actual con la del respaldo. ¿Continuar?')) return;
+      localStorage.setItem(STORE_KEY, JSON.stringify(payload));
+      load();
+      refreshAll();
+      toast('Respaldo importado. Información restaurada.');
+    }catch(e){ toast('No se pudo leer el respaldo (¿archivo dañado?).', true); }
+  };
+  rd.readAsText(file);
 }
 
 /* ============================================================================
@@ -1999,11 +2064,12 @@ function refreshAll(){
   if(typeof renderValida==='function') renderValida();
   if(typeof renderEstatus==='function') renderEstatus();
   if(typeof renderActivos==='function') renderActivos();
+  if(typeof renderKpis==='function') renderKpis();
   renderLoadedSummary();
   renderImportLayout();
   var n = state.candidates.length;
-  document.getElementById('tabCountImport').textContent = n;
-  document.getElementById('tabCountBoard').textContent = n;
+  var tci=document.getElementById('tabCountImport'); if(tci) tci.textContent = n;
+  var tcb=document.getElementById('tabCountBoard'); if(tcb) tcb.textContent = n;
   var tcs=document.getElementById('tabCountSeg'); if(tcs) tcs.textContent = state.candidates.filter(function(c){ return c.isActive; }).length;
 }
 
@@ -2551,6 +2617,13 @@ function renderAltas(){
   var box=document.getElementById('altasBox'); if(!box) return;
   var altas=state.altas||[];
 
+  // helpers de fecha (para filtrar/ordenar el editor)
+  var parseAD=function(s){ var m=String(s||'').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); if(!m) return null; var y=+m[3]; if(y<100) y+=2000; var d=new Date(y,+m[2]-1,+m[1]); return isNaN(d)?null:d; };
+  var edMonday=function(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
+  // semanas disponibles (continuas, lunes→domingo)
+  var wkeys=[]; altas.forEach(function(a){ var d=parseAD(a.date); if(d) wkeys.push(edMonday(d).getTime()); });
+  var weeksAvail=[]; if(wkeys.length){ var mn=Math.min.apply(null,wkeys), mx=Math.max.apply(null,wkeys); var c=new Date(mn); while(c.getTime()<=mx){ weeksAvail.push(edMonday(c).getTime()); c.setDate(c.getDate()+7); } }
+
   // ---- detección de choferes duplicados: comparten NOMBRE o APELLIDO (ignora may/min y acentos) ----
   var STOP={'de':1,'del':1,'la':1,'las':1,'los':1,'y':1,'el':1,'san':1,'santa':1,'da':1,'di':1};
   var toks=function(s){
@@ -2579,7 +2652,21 @@ function renderAltas(){
   var palette=['#fdecea','#eaf1fb','#fef6e0','#eafaf0','#f3eafb','#e8f7f9','#fbeef4','#f0f4e8'];
   var borderPal=['#e0736a','#5b8bd0','#d9a634','#54a877','#a06fce','#4bb1bd','#cc6aa0','#8ba54b'];
 
-  var rows=altas.map(function(a,i){
+  // ---- filtro / orden del EDITOR (solo cambia lo que se ve; no borra nada) ----
+  var ef=state.altasEdFilter||{mode:'all',weeks:[],from:'',to:'',month:'',sort:'date_asc'};
+  var view=altas.map(function(a,i){ return {a:a,i:i,d:parseAD(a.date)}; }).filter(function(x){
+    var d=x.d;
+    if(ef.mode==='month'){ if(!d||!ef.month) return false; var ym=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); return ym===ef.month; }
+    if(ef.mode==='weeks'){ if(!d) return false; return (ef.weeks||[]).indexOf(edMonday(d).getTime())>=0; }
+    if(ef.mode==='range'){ if(!d) return false; if(ef.from && d<new Date(ef.from+'T00:00:00')) return false; if(ef.to && d>new Date(ef.to+'T23:59:59')) return false; return true; }
+    return true;
+  });
+  if(ef.sort==='date_asc'||ef.sort==='date_desc'){
+    view.sort(function(p,q){ var pa=p.d?p.d.getTime():(ef.sort==='date_asc'?Infinity:-Infinity); var qa=q.d?q.d.getTime():(ef.sort==='date_asc'?Infinity:-Infinity); return ef.sort==='date_asc'? pa-qa : qa-pa; });
+  }
+
+  var rows=view.map(function(x){
+    var a=x.a, i=x.i;
     var isDup=isDupRow(i);
     var gi=isDup?compIdx[find(i)]:-1;
     var bg=isDup?palette[gi%palette.length]:'', bd=isDup?borderPal[gi%borderPal.length]:'';
@@ -2602,6 +2689,29 @@ function renderAltas(){
     '</tr>';
   }).join('');
 
+  // ---- barra de filtro/orden del editor ----
+  var inp='padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px';
+  var wkLbl=function(k){ var mon=new Date(k),sun=new Date(k); sun.setDate(sun.getDate()+6); var f=function(d){return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);}; return 'Lun '+f(mon)+' – Dom '+f(sun); };
+  var sel=function(id,opts,cur){ return '<select id="'+id+'" style="'+inp+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; };
+  var monthField = ef.mode==='month' ? ' <input type="month" id="aedMonth" value="'+(ef.month||'')+'" style="'+inp+'">' : '';
+  var rangeFields = ef.mode==='range' ? ' <input type="date" id="aedFrom" value="'+(ef.from||'')+'" style="'+inp+'"> a <input type="date" id="aedTo" value="'+(ef.to||'')+'" style="'+inp+'">' : '';
+  var weekChips = ef.mode==='weeks'
+    ? '<div id="aedWeeks" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">'+
+        (weeksAvail.length? weeksAvail.map(function(k){ var on=(ef.weeks||[]).indexOf(k)>=0; return '<label class="col-chip" style="cursor:pointer;background:'+(on?'#e4efe6':'#f0ede6')+';color:'+(on?'#1d7a3d':'#666')+'"><input type="checkbox" data-aedwk="'+k+'"'+(on?' checked':'')+' style="margin-right:6px;vertical-align:middle">'+wkLbl(k)+'</label>'; }).join('') : '<span class="muted">Sin semanas con fecha.</span>')+
+      '</div>'
+    : '';
+  var shownTxt = view.length!==altas.length ? '<span class="muted" style="font-size:12px">Mostrando '+view.length+' de '+altas.length+'</span>' : '<span class="muted" style="font-size:12px">'+altas.length+' altas</span>';
+  var filtBar=
+    '<div style="background:#fcfbf7;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0">'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px">'+
+        '<b>Filtrar:</b> '+sel('aedMode',[['all','Todas'],['month','Por mes'],['weeks','Por semanas'],['range','Rango de fechas']],ef.mode)+
+        monthField+rangeFields+
+        '<b style="margin-left:8px">Orden:</b> '+sel('aedSort',[['date_asc','Fecha ↑ (más antiguas primero)'],['date_desc','Fecha ↓ (más recientes primero)'],['none','Orden de captura']],ef.sort||'date_asc')+
+        '<button class="ghost" id="aedClear" style="padding:4px 10px;font-size:12px">Limpiar</button>'+
+        shownTxt+
+      '</div>'+weekChips+
+    '</div>';
+
   var nOk=altas.filter(function(a,i){ return isDupRow(i) && a.dupOk; }).length;
   var allChecked = dupCount>0 && nOk===dupCount;
   var dupBar = dupGroups
@@ -2617,10 +2727,11 @@ function renderAltas(){
     ? '<input type="checkbox" id="altaDupMaster"'+(allChecked?' checked':'')+' title="seleccionar / revisar todos los duplicados">'
     : '✓';
 
-  box.innerHTML='<p class="lead" style="margin:8px 0">Escribe las altas a mano (una por fila). Se resaltan los choferes que <b>comparten nombre o apellido</b> (ignora mayúsculas/minúsculas y acentos); cada grupo lleva su color. Usa la casilla del encabezado para <b>seleccionar todos</b>, o una por una, para validar que están bien.</p>'+
+  box.innerHTML='<p class="lead" style="margin:8px 0">Escribe las altas a mano (una por fila). Puedes <b>filtrar por semanas, mes o fechas</b> y ordenar la lista por fecha. Se resaltan los choferes que <b>comparten nombre o apellido</b>; usa la casilla del encabezado para <b>seleccionar todos</b>, o una por una, para validar.</p>'+
+    filtBar+
     dupBar+
     '<div class="tablewrap" style="max-height:none"><table class="data" id="altasTable"><thead><tr><th title="revisado">'+masterChk+'</th><th>Reclutador</th><th>Alta (nombre)</th><th>Cliente / Tienda</th><th>Nombre del chofer</th><th>Nivel de urgencia</th><th>Fecha</th><th></th></tr></thead>'+
-    '<tbody>'+(rows||'<tr><td colspan="8" class="muted" style="padding:12px">Sin altas. Da "+ Agregar alta".</td></tr>')+'</tbody></table></div>';
+    '<tbody>'+(rows||'<tr><td colspan="8" class="muted" style="padding:12px">'+(altas.length?'Nada con ese filtro.':'Sin altas. Da "+ Agregar alta".')+'</td></tr>')+'</tbody></table></div>';
 }
 
 function renderReport(){
@@ -2716,10 +2827,16 @@ function renderReport(){
     var fmtD=function(d){ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear(); };
     var DIAS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 
-    // semanas disponibles (para el panel de filtro) — se calculan sobre TODAS las altas con fecha
-    var allWeekKeys={};
-    altasReal.forEach(function(a){ var d=parseAltaDate(a.date); if(d) allWeekKeys[mondayOf(d).getTime()]=true; });
-    ALTAS_WEEKS_AVAIL=Object.keys(allWeekKeys).map(Number).sort(function(x,y){ return x-y; });
+    // semanas disponibles (para el panel de filtro): rango CONTINUO de lunes a lunes,
+    // desde la semana de la primera alta hasta la de la última (sin huecos), corte lunes→domingo.
+    var wkeysWith=[];
+    altasReal.forEach(function(a){ var d=parseAltaDate(a.date); if(d) wkeysWith.push(mondayOf(d).getTime()); });
+    if(wkeysWith.length){
+      var minW=Math.min.apply(null,wkeysWith), maxW=Math.max.apply(null,wkeysWith);
+      ALTAS_WEEKS_AVAIL=[];
+      var cur=new Date(minW);
+      while(cur.getTime()<=maxW){ ALTAS_WEEKS_AVAIL.push(mondayOf(cur).getTime()); cur.setDate(cur.getDate()+7); }
+    } else { ALTAS_WEEKS_AVAIL=[]; }
 
     // aplica el filtro elegido por el usuario (todo / mes / semanas / rango) + días de la semana
     var af=state.altasFilter||{mode:'all'};
@@ -2903,6 +3020,55 @@ function renderReport(){
         diaCols.map(function(dk){ return '<th class="r">'+abrDia[dk]+'</th>'; }).join('')+
         '<th class="r">Total</th></tr></thead><tbody>'+rows06+totRow06+'</tbody></table>';
     }
+
+    // ---- sección 07: KPIs por reclutador + detalle (alta, cliente, chofer, fecha) + alerta >5/semana ----
+    var byRec07={};
+    altasFilt.forEach(function(a){
+      var d=parseAltaDate(a.date);
+      var r=(a.rec&&a.rec.trim())||'Sin reclutador';
+      if(!byRec07[r]) byRec07[r]={items:[], weeks:{}};
+      byRec07[r].items.push({a:a, d:d});
+      if(d){ var wk=mondayOf(d).getTime(); byRec07[r].weeks[wk]=(byRec07[r].weeks[wk]||0)+1; }
+    });
+    var rec07=Object.keys(byRec07).sort(function(a,b){ return byRec07[b].items.length-byRec07[a].items.length || a.localeCompare(b); });
+    // alertas: reclutador-semana con más de 5 altas
+    var alerts=[];
+    rec07.forEach(function(r){
+      Object.keys(byRec07[r].weeks).forEach(function(wk){
+        if(byRec07[r].weeks[wk]>5){ var m=new Date(+wk), s=new Date(+wk); s.setDate(s.getDate()+6); alerts.push({r:r, n:byRec07[r].weeks[wk], lbl:fmtD(m)+' – '+fmtD(s)}); }
+      });
+    });
+    if(rec07.length){
+      var alertBox = alerts.length
+        ? '<div style="background:#fdecea;border:1px solid #e0a49c;border-radius:9px;padding:10px 13px;margin:6px 0 14px;font-size:12.5px;color:#a2321f">'+
+            '<b>⚠ Alerta · más de 5 altas en una semana:</b> '+
+            alerts.map(function(x){ return esc(x.r)+' ('+x.n+' · semana '+x.lbl+')'; }).join(' &nbsp;·&nbsp; ')+'</div>'
+        : '<div style="background:#eafaf0;border:1px solid #bfe6cd;border-radius:9px;padding:8px 12px;margin:6px 0 14px;font-size:12.5px;color:#1d7a3d">✓ Ningún reclutador supera 5 altas en una sola semana en el periodo filtrado.</div>';
+
+      var blocks07=rec07.map(function(r){
+        var g=byRec07[r];
+        var items=g.items.slice().sort(function(p,q){ var pa=p.d?p.d.getTime():Infinity, qa=q.d?q.d.getTime():Infinity; return pa-qa; });
+        // resumen semanal con marca de alerta
+        var wkeys=Object.keys(g.weeks).map(Number).sort(function(a,b){ return a-b; });
+        var wkChips=wkeys.map(function(wk){ var n=g.weeks[wk], m=new Date(wk), over=n>5; return '<span class="col-chip" style="background:'+(over?'#fdecea':'#eef2ee')+';color:'+(over?'#a2321f':'#1d7a3d')+';font-weight:'+(over?'700':'500')+'">Sem '+fmtD(m)+': '+n+(over?' ⚠':'')+'</span>'; }).join(' ');
+        var det=items.map(function(x){
+          var c=campKey(x.a);
+          return '<tr><td style="font-weight:600;color:'+CAMP_COLOR[c]+'">'+esc((x.a.name||'').trim()||'—')+'</td>'+
+            '<td>'+esc((x.a.client||'').trim()||'—')+'</td>'+
+            '<td>'+esc((x.a.chofer||'').trim()||'—')+'</td>'+
+            '<td>'+esc((x.a.date||'').trim()||'—')+'</td></tr>';
+        }).join('');
+        return '<div style="margin-top:16px"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'+
+            '<span style="font-weight:700;font-size:14px">'+esc(r)+'</span>'+
+            '<span class="sg sg-avanza">Reclutó: '+g.items.length+'</span>'+wkChips+'</div>'+
+          '<table class="rep" style="margin-top:6px"><thead><tr><th>Alta</th><th>Cliente / Tienda</th><th>Nombre del chofer</th><th>Fecha</th></tr></thead>'+
+          '<tbody>'+det+'</tbody></table></div>';
+      }).join('');
+
+      altasHtml+='<div class="rep-sec" style="margin-top:34px"><span class="n">07</span> KPIs por reclutador <span class="line"></span></div>'+
+        '<p class="conc-cap">Cuántas altas hizo cada reclutador y el detalle (alta, cliente/tienda, chofer y fecha). Respeta el filtro de mes/semanas/rango. Se marca en rojo cualquier semana con más de 5 altas.</p>'+
+        alertBox+blocks07;
+    }
   }
 
   // ---- sección 03: pipeline por proyecto (agrupa TODO el pipeline activo por cliente/proyecto) ----
@@ -3062,6 +3228,12 @@ function renderReport(){
    Al agregar un movimiento nuevo: súmalo al inicio de APP_MOVIMIENTOS.
    ========================================================================== */
 var APP_MOVIMIENTOS=[
+  {v:39, fecha:'02/08/2026', que:'Nueva pestaña KPIs (métricas y evidencia por reclutador, con alerta >5/semana y PDF propio) y botones Exportar/Importar datos para respaldo diario'},
+  {v:38, fecha:'02/08/2026', que:'Sección 07 del Reporte: KPIs por reclutador con cuántas altas hizo y el detalle (alta, cliente/tienda, chofer, fecha), filtrable por mes/semanas/rango, con alerta cuando alguien supera 5 altas en una semana'},
+  {v:37, fecha:'02/08/2026', que:'Botón + Agregar alta: al agregar limpia el filtro del editor y enfoca la fila nueva (antes quedaba oculta por el filtro/orden y parecía no funcionar)'},
+  {v:36, fecha:'01/08/2026', que:'El editor de altas ahora se puede filtrar por semanas, mes o rango de fechas y ordenar por fecha (asc/desc); no borra nada, solo cambia la vista'},
+  {v:35, fecha:'01/08/2026', que:'Las semanas del filtro de altas se generan continuas (todos los lunes entre la primera y última alta) y etiquetadas Lun … – Dom … para dejar claro el corte lunes a domingo'},
+  {v:34, fecha:'31/07/2026', que:'Se ocultaron las secciones Asignación de leads, Reporte semanal, Tablero, Seguimiento, Estatus y Validación; quedan Importar, Activos y Reporte'},
   {v:33, fecha:'31/07/2026', que:'El reporte ejecutivo incluye anexo de detalle: cada alta una por una (fecha, día, reclutador, candidato, campaña) agrupada por semana'},
   {v:32, fecha:'31/07/2026', que:'El reporte ejecutivo PPTX respeta el filtro del reporte (mes/semanas/rango/días): la presentación es exactamente de las altas que estás viendo, con el periodo real'},
   {v:31, fecha:'29/07/2026', que:'Reporte ejecutivo de altas (PPTX) para dirección: 11 diapositivas con resumen ejecutivo, tendencia semanal, quincenas, ranking, campañas, tiendas, matriz reclutador×campaña, días y conclusiones'},
@@ -4382,7 +4554,7 @@ function exportEstatusPDF(){
 function altasWeekLabel(k){
   var mon=new Date(k), sun=new Date(k); sun.setDate(sun.getDate()+6);
   var f=function(d){ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2); };
-  return f(mon)+' – '+f(sun);
+  return 'Lun '+f(mon)+' – Dom '+f(sun);
 }
 var ALTAS_DIAS_LBL=[['1','Lun'],['2','Mar'],['3','Mié'],['4','Jue'],['5','Vie'],['6','Sáb'],['0','Dom']];
 function renderAltasFilterUI(){
@@ -4401,7 +4573,7 @@ function renderAltasFilterUI(){
   wkWrap.innerHTML = ALTAS_WEEKS_AVAIL.length ? ALTAS_WEEKS_AVAIL.map(function(k){
     var on=(af.weeks||[]).indexOf(k)>=0;
     return '<label class="col-chip" style="cursor:pointer;background:'+(on?'#e4efe6':'#f0ede6')+';color:'+(on?'#1d7a3d':'#666')+'">'+
-      '<input type="checkbox" data-altwk="'+k+'"'+(on?' checked':'')+' style="margin-right:6px;vertical-align:middle">Semana '+altasWeekLabel(k)+'</label>';
+      '<input type="checkbox" data-altwk="'+k+'"'+(on?' checked':'')+' style="margin-right:6px;vertical-align:middle">'+altasWeekLabel(k)+'</label>';
   }).join('') : '<span class="muted">No hay semanas con fecha legible todavía.</span>';
 
   // chips de días de la semana
@@ -5012,6 +5184,141 @@ function exportAltasPPTX(){
  });
 }
 
+/* ============================================================================
+   PESTAÑA KPIs · métricas y evidencia por reclutador (desde las altas)
+   ========================================================================== */
+function kpiParseDate(s){ var m=String(s||'').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); if(!m) return null; var y=+m[3]; if(y<100) y+=2000; var d=new Date(y,+m[2]-1,+m[1]); return isNaN(d)?null:d; }
+function kpiMonday(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
+function kpiFmtD(d){ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear(); }
+function kpiWeekLbl(k){ var m=new Date(k),s=new Date(k); s.setDate(s.getDate()+6); var f=function(d){return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);}; return 'Lun '+f(m)+' – Dom '+f(s); }
+function kpiCampKey(a){ var n=(a.name||'').toLowerCase(); if(n.indexOf('liverpool')>=0) return 'Liverpool'; if(n.indexOf('amazon')>=0) return 'Amazon'; if(n.indexOf('comer')>=0) return 'La comer'; return 'Otra'; }
+var KPI_CAMPC={'Liverpool':'#1d7a3d','Amazon':'#d9822b','La comer':'#c0392b','Otra':'#888'};
+
+function kpiStageBucket(stage){
+  var cl=stageClass(stage);
+  return cl==='t-eval'?'eval': cl==='t-docs'?'docs': cl==='t-alta'?'alta': cl==='t-muerto'?'muerto':'proceso';
+}
+var KPI_BUCKETS=[['proceso','En proceso','#8a6d3b'],['eval','Evaluación','#31708f'],['docs','Documentos','#5b3f8a'],['alta','Alta','#1d7a3d'],['muerto','No efectivo','#c0392b']];
+function renderKpis(){
+  var host=document.getElementById('kpiRender'); if(!host) return;
+  var f=state.kpiFilter||{rec:'',stage:'',q:'',active:false};
+  var cands=(state.candidates||[]);
+
+  // selector de reclutador y etapa
+  var allRecs={}, allStages={};
+  cands.forEach(function(c){ var r=(c.recruiter&&c.recruiter.trim())||'Sin asignar'; allRecs[r]=1; if(c.stage&&c.stage.trim()) allStages[c.stage.trim()]=1; });
+  var recSel=document.getElementById('kpiRec');
+  recSel.innerHTML='<option value="">Todos los reclutadores</option>'+Object.keys(allRecs).sort().map(function(r){ return '<option'+(f.rec===r?' selected':'')+'>'+esc(r)+'</option>'; }).join('');
+  var stSel=document.getElementById('kpiStage');
+  stSel.innerHTML='<option value="">Todas las etapas</option>'+Object.keys(allStages).sort().map(function(st){ return '<option'+(f.stage===st?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
+  if(document.getElementById('kpiSearch')) document.getElementById('kpiSearch').value=f.q||'';
+  if(document.getElementById('kpiActive')) document.getElementById('kpiActive').checked=!!f.active;
+
+  // aplica filtro
+  var list=cands.filter(function(c){
+    if(f.rec && ((c.recruiter&&c.recruiter.trim())||'Sin asignar')!==f.rec) return false;
+    if(f.stage && (c.stage||'').trim()!==f.stage) return false;
+    if(f.active && !c.isActive) return false;
+    if(f.q){ var hay=normalizeKey((c.candidate||'')+' '+(c.client||'')+' '+(c.phone||'')+' '+(c.vacancy||'')+' '+(c.stage||'')); if(hay.indexOf(normalizeKey(f.q))<0) return false; }
+    return true;
+  });
+
+  document.getElementById('kpiInfo').textContent = list.length+' candidato(s) en el pipeline';
+  var tc=document.getElementById('tabCountKpi'); if(tc) tc.textContent=list.length;
+
+  // agrupa por reclutador
+  var byRec={};
+  list.forEach(function(c){
+    var r=(c.recruiter&&c.recruiter.trim())||'Sin asignar';
+    if(!byRec[r]) byRec[r]={items:[], b:{proceso:0,eval:0,docs:0,alta:0,muerto:0}, proj:{}, activos:0};
+    byRec[r].items.push(c);
+    byRec[r].b[kpiStageBucket(c.stage)]++;
+    if(c.isActive) byRec[r].activos++;
+    var pk=(c.client||'').trim(); if(pk) byRec[r].proj[pk.toLowerCase()]=1;
+  });
+  var recs=Object.keys(byRec).sort(function(a,b){ return byRec[b].items.length-byRec[a].items.length || a.localeCompare(b); });
+
+  if(!recs.length){ host.innerHTML='<div class="rep-sheet" style="padding:20px"><p class="muted">No hay candidatos en el pipeline con ese filtro.</p></div>'; return; }
+
+  var total=list.length;
+  var gB={proceso:0,eval:0,docs:0,alta:0,muerto:0}, gProj={};
+  recs.forEach(function(r){ KPI_BUCKETS.forEach(function(b){ gB[b[0]]+=byRec[r].b[b[0]]; }); Object.keys(byRec[r].proj).forEach(function(p){ gProj[p]=1; }); });
+
+  // KPI cards
+  var card=function(num,lab,col){ return '<div class="rep-kpi"><div class="num" style="color:'+(col||'#2b2b2b')+'">'+num+'</div><div class="lab">'+lab+'</div></div>'; };
+  var kpis='<div class="rep-kpis">'+card(total,'En pipeline','#1d7a3d')+card(recs.length,'Reclutadores')+card(Object.keys(gProj).length,'Proyectos')+
+    card(gB.proceso,'En proceso','#8a6d3b')+card(gB.eval,'Evaluación','#31708f')+card(gB.docs,'Documentos','#5b3f8a')+card(gB.alta,'Alta','#1d7a3d')+card(gB.muerto,'No efectivo','#c0392b')+'</div>';
+
+  // 01 · resumen por reclutador (pipeline)
+  var sumRows=recs.map(function(r,idx){
+    var g=byRec[r]; var fill=idx%2?'#f7f5ef':'#fff';
+    var efe = g.items.length? Math.round(g.alta/1) : 0; // placeholder, se usa avance abajo
+    var avance = g.items.length? Math.round((g.b.docs+g.b.eval+g.b.alta)/g.items.length*100):0;
+    return '<tr style="background:'+fill+'"><td style="font-weight:600">'+esc(r)+'</td>'+
+      '<td class="qty" style="font-weight:700;color:#1d7a3d">'+g.items.length+'</td>'+
+      '<td class="qty">'+g.b.proceso+'</td>'+
+      '<td class="qty">'+g.b.eval+'</td>'+
+      '<td class="qty">'+g.b.docs+'</td>'+
+      '<td class="qty" style="font-weight:700;color:#1d7a3d">'+g.b.alta+'</td>'+
+      '<td class="qty" style="color:'+(g.b.muerto?'#c0392b':'inherit')+'">'+g.b.muerto+'</td>'+
+      '<td class="qty">'+Object.keys(g.proj).length+'</td>'+
+      '<td class="qty">'+avance+'%</td></tr>';
+  }).join('');
+  var sumTable='<div class="rep-sec"><span class="n">01</span> Pipeline por reclutador <span class="line"></span></div>'+
+    '<p class="conc-cap">Cuántos candidatos lleva cada reclutador y en qué etapa. "Avance" = (documentos + evaluación + alta) / total.</p>'+
+    '<table class="rep"><thead><tr><th>Reclutador</th><th class="r">En pipeline</th><th class="r">Proceso</th><th class="r">Evaluación</th><th class="r">Docs</th><th class="r">Alta</th><th class="r">No efec.</th><th class="r">Proyectos</th><th class="r">Avance</th></tr></thead>'+
+    '<tbody>'+sumRows+'<tr class="subtotal"><td>TOTAL</td><td class="qty">'+total+'</td><td class="qty">'+gB.proceso+'</td><td class="qty">'+gB.eval+'</td><td class="qty">'+gB.docs+'</td><td class="qty">'+gB.alta+'</td><td class="qty">'+gB.muerto+'</td><td class="qty">'+Object.keys(gProj).length+'</td><td class="qty"></td></tr></tbody></table>';
+
+  // 02 · evidencia por reclutador (candidatos del pipeline que trabaja)
+  var bOrder={proceso:0,eval:1,docs:2,alta:3,muerto:4};
+  var evid=recs.map(function(r){
+    var g=byRec[r];
+    var items=g.items.slice().sort(function(p,q){ return bOrder[kpiStageBucket(p.stage)]-bOrder[kpiStageBucket(q.stage)] || (p.candidate||'').localeCompare(q.candidate||''); });
+    var chips=KPI_BUCKETS.filter(function(b){ return g.b[b[0]]; }).map(function(b){ return '<span class="col-chip" style="background:#eef2ee;color:'+b[2]+';font-weight:600">'+b[1]+': '+g.b[b[0]]+'</span>'; }).join(' ');
+    var det=items.map(function(c){
+      return '<tr><td style="font-weight:600">'+esc((c.candidate||'').trim()||'—')+'</td>'+
+        '<td>'+(c.stage?'<span class="tag '+stageClass(c.stage)+'">'+esc(c.stage)+'</span>':'<span class="muted">—</span>')+'</td>'+
+        '<td>'+esc((c.client||'').trim()||'—')+'</td>'+
+        '<td>'+esc((c.vacancy||'').trim()||'—')+'</td>'+
+        '<td>'+esc((c.phone||'').trim()||'—')+'</td></tr>';
+    }).join('');
+    return '<div style="margin-top:16px"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'+
+        '<span style="font-weight:700;font-size:14px">'+esc(r)+'</span><span class="sg sg-avanza">En pipeline: '+g.items.length+'</span>'+chips+'</div>'+
+      '<table class="rep" style="margin-top:6px"><thead><tr><th>Candidato</th><th>Etapa</th><th>Proyecto / Cliente</th><th>Vacante</th><th>Teléfono</th></tr></thead><tbody>'+det+'</tbody></table></div>';
+  }).join('');
+  var evidSec='<div class="rep-sec" style="margin-top:30px"><span class="n">02</span> Evidencia por reclutador <span class="line"></span></div>'+
+    '<p class="conc-cap">Todo lo que trabaja cada reclutador en su pipeline: candidato, etapa, proyecto, vacante y teléfono. Ordenado por etapa.</p>'+evid;
+
+  var hoy=(typeof reportDate==='function')?reportDate():new Date().toLocaleDateString('es-MX');
+  host.innerHTML='<div class="rep-sheet"><div class="rep-header"><div class="rep-kicker">Operaciones · Reclutamiento</div>'+
+    '<h1>KPIs de Pipeline por reclutador</h1><div class="rep-meta"><span><b>Fecha:</b> '+hoy+'</span><span><b>En pipeline:</b> '+total+'</span><span><b>Reclutadores:</b> '+recs.length+'</span></div></div>'+
+    '<div class="rep-body">'+kpis+sumTable+evidSec+'</div>'+
+    '<div class="rep-footer"><span class="tot">En pipeline: '+total+'</span><span>Generado el '+hoy+' · movimiento '+APP_VERSION+'</span></div></div>';
+}
+function exportKpisPDF(){
+  if(!(state.altas||[]).length){ toast('No hay altas para el PDF de KPIs.', true); return; }
+  renderKpis();
+  var node=document.getElementById('kpiRender').firstElementChild;
+  if(!node){ toast('No hay datos para exportar.', true); return; }
+  if(typeof window.html2pdf==='undefined'){ window.print(); return; }
+  var opt={ margin:8, filename:'KPIs_por_reclutador.pdf', image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{unit:'mm',format:'letter',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy'], avoid:['tr','thead','h3','.rep-sec']} };
+  window.html2pdf().set(opt).from(node).save().then(function(){ toast('PDF de KPIs exportado.'); });
+}
+(function(){
+  if(!document.getElementById('view-kpis')) return;
+  var ens=function(){ if(!state.kpiFilter||('mode' in state.kpiFilter)) state.kpiFilter={rec:'',stage:'',q:'',active:false}; return state.kpiFilter; };
+  var byId=function(id){ return document.getElementById(id); };
+  byId('kpiRec').addEventListener('change', function(e){ ens().rec=e.target.value; persist(); renderKpis(); });
+  byId('kpiStage').addEventListener('change', function(e){ ens().stage=e.target.value; persist(); renderKpis(); });
+  byId('kpiSearch').addEventListener('input', function(e){ ens().q=e.target.value; persist(); renderKpis(); });
+  byId('kpiActive').addEventListener('change', function(e){ ens().active=e.target.checked; persist(); renderKpis(); });
+  byId('kpiClear').addEventListener('click', function(){ state.kpiFilter={rec:'',stage:'',q:'',active:false}; persist(); renderKpis(); });
+  byId('kpiPDF').addEventListener('click', exportKpisPDF);
+})();
+
 function switchTab(tab){
   document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
   document.querySelectorAll('.view').forEach(function(v){ v.classList.toggle('active', v.id==='view-'+tab); });
@@ -5020,12 +5327,13 @@ function switchTab(tab){
   if(tab==='valida') renderValida();
   if(tab==='estatus') renderEstatus();
   if(tab==='activos') renderActivos();
+  if(tab==='kpis') renderKpis();
   if(tab==='reassign') renderReassign();
   if(tab==='weekly') renderWeekly();
 }
 
 /* Pestañas que pertenecen a cada herramienta. */
-var TOOL_TABS={ rendimiento:['import','board','seguimiento','estatus','activos','report','valida'], asignacion:['import','board','reassign'], semanal:['weekly'] };
+var TOOL_TABS={ rendimiento:['import','activos','kpis','report'], asignacion:['import'], semanal:['report'] };
 /* Texto del paso 1 según la herramienta (Rendimiento = carrito por reclutador; Asignación = base única). */
 function updateImportCopy(){
   var t=document.getElementById('impTitle'), l=document.getElementById('impLead');
@@ -5341,9 +5649,19 @@ function wire(){
     persist(); renderReport();
   });
   altasBox.addEventListener('change', function(e){
+    var ef=function(){ if(!state.altasEdFilter) state.altasEdFilter={mode:'all',weeks:[],from:'',to:'',month:'',sort:'date_asc'}; return state.altasEdFilter; };
+    if(e.target.id==='aedMode'){ ef().mode=e.target.value; persist(); renderAltas(); return; }
+    if(e.target.id==='aedMonth'){ ef().month=e.target.value; persist(); renderAltas(); return; }
+    if(e.target.id==='aedFrom'){ ef().from=e.target.value; persist(); renderAltas(); return; }
+    if(e.target.id==='aedTo'){ ef().to=e.target.value; persist(); renderAltas(); return; }
+    if(e.target.id==='aedSort'){ ef().sort=e.target.value; persist(); renderAltas(); return; }
+    if(e.target.hasAttribute('data-aedwk')){
+      var f=ef(), k=+e.target.getAttribute('data-aedwk'); if(!f.weeks) f.weeks=[];
+      if(e.target.checked){ if(f.weeks.indexOf(k)<0) f.weeks.push(k); } else f.weeks=f.weeks.filter(function(x){ return x!==k; });
+      persist(); renderAltas(); return;
+    }
     if(e.target.id==='altaDupMaster'){
       var on=e.target.checked;
-      // marca/desmarca solo las filas duplicadas (las que tienen casilla propia)
       var chks=document.querySelectorAll('#altasTable input[data-adupchk]');
       chks.forEach(function(c){ var idx=+c.getAttribute('data-adupchk'); state.altas[idx].dupOk=on; });
       persist(); renderAltas(); return;
@@ -5352,6 +5670,7 @@ function wire(){
     state.altas[+ci].dupOk=e.target.checked; persist(); renderAltas();
   });
   altasBox.addEventListener('click', function(e){
+    if(e.target.id==='aedClear'){ state.altasEdFilter={mode:'all',weeks:[],from:'',to:'',month:'',sort:'date_asc'}; persist(); renderAltas(); return; }
     if(e.target.id==='altaDupNone'){ state.altas.forEach(function(a){ a.dupOk=false; }); persist(); renderAltas(); return; }
     if(e.target.id==='altaDupJump'){
       var tbl=document.getElementById('altasTable'); if(!tbl) return;
@@ -5368,10 +5687,23 @@ function wire(){
     state.altas.splice(+d,1); persist(); renderAltas(); renderReport();
   });
   document.getElementById('btnAddAlta').addEventListener('click', function(){
-    state.altas.push({rec:'',name:'',client:'',chofer:'',urg:'',date:'',dupOk:false}); persist(); renderAltas();
+    state.altas.push({rec:'',name:'',client:'',chofer:'',urg:'',date:'',dupOk:false});
+    // la nueva alta nace sin fecha: si hay un filtro por mes/semanas/rango quedaría oculta,
+    // así que limpiamos el filtro para que siempre se vea al agregarla.
+    if(state.altasEdFilter && state.altasEdFilter.mode && state.altasEdFilter.mode!=='all'){ state.altasEdFilter.mode='all'; }
+    persist(); renderAltas(); renderReport();
+    // enfoca y desplaza a la fila recién agregada (la de mayor índice)
+    var inputs=document.querySelectorAll('#altasTable input[data-ak="rec"]');
+    var last=null, maxI=-1;
+    inputs.forEach(function(inp){ var i=+inp.getAttribute('data-ai'); if(i>maxI){ maxI=i; last=inp; } });
+    if(last){ last.focus(); last.scrollIntoView({behavior:'smooth',block:'center'}); }
   });
 
   // reset
+  var bEx=document.getElementById('btnExportData'); if(bEx) bEx.addEventListener('click', exportData);
+  var bIm=document.getElementById('btnImportData'); if(bIm) bIm.addEventListener('click', function(){ document.getElementById('importDataFile').click(); });
+  var imf=document.getElementById('importDataFile'); if(imf) imf.addEventListener('change', function(e){ var f=e.target.files[0]; e.target.value=''; if(f) importData(f); });
+
   document.getElementById('btnResetPanel').addEventListener('click', function(){
     var t=isAsig()?'Asignación de leads':'Rendimiento';
     if(!confirm('¿Reiniciar solo '+t+'? (la otra herramienta no se toca y las altas escritas a mano se conservan)')) return;
