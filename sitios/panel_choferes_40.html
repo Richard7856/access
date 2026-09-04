@@ -355,6 +355,19 @@
   .pending-note-input::placeholder{ color:var(--ink-soft); opacity:.75; }
   .pending-note-input:focus{ outline:none; border-style:solid; border-color:var(--accent); background:#fff; box-shadow:0 0 0 2px var(--accent-soft); }
 
+  .pending-times{ margin-top:7px; padding:6px 9px; background:rgba(0,0,0,.025); border-radius:6px; }
+  .pending-time-row{ display:flex; justify-content:space-between; gap:8px; font-size:10.5px; line-height:1.6; }
+  .pending-time-row .ptr-label{ color:var(--ink-soft); font-weight:600; }
+  .pending-time-row .ptr-val{ font-family:var(--font-mono); color:var(--ink); font-weight:600; text-align:right; }
+  .pending-time-row.ptr-total{ margin-top:3px; padding-top:3px; border-top:1px solid rgba(0,0,0,.08); }
+  .pending-time-row.ptr-total .ptr-label, .pending-time-row.ptr-total .ptr-val{ color:var(--accent); font-weight:700; }
+  .pending-times.paused{ background:var(--amber-soft); box-shadow:inset 0 0 0 1px var(--amber); }
+  .pending-times.paused .ptr-total .ptr-label, .pending-times.paused .ptr-total .ptr-val{ color:var(--amber-ink); }
+  .pending-pause-check{ display:flex; align-items:center; gap:6px; margin-top:7px; padding:4px 7px; border-radius:6px; font-size:10.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; border:1px dashed var(--border); background:rgba(255,255,255,.6); }
+  .pending-pause-check input{ cursor:pointer; margin:0; }
+  .pending-pause-check.active{ color:var(--amber-ink); border-style:solid; border-color:var(--amber); background:#fff; }
+  .pending-pause-motivo{ margin-top:5px; font-size:10.5px; color:var(--amber-ink); font-style:italic; line-height:1.4; }
+
   .pending-card-controls{ margin-top:8px; padding-top:8px; border-top:1px dashed rgba(0,0,0,.08); }
   .pending-status-select{ font-size:11.5px; padding:5px 6px; }
   .pending-card-controls .carga-check{ margin-top:6px; font-size:10.5px; padding:4px 7px; }
@@ -400,6 +413,10 @@
   .vac-process-chip.vp-sin{background:#F1F3F6; color:var(--ink-soft);}
   .vac-recruiter-cell{display:flex; flex-wrap:wrap; gap:4px;}
   .vac-recruiter-chip{display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--accent-soft); color:var(--accent); white-space:nowrap;}
+  .tiempos-table td{vertical-align:top;}
+  .tiempo-dur{font-family:var(--font-mono); font-size:12.5px; font-weight:700;}
+  .tiempo-entro{font-size:10.5px; color:var(--ink-soft); margin-top:2px; white-space:nowrap;}
+  .tiempo-na{color:var(--ink-soft); text-align:center;}
   .stage-stat-value{font-family:var(--font-mono); font-size:13px; color:var(--ink-soft); font-weight:600;}
 
   .table-scroll-x{width:100%; overflow-x:auto;}
@@ -453,6 +470,7 @@
     <button id="tabProjLacomer" class="view-tab" type="button">🛒 La Comer <span id="projLacomerCount"></span></button>
     <button id="tabVacantes" class="view-tab" type="button">🎯 Vacantes <span id="vacantesCount"></span></button>
     <button id="tabMetrics" class="view-tab" type="button">📊 Métricas</button>
+    <button id="tabTiempos" class="view-tab" type="button">⏱️ Tiempos</button>
     <button id="tabBaja" class="view-tab" type="button">⛔ Baja <span id="bajaCount"></span></button>
     <button id="tabDiscarded" class="view-tab" type="button">🗑 Descartados <span id="discardedCount"></span></button>
     <button id="tabLog" class="view-tab" type="button">📜 Bitácora <span id="logCount"></span></button>
@@ -673,6 +691,10 @@ En revisión de documentos con Jaky"></textarea>
 
   <div id="viewMetrics" style="display:none;">
     <div id="metricsContent"></div>
+  </div>
+
+  <div id="viewTiempos" style="display:none;">
+    <div id="tiemposContent"></div>
   </div>
 
   <div id="viewBaja" style="display:none;">
@@ -1161,6 +1183,9 @@ En revisión de documentos con Jaky"></textarea>
       estatus: estatus,
       cargaRealizada: false,
       fechaAlta: null,
+      pausaDesde: null,   // si tiene valor, el tiempo está detenido desde ese momento
+      pausaMs: 0,         // tiempo acumulado en pausas (se descuenta del conteo)
+      pausaMotivo: '',    // por qué se detuvo
       // Historial de cambios de estatus, usado para calcular tiempo por etapa en Métricas.
       statusHistory: estatus ? [{ estatus, at: fecha }] : []
     };
@@ -1729,12 +1754,12 @@ En revisión de documentos con Jaky"></textarea>
     // Tiempo transcurrido
     const tdTime = document.createElement('td');
     const wrap = document.createElement('span');
-    const elapsedMs = Date.now() - new Date(d.fechaRegistro).getTime();
-    wrap.className = 'elapsed-wrap ' + elapsedColorClass(elapsedMs);
+    const elapMs = elapsedMs(d);
+    wrap.className = 'elapsed-wrap ' + elapsedColorClass(elapMs);
     const dot = document.createElement('span'); dot.className = 'live-dot';
     const txt = document.createElement('span'); txt.className = 'elapsed-cell mono';
     txt.dataset.id = d.id;
-    txt.textContent = formatElapsed(elapsedMs);
+    txt.textContent = formatElapsed(elapMs) + (isPaused(d) ? ' ⏸' : '');
     wrap.appendChild(dot); wrap.appendChild(txt);
     tdTime.appendChild(wrap);
     tr.appendChild(tdTime);
@@ -1892,6 +1917,7 @@ En revisión de documentos con Jaky"></textarea>
     if(currentView === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
     if(currentView === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
     if(currentView === 'metrics') renderMetrics();
+    if(currentView === 'tiempos') renderTiempos();
     if(currentView === 'vacantes') renderVacantes();
     if(currentView === 'baja') renderBaja();
     if(currentView === 'log') renderLogTable();
@@ -1902,8 +1928,8 @@ En revisión de documentos con Jaky"></textarea>
     document.querySelectorAll('.elapsed-cell').forEach(el=>{
       const d = drivers.find(x=>x.id === el.dataset.id);
       if(!d) return;
-      const ms = Date.now() - new Date(d.fechaRegistro).getTime();
-      el.textContent = formatElapsed(ms);
+      const ms = elapsedMs(d);
+      el.textContent = formatElapsed(ms) + (isPaused(d) ? ' ⏸' : '');
       const wrap = el.closest('.elapsed-wrap');
       if(wrap){
         wrap.classList.remove('elapsed-green','elapsed-amber','elapsed-red');
@@ -2225,7 +2251,7 @@ En revisión de documentos con Jaky"></textarea>
     if(pendingSucursalFilter) active = active.filter(d=> (d.sucursal || '') === pendingSucursalFilter);
     const groups = { Jaky: [], Dani: [], AltaPend: [], SinEstatus: [] };
     active.forEach(d=>{
-      const ms = now - new Date(d.fechaRegistro).getTime();
+      const ms = elapsedMs(d); // descuenta el tiempo pausado
       const entry = { d, ms };
       if(d.estatus === 'Jaky') groups.Jaky.push(entry);
       else if(d.estatus === 'Dani') groups.Dani.push(entry);
@@ -2272,6 +2298,54 @@ En revisión de documentos con Jaky"></textarea>
     metaRecl.className = 'pending-meta';
     metaRecl.textContent = (d.telefono ? '📞 ' + d.telefono + ' · ' : '') + (d.reclutador || 'free');
     card.appendChild(metaRecl);
+
+    // Desglose pequeño de tiempo por etapa (solo se muestran las etapas por las que ya pasó).
+    const tl = computeStageTimeline(d);
+    if(tl.stages.length > 0){
+      const timesBox = document.createElement('div');
+      timesBox.className = 'pending-times' + (isPaused(d) ? ' paused' : '');
+      const stageLabels = { Jaky:'Jaky', Dani:'Dani', Alta:'Pre alta' };
+      ['Jaky','Dani','Alta'].forEach(key=>{
+        const st = tl.stages.find(s=> s.estatus === key);
+        if(!st) return;
+        const row = document.createElement('div');
+        row.className = 'pending-time-row';
+        const lab = document.createElement('span'); lab.className = 'ptr-label'; lab.textContent = stageLabels[key] + ':';
+        const val = document.createElement('span'); val.className = 'ptr-val';
+        const sufijo = st.pausada ? ' ⏸ en pausa' : (st.enCurso ? ' (en curso)' : '');
+        val.textContent = formatDurationHuman(st.durMs) + sufijo;
+        row.appendChild(lab); row.appendChild(val);
+        timesBox.appendChild(row);
+      });
+      const totalRow = document.createElement('div');
+      totalRow.className = 'pending-time-row ptr-total';
+      const tLab = document.createElement('span'); tLab.className = 'ptr-label'; tLab.textContent = 'Total:';
+      const tVal = document.createElement('span'); tVal.className = 'ptr-val'; tVal.textContent = formatDurationHuman(tl.totalMs);
+      totalRow.appendChild(tLab); totalRow.appendChild(tVal);
+      timesBox.appendChild(totalRow);
+
+      // Casilla para detener/reanudar el tiempo, con el motivo si está en pausa.
+      const pauseLabel = document.createElement('label');
+      pauseLabel.className = 'pending-pause-check' + (isPaused(d) ? ' active' : '');
+      const pauseChk = document.createElement('input');
+      pauseChk.type = 'checkbox';
+      pauseChk.checked = isPaused(d);
+      pauseChk.addEventListener('click', (e)=> e.stopPropagation());
+      pauseChk.addEventListener('change', ()=> togglePausa(d.id, pauseChk.checked, pauseChk));
+      const pauseSpan = document.createElement('span');
+      pauseSpan.textContent = isPaused(d) ? '⏸ Tiempo detenido' : '⏸ Detener tiempo';
+      pauseLabel.appendChild(pauseChk); pauseLabel.appendChild(pauseSpan);
+      timesBox.appendChild(pauseLabel);
+
+      if(isPaused(d) && d.pausaMotivo){
+        const motivoEl = document.createElement('div');
+        motivoEl.className = 'pending-pause-motivo';
+        motivoEl.textContent = '📌 ' + d.pausaMotivo;
+        timesBox.appendChild(motivoEl);
+      }
+
+      card.appendChild(timesBox);
+    }
 
     // Nota propia de esta pestaña: se guarda aparte de la Nota de la tabla principal,
     // no aparece en Tabla, Alta con carga, proyectos ni en ningún CSV.
@@ -2759,6 +2833,48 @@ En revisión de documentos con Jaky"></textarea>
     });
   }
 
+  // Agrupa los descartados por motivo (normalizado) para el reporte "por qué se descartan".
+  function groupDiscardedByMotivo(){
+    const groups = new Map();
+    discarded.forEach(d=>{
+      const raw = (d.motivoDescarte || '').trim();
+      const key = raw ? raw.toLowerCase() : '(sin motivo)';
+      const label = raw || '(sin motivo especificado)';
+      if(!groups.has(key)) groups.set(key, { label, items: [] });
+      groups.get(key).items.push(d);
+    });
+    return [...groups.values()].sort((a,b)=> b.items.length - a.items.length);
+  }
+
+  function exportDiscardedCSV(){
+    if(discarded.length === 0){ toast('No hay descartados para exportar'); return; }
+    const headers = ['Chofer','Teléfono','Proyecto','Sucursal','Reclutador','Estatus al descartar','Descartado el','Motivo del descarte','Nota'];
+    const csvRows = [headers.join(',')];
+    // Ordena por motivo para que el reporte quede agrupado por razón.
+    const ordered = [...discarded].sort((a,b)=> (a.motivoDescarte||'').localeCompare(b.motivoDescarte||'', 'es'));
+    ordered.forEach(d=>{
+      const line = [
+        d.nombre, d.telefono, d.proyecto, d.sucursal, d.reclutador,
+        STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus',
+        formatDateTime(d.discardedAt),
+        d.motivoDescarte || '', d.nota || ''
+      ].map(csvEscape);
+      csvRows.push(line.join(','));
+    });
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `reporte_descartados_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Reporte de descartados exportado');
+  }
+
   function renderDiscarded(){
     const wrap = document.getElementById('discardedContent');
     if(!wrap) return;
@@ -2772,17 +2888,77 @@ En revisión de documentos con Jaky"></textarea>
       return;
     }
 
+    // Barra superior con el botón de exportar el reporte completo.
+    const toolbar = document.createElement('div');
+    toolbar.className = 'table-toolbar';
+    toolbar.style.marginBottom = '16px';
+    const toolbarInfo = document.createElement('div');
+    toolbarInfo.className = 'vac-summary-text';
+    const conMotivo = discarded.filter(d=> (d.motivoDescarte||'').trim()).length;
+    toolbarInfo.innerHTML = `<b>${discarded.length}</b> descartados en total · <b>${conMotivo}</b> con motivo registrado`;
+    const toolbarActions = document.createElement('div');
+    toolbarActions.className = 'toolbar-actions';
+    const btnExport = document.createElement('button');
+    btnExport.type = 'button';
+    btnExport.className = 'btn-secondary';
+    btnExport.textContent = '⇩ Exportar reporte CSV';
+    btnExport.addEventListener('click', exportDiscardedCSV);
+    toolbarActions.appendChild(btnExport);
+    toolbar.appendChild(toolbarInfo);
+    toolbar.appendChild(toolbarActions);
+    wrap.appendChild(toolbar);
+
+    // Reporte "por motivo": cuántos se descartaron por cada razón, ordenado de mayor a menor.
+    const motivoGroups = groupDiscardedByMotivo();
+    const reportCard = document.createElement('div');
+    reportCard.className = 'card';
+    const reportTitle = document.createElement('h3');
+    reportTitle.className = 'metrics-section-title';
+    reportTitle.textContent = 'Motivos de descarte (resumen)';
+    reportCard.appendChild(reportTitle);
+    const reportTable = document.createElement('table');
+    reportTable.className = 'discarded-table';
+    const reportThead = document.createElement('thead');
+    reportThead.innerHTML = '<tr><th>Motivo</th><th>Cantidad</th><th>%</th><th>Distribución</th></tr>';
+    reportTable.appendChild(reportThead);
+    const reportTbody = document.createElement('tbody');
+    const maxCount = motivoGroups.length ? motivoGroups[0].items.length : 1;
+    motivoGroups.forEach(g=>{
+      const tr = document.createElement('tr');
+      const tdMotivo = document.createElement('td'); tdMotivo.textContent = g.label;
+      const tdCant = document.createElement('td'); tdCant.className = 'mono'; tdCant.textContent = g.items.length;
+      const tdPct = document.createElement('td'); tdPct.className = 'mono';
+      tdPct.textContent = Math.round((g.items.length / discarded.length) * 100) + '%';
+      const tdBar = document.createElement('td');
+      const track = document.createElement('div');
+      track.className = 'vac-progress-track';
+      const fill = document.createElement('div');
+      fill.className = 'vac-progress-fill vac-low';
+      fill.style.width = ((g.items.length / maxCount) * 100) + '%';
+      fill.style.background = 'var(--danger)';
+      track.appendChild(fill);
+      tdBar.appendChild(track);
+      tr.appendChild(tdMotivo); tr.appendChild(tdCant); tr.appendChild(tdPct); tr.appendChild(tdBar);
+      reportTbody.appendChild(tr);
+    });
+    reportTable.appendChild(reportTbody);
+    const reportScroll = document.createElement('div');
+    reportScroll.className = 'table-scroll-x';
+    reportScroll.appendChild(reportTable);
+    reportCard.appendChild(reportScroll);
+    wrap.appendChild(reportCard);
+
     const card = document.createElement('div');
     card.className = 'card';
     const title = document.createElement('h3');
     title.className = 'metrics-section-title';
-    title.textContent = `Choferes descartados (${discarded.length})`;
+    title.textContent = `Detalle de choferes descartados (${discarded.length})`;
     card.appendChild(title);
 
     const table = document.createElement('table');
     table.className = 'discarded-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus al descartar</th><th>Descartado el</th><th>Motivo</th><th></th></tr>';
+    thead.innerHTML = '<tr><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Reclutador</th><th>Estatus al descartar</th><th>Descartado el</th><th>Motivo</th><th></th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
 
@@ -2792,6 +2968,7 @@ En revisión de documentos con Jaky"></textarea>
       const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre;
       const tdTel = document.createElement('td'); tdTel.className = 'mono'; tdTel.textContent = d.telefono || '—';
       const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
+      const tdRecl = document.createElement('td'); tdRecl.textContent = d.reclutador || '—';
       const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
       const tdFecha = document.createElement('td'); tdFecha.className = 'mono'; tdFecha.textContent = formatDateTime(d.discardedAt);
 
@@ -2816,7 +2993,7 @@ En revisión de documentos con Jaky"></textarea>
       tdAcc.appendChild(btnRestore); tdAcc.appendChild(btnDelete);
 
       tr.appendChild(tdNombre); tr.appendChild(tdTel); tr.appendChild(tdProy);
-      tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdMotivo); tr.appendChild(tdAcc);
+      tr.appendChild(tdRecl); tr.appendChild(tdEstatus); tr.appendChild(tdFecha); tr.appendChild(tdMotivo); tr.appendChild(tdAcc);
       tbody.appendChild(tr);
     });
 
@@ -3089,6 +3266,218 @@ En revisión de documentos con Jaky"></textarea>
       cell.appendChild(chip);
     });
     return cell;
+  }
+
+  /* ---------- reporte de tiempos por etapa ---------- */
+  const TIEMPOS_STAGES = [
+    { key: 'Jaky', label: 'Jaky · Validación docs.', color: 'var(--jaky)' },
+    { key: 'Dani', label: 'Dani · Onboarding', color: 'var(--dani)' },
+    { key: 'Alta', label: 'Pre alta · Coordinadores', color: 'var(--alta)' }
+  ];
+
+  // Para un chofer, calcula por cada etapa de su historial: cuándo entró y cuánto duró
+  // (hasta que pasó a la siguiente etapa, o hasta ahora/carga realizada si es la última).
+  // ---- Pausa de tiempo (para detener el reloj de un chofer con un motivo) ----
+  // d.pausaDesde = ISO del momento en que se pausó (null si está corriendo).
+  // d.pausaMs = milisegundos ya acumulados en pausas anteriores.
+  // d.pausaMotivo = por qué se detuvo.
+  function isPaused(d){ return !!(d && d.pausaDesde); }
+
+  // "Ahora" efectivo para un chofer: si está en pausa, el reloj se queda congelado
+  // en el instante en que se pausó; además se descuenta todo el tiempo ya pausado.
+  function effectiveNow(d){
+    const pausaMs = d.pausaMs || 0;
+    if(d.pausaDesde){
+      return new Date(d.pausaDesde).getTime() - pausaMs;
+    }
+    return Date.now() - pausaMs;
+  }
+
+  // Tiempo transcurrido de un chofer desde su registro, descontando pausas.
+  function elapsedMs(d){
+    return effectiveNow(d) - new Date(d.fechaRegistro).getTime();
+  }
+
+  function computeStageTimeline(d){
+    const hist = (d.statusHistory || []).filter(h => h.estatus && h.at).slice();
+    hist.sort((a,b)=> new Date(a.at) - new Date(b.at));
+    // Fin del proceso: si ya tiene carga, la fecha de alta; si está en pausa, el instante congelado; si no, ahora.
+    let endOfProcess;
+    if(d.cargaRealizada && d.fechaAlta){
+      endOfProcess = new Date(d.fechaAlta).getTime();
+    } else if(d.pausaDesde){
+      endOfProcess = new Date(d.pausaDesde).getTime();
+    } else {
+      endOfProcess = Date.now();
+    }
+    const stages = [];
+    hist.forEach((h, i)=>{
+      const start = new Date(h.at).getTime();
+      const end = (i < hist.length - 1) ? new Date(hist[i+1].at).getTime() : endOfProcess;
+      const esUltima = (i === hist.length - 1) && !d.cargaRealizada;
+      // A la etapa actual (la última en curso) se le descuenta el tiempo pausado acumulado.
+      let durMs = Math.max(0, end - start);
+      if(esUltima) durMs = Math.max(0, durMs - (d.pausaMs || 0));
+      stages.push({ estatus: h.estatus, entro: h.at, durMs, enCurso: esUltima, pausada: esUltima && isPaused(d) });
+    });
+    const totalMs = stages.reduce((s,st)=> s + st.durMs, 0);
+    return { stages, totalMs };
+  }
+
+  // Marca/desmarca la pausa de un chofer. Al pausar pide motivo; al reanudar acumula el
+  // tiempo que estuvo detenido para que no cuente. Todo queda en la bitácora.
+  function togglePausa(id, pausar, chkEl){
+    const d = drivers.find(x=>x.id===id);
+    if(!d) return;
+    if(pausar){
+      const motivo = prompt(`Detener el tiempo de "${d.nombre || 'este chofer'}".\n¿Por qué se detiene? (ej. esperando documentos, cliente no responde)`, '');
+      if(motivo === null){ if(chkEl) chkEl.checked = false; return; } // canceló
+      d.pausaDesde = new Date().toISOString();
+      d.pausaMotivo = motivo.trim();
+      logActivity(d, 'Tiempo detenido', 'Se detuvo el reloj de la etapa', motivo.trim());
+    } else {
+      // Reanudar: suma el rato que estuvo en pausa al acumulado, para descontarlo del conteo.
+      if(d.pausaDesde){
+        const pausado = Date.now() - new Date(d.pausaDesde).getTime();
+        d.pausaMs = (d.pausaMs || 0) + Math.max(0, pausado);
+      }
+      const motivoPrevio = d.pausaMotivo || '';
+      d.pausaDesde = null;
+      d.pausaMotivo = '';
+      logActivity(d, 'Tiempo reanudado', 'Se reanudó el reloj' + (motivoPrevio ? ` (estuvo detenido por: ${motivoPrevio})` : ''), '');
+    }
+    saveData();
+    render();
+  }
+
+  function renderTiempos(){
+    const wrap = document.getElementById('tiemposContent');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+
+    // Incluye activos + los que ya tienen carga realizada (proceso completo). Excluye descartados/bajas.
+    const lista = drivers.filter(d => (d.statusHistory || []).some(h => h.estatus));
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'table-toolbar';
+    toolbar.style.marginBottom = '16px';
+    const info = document.createElement('div');
+    info.className = 'vac-summary-text';
+    info.innerHTML = `<b>${lista.length}</b> choferes con historial de etapas · se muestra cuándo entró a cada proceso y cuánto duró`;
+    const actions = document.createElement('div');
+    actions.className = 'toolbar-actions';
+    const btnExport = document.createElement('button');
+    btnExport.type = 'button';
+    btnExport.className = 'btn-secondary';
+    btnExport.textContent = '⇩ Exportar CSV';
+    btnExport.addEventListener('click', ()=> exportTiemposCSV(lista));
+    actions.appendChild(btnExport);
+    toolbar.appendChild(info);
+    toolbar.appendChild(actions);
+    wrap.appendChild(toolbar);
+
+    if(lista.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'card metrics-empty';
+      empty.textContent = 'Aún no hay choferes con historial de etapas. En cuanto asignes estatus (Jaky/Dani/Pre alta) a un chofer, aquí verás el tiempo que pasa en cada proceso.';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const title = document.createElement('h3');
+    title.className = 'metrics-section-title';
+    title.textContent = 'Tiempo por proceso de cada chofer';
+    card.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'discarded-table tiempos-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Chofer</th><th>Reclutador</th>'
+      + TIEMPOS_STAGES.map(s=> `<th>${s.label}</th>`).join('')
+      + '<th>Tiempo total</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+
+    // Ordena por tiempo total descendente (los que más han tardado, arriba).
+    const filas = lista.map(d=> ({ d, tl: computeStageTimeline(d) }))
+                       .sort((a,b)=> b.tl.totalMs - a.tl.totalMs);
+
+    filas.forEach(({d, tl})=>{
+      const tr = document.createElement('tr');
+      const tdNombre = document.createElement('td'); tdNombre.textContent = d.nombre || '—';
+      const tdRecl = document.createElement('td'); tdRecl.textContent = d.reclutador || '—';
+      tr.appendChild(tdNombre); tr.appendChild(tdRecl);
+
+      TIEMPOS_STAGES.forEach(stage=>{
+        const td = document.createElement('td');
+        const st = tl.stages.find(s=> s.estatus === stage.key);
+        if(st){
+          const dur = document.createElement('div');
+          dur.className = 'tiempo-dur';
+          dur.style.color = stage.color;
+          dur.textContent = formatDurationHuman(st.durMs) + (st.enCurso ? ' (en curso)' : '');
+          const entro = document.createElement('div');
+          entro.className = 'tiempo-entro';
+          entro.textContent = 'Entró: ' + formatDateTime(st.entro);
+          td.appendChild(dur); td.appendChild(entro);
+        } else {
+          td.className = 'tiempo-na';
+          td.textContent = '—';
+        }
+        tr.appendChild(td);
+      });
+
+      const tdTotal = document.createElement('td');
+      tdTotal.className = 'mono';
+      tdTotal.style.fontWeight = '700';
+      tdTotal.textContent = formatDurationHuman(tl.totalMs);
+      tr.appendChild(tdTotal);
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    const scroll = document.createElement('div');
+    scroll.className = 'table-scroll-x';
+    scroll.appendChild(table);
+    card.appendChild(scroll);
+    wrap.appendChild(card);
+  }
+
+  function exportTiemposCSV(lista){
+    if(!lista || lista.length === 0){ toast('No hay datos de tiempos para exportar'); return; }
+    const headers = ['Chofer','Reclutador','Proyecto','Sucursal'];
+    TIEMPOS_STAGES.forEach(s=>{ headers.push(s.label + ' (entró)'); headers.push(s.label + ' (duró)'); });
+    headers.push('Tiempo total');
+    const csvRows = [headers.join(',')];
+
+    const filas = lista.map(d=> ({ d, tl: computeStageTimeline(d) }))
+                       .sort((a,b)=> b.tl.totalMs - a.tl.totalMs);
+    filas.forEach(({d, tl})=>{
+      const line = [d.nombre, d.reclutador, d.proyecto, d.sucursal];
+      TIEMPOS_STAGES.forEach(stage=>{
+        const st = tl.stages.find(s=> s.estatus === stage.key);
+        line.push(st ? formatDateTime(st.entro) : '');
+        line.push(st ? formatDurationHuman(st.durMs) + (st.enCurso ? ' (en curso)' : '') : '');
+      });
+      line.push(formatDurationHuman(tl.totalMs));
+      csvRows.push(line.map(csvEscape).join(','));
+    });
+
+    const csvContent = '\uFEFF' + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const now = new Date();
+    a.href = url;
+    a.download = `tiempos_por_proceso_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Reporte de tiempos exportado');
   }
 
   function renderVacantes(){
@@ -3396,6 +3785,14 @@ En revisión de documentos con Jaky"></textarea>
     return results;
   }
 
+  // Devuelve el "por qué está aquí" según la ubicación: motivo de descarte, motivo de baja,
+  // o la nota del candidato (incluye la nota rápida de Pendientes si la tiene).
+  function getSearchReason(d, loc){
+    if(loc === 'descartado') return d.motivoDescarte || '';
+    if(loc === 'baja') return d.motivoBaja || '';
+    return [d.nota, d.notaPendientes].filter(Boolean).join(' · ');
+  }
+
   function renderSearchTable(){
     const holder = document.getElementById('searchTableHolder');
     if(!holder) return;
@@ -3427,7 +3824,7 @@ En revisión de documentos con Jaky"></textarea>
       const table = document.createElement('table');
       table.className = 'discarded-table';
       const thead = document.createElement('thead');
-      thead.innerHTML = '<tr><th>Ubicación</th><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus</th><th>Reclutador</th><th></th></tr>';
+      thead.innerHTML = '<tr><th>Ubicación</th><th>Chofer</th><th>Teléfono</th><th>Proyecto / Sucursal</th><th>Estatus</th><th>Reclutador</th><th>Motivo / Nota</th><th></th></tr>';
       table.appendChild(thead);
       const tbody = document.createElement('tbody');
       const goTarget = { activo:'table', completado:'completed', descartado:'discarded', baja:'baja' };
@@ -3443,6 +3840,10 @@ En revisión de documentos con Jaky"></textarea>
         const tdProy = document.createElement('td'); tdProy.textContent = [d.proyecto, d.sucursal].filter(Boolean).join(' / ') || '—';
         const tdEstatus = document.createElement('td'); tdEstatus.textContent = STATUS_LABELS[d.estatus] || d.estatus || 'Sin estatus';
         const tdRecl = document.createElement('td'); tdRecl.textContent = d.reclutador || '—';
+        const tdReason = document.createElement('td');
+        const reason = getSearchReason(d, loc);
+        tdReason.textContent = reason || '—';
+        if(reason && (loc === 'descartado' || loc === 'baja')) tdReason.style.color = 'var(--danger)';
         const tdAcc = document.createElement('td');
         const btnGo = document.createElement('button');
         btnGo.type = 'button'; btnGo.className = 'btn-secondary';
@@ -3450,7 +3851,7 @@ En revisión de documentos con Jaky"></textarea>
         btnGo.addEventListener('click', ()=> switchView(goTarget[loc]));
         tdAcc.appendChild(btnGo);
         tr.appendChild(tdLoc); tr.appendChild(tdNombre); tr.appendChild(tdTel);
-        tr.appendChild(tdProy); tr.appendChild(tdEstatus); tr.appendChild(tdRecl); tr.appendChild(tdAcc);
+        tr.appendChild(tdProy); tr.appendChild(tdEstatus); tr.appendChild(tdRecl); tr.appendChild(tdReason); tr.appendChild(tdAcc);
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -3744,6 +4145,7 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('viewProjLiverpool').style.display = view === 'projLiverpool' ? '' : 'none';
     document.getElementById('viewProjLacomer').style.display = view === 'projLacomer' ? '' : 'none';
     document.getElementById('viewMetrics').style.display = view === 'metrics' ? '' : 'none';
+    document.getElementById('viewTiempos').style.display = view === 'tiempos' ? '' : 'none';
     document.getElementById('viewVacantes').style.display = view === 'vacantes' ? '' : 'none';
     document.getElementById('viewBaja').style.display = view === 'baja' ? '' : 'none';
     document.getElementById('viewDiscarded').style.display = view === 'discarded' ? '' : 'none';
@@ -3756,6 +4158,7 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('tabProjLiverpool').classList.toggle('active', view === 'projLiverpool');
     document.getElementById('tabProjLacomer').classList.toggle('active', view === 'projLacomer');
     document.getElementById('tabMetrics').classList.toggle('active', view === 'metrics');
+    document.getElementById('tabTiempos').classList.toggle('active', view === 'tiempos');
     document.getElementById('tabVacantes').classList.toggle('active', view === 'vacantes');
     document.getElementById('tabBaja').classList.toggle('active', view === 'baja');
     document.getElementById('tabDiscarded').classList.toggle('active', view === 'discarded');
@@ -3767,6 +4170,7 @@ En revisión de documentos con Jaky"></textarea>
     if(view === 'projLiverpool') renderProjectView(PROJECT_TABS[1]);
     if(view === 'projLacomer') renderProjectView(PROJECT_TABS[2]);
     if(view === 'metrics') renderMetrics();
+    if(view === 'tiempos') renderTiempos();
     if(view === 'vacantes') renderVacantes();
     if(view === 'baja') renderBaja();
     if(view === 'discarded') renderDiscarded();
@@ -4226,6 +4630,7 @@ En revisión de documentos con Jaky"></textarea>
     document.getElementById('btnClearAll').addEventListener('click', clearAllData);
     document.getElementById('tabTable').addEventListener('click', ()=> switchView('table'));
     document.getElementById('tabMetrics').addEventListener('click', ()=> switchView('metrics'));
+    document.getElementById('tabTiempos').addEventListener('click', ()=> switchView('tiempos'));
     document.getElementById('tabDiscarded').addEventListener('click', ()=> switchView('discarded'));
     document.getElementById('tabLog').addEventListener('click', ()=> switchView('log'));
     document.getElementById('tabVacantes').addEventListener('click', ()=> switchView('vacantes'));
