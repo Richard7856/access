@@ -385,6 +385,76 @@ html = sustituir(
     "  dl.onclick=bajarInfografia;",
     "descarga de la infografía")
 
+# ══ Ganancia por tienda: del promedio de la hoja de Google al RANGO ══
+# El equipo pasó el mínimo y máximo real por tienda (reporte de tiendas,
+# sep 2026). La tabla queda incrustada y la sincronización con la hoja se
+# apaga: si volviera a correr, pisaría el rango con los promedios viejos.
+GANANCIAS_RANGO = """const GANANCIAS_TIENDAS={
+  "FRESKO TECAMACHALCO":{nombre:"FRESKO TECAMACHALCO",min:6500,max:8800},
+  "FRESKO PABELLON BOSQUES":{nombre:"FRESKO PABELLON BOSQUES",min:6500,max:8800},
+  "CITY MARKET LOMAS":{nombre:"CITY MARKET LOMAS",min:4250,max:6500},
+  "SUMESA BAJIO":{nombre:"SUMESA BAJIO",min:4500,max:5400,formato:'FIJO'},
+  "LA COMER IZTAPALAPA LAS TORRES":{nombre:"LA COMER IZTAPALAPA LAS TORRES",min:4500,max:5400,formato:'FIJO'},
+  "SUMESA VALLE":{nombre:"SUMESA VALLE",min:4500,max:5400,formato:'FIJO'},
+  "SUMESA SAN ANGEL":{nombre:"SUMESA SAN ANGEL",min:4500,max:5400,formato:'FIJO'},
+  "SUMESA COYOACAN":{nombre:"SUMESA COYOACAN",min:4500,max:5400},
+  "LA COMER BOSQUE ESMERALDA":{nombre:"LA COMER BOSQUE ESMERALDA",min:6500,max:8800},
+  "LA COMER SANTA MARIA LA RIBERA":{nombre:"LA COMER SANTA MARIA LA RIBERA",min:4500,max:5800},
+  "CITY MARKET PLAZA CARSO":{nombre:"CITY MARKET PLAZA CARSO",min:5250,max:6500},
+  "LA COMER LOMAS ANAHUAC":{nombre:"LA COMER LOMAS ANAHUAC",min:6500,max:8800},
+  "CITY MARKET SAN JERONIMO":{nombre:"CITY MARKET SAN JERONIMO",min:6500,max:8800},
+  "LA COMER COYOACAN":{nombre:"LA COMER COYOACAN",min:6500,max:8800},
+  "LA COMER ANGELOPOLIS":{nombre:"LA COMER ANGELOPOLIS",min:5500,max:6800},
+  "FRESKO VALLARTA":{nombre:"FRESKO VALLARTA",min:7000,max:8400},
+  "SUMESA OAXACA":{nombre:"SUMESA OAXACA",min:4750,max:6000},
+  "CITY MARKET PILARES":{nombre:"CITY MARKET PILARES",min:6500,max:8800},
+  "LA COMER LAGO ALBERTO":{nombre:"LA COMER LAGO ALBERTO",min:3750,max:5500},
+  "FRESKO MIGUEL ANGEL DE QUEVEDO":{nombre:"FRESKO MIGUEL ANGEL DE QUEVEDO",min:4250,max:5500},
+  "LA COMER MANZANILLO":{nombre:"LA COMER MANZANILLO",min:4750,max:5700},
+  "LA COMER INSURGENTES":{nombre:"LA COMER INSURGENTES",min:4750,max:6500},
+  "LA COMER DEL VALLE":{nombre:"LA COMER DEL VALLE",min:4250,max:5500},
+  "LA COMER OLIVAR":{nombre:"LA COMER OLIVAR",min:8500,max:10800},
+  "FRESKO CUMBRES MONTERREY":{nombre:"FRESKO CUMBRES MONTERREY",min:5500,max:6600},
+  "CITY MARKET PLAZA PATRIA":{nombre:"CITY MARKET PLAZA PATRIA",min:3750,max:4500},
+  "LA COMER VILLA COAPA":{nombre:"LA COMER VILLA COAPA",min:5250,max:6500},
+  "LA COMER BOSQUE REAL":{nombre:"LA COMER BOSQUE REAL",min:4750,max:6900},
+  "LA COMER TULTITLAN":{nombre:"LA COMER TULTITLAN",min:4500,max:5400},
+  "FRESKO MIDTOWN":{nombre:"FRESKO MIDTOWN",min:4500,max:5400},
+  "LA COMER TLALPAN":{nombre:"LA COMER TLALPAN",min:5250,max:6500},
+  "LA COMER VALLE DORADO":{nombre:"LA COMER VALLE DORADO",min:4000,max:5200}
+};"""
+
+html = sustituir(
+    html,
+    "let GANANCIAS_TIENDAS={};   // {storeKey: {nombre, monto, formato, mes}}",
+    GANANCIAS_RANGO + "   // {storeKey: {nombre, min, max, formato?}} — rango real por tienda",
+    "tabla de ganancias por tienda")
+
+html = sustituir(
+    html,
+    """function initGananciasSync(){
+  try{
+    const old=document.getElementById('jsonp-ganancias');
+    if(old) old.remove();
+    const s=document.createElement('script');
+    s.id='jsonp-ganancias';
+    s.src=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_KEY_GAN}/gviz/tq?sheet=Pedidos&tqx=responseHandler:processGananciasJSONP&_=${Date.now()}`;
+    s.onerror=()=>console.warn('No se pudo sincronizar ganancias por tienda.');
+    document.body.appendChild(s);
+  }catch(e){}
+}""",
+    """function initGananciasSync(){
+  // Apagada: el rango minimo-maximo va incrustado en GANANCIAS_TIENDAS y la
+  // hoja de Google (promedios) lo pisaria si esto volviera a correr.
+}""",
+    "apagar la sincronización de promedios")
+
+html = sustituir(
+    html,
+    "  const linea=`⟦G⟧💰 GANANCIA REAL EN ESTA TIENDA: los repartidores activos están ganando en promedio $${fmt(g.monto)} a la semana (dato real de operación · ${g.mes}${g.formato==='FIJO'?' · esquema fijo':''}).⟦/G⟧`;",
+    "  const linea=`⟦G⟧💰 GANANCIA REAL EN ESTA TIENDA: los repartidores activos están ganando entre $${fmt(g.min)} y $${fmt(g.max)} a la semana (dato real de operación${g.formato==='FIJO'?' · esquema fijo':''}).⟦/G⟧`;",
+    "mensaje de ganancia con rango")
+
 html = sustituir(
     html,
     "function mostrarInfografia(t,prefix){",
