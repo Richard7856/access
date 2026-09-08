@@ -24,7 +24,6 @@
   #boot-status ul { text-align: left; font-size: 13px; margin: 10px 0; padding-left: 20px; }
   #boot-status code { background: #f1f1f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 </style>
-<link rel="stylesheet" href="/movil.css">
 </head>
 <body>
 <div id="boot-status">
@@ -1987,10 +1986,8 @@ function RunnerGame() {
 function RecruitingGrandPrix() {
   useArcadeFonts();
   const [records, setRecords] = useState(loadStoredRecords);
-  useSincronizacionCarrera(records, setRecords);  // memoria compartida
   const [hallOfFame, setHallOfFame] = useState(loadHallOfFame);
   const [monthlyArchive, setMonthlyArchive] = useState(loadMonthlyArchive);
-  useSincronizacionExtrasCarrera(hallOfFame, setHallOfFame, monthlyArchive, setMonthlyArchive);  // memoria compartida
   const [bossState, setBossState] = useState(null);
   const [attackEvent, setAttackEvent] = useState(null);
   const [trackEvent, setTrackEvent] = useState(null);
@@ -2401,7 +2398,5 @@ root.render(<RecruitingGrandPrix />);
 const bootStatus = document.getElementById('boot-status');
 if (bootStatus) bootStatus.classList.add('hidden');
 </script>
-<script src="/sync-carrera.js"></script>
-<script src="/nav.js"></script>
 </body>
 </html>
