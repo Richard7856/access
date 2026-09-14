@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de candidatos · AccessPack</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;--ink:#131B26;--ink-2:#4A5568;--paper:#ECEFF3;--card:#FFF;--line:#D4DAE2;
+      --ruta:#1D5BD6;--ruta-osc:#123F9C;--ok:#1F7A4D;--ok-bg:#E7F4EC;--mal:#B3261E;--mal-bg:#FBEAE8;
+      --pend:#8a6100;--pend-bg:#FFF7E0;
+      --mono:'IBM Plex Mono',monospace;--disp:'Barlow Condensed',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px 70px}
+header{background:var(--ink);color:#fff;padding:26px 0 22px;border-bottom:4px solid var(--ruta)}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter-spacing:.5px;text-transform:uppercase}
+.sub{font-family:var(--mono);font-size:12.5px;color:#AEB9C9;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+#btnRefrescar{font:600 12px Inter,sans-serif;color:#C3CEDD;background:#1B2534;border:1px solid #26303F;
+  border-radius:6px;padding:5px 12px;cursor:pointer}
+#btnRefrescar:hover{color:#fff;border-color:var(--ruta)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:22px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.tile .n{font-family:var(--disp);font-weight:800;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .t{font-size:12px;color:var(--ink-2);margin-top:2px}
+.buscador{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.buscador label{font-family:var(--disp);font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.5px}
+#q{width:100%;margin-top:8px;font:16px Inter,sans-serif;padding:11px 14px;border:1.5px solid var(--line);
+   border-radius:8px;background:#F7F9FB}
+#q:focus{outline:none;border-color:var(--ruta);background:#fff}
+.hint{font-size:12px;color:var(--ink-2);margin-top:7px}
+.seccion{font-family:var(--disp);font-weight:700;font-size:19px;text-transform:uppercase;letter-spacing:.5px;
+  margin:26px 0 10px;display:flex;align-items:baseline;gap:10px}
+.seccion small{font:500 12px Inter,sans-serif;color:var(--ink-2);text-transform:none;letter-spacing:0}
+.lista{display:flex;flex-direction:column;gap:10px}
+.persona{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.persona>button{all:unset;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;width:100%;
+  padding:13px 16px;cursor:pointer;box-sizing:border-box}
+.persona>button:hover{background:#F7F9FB}
+.persona>button:focus-visible{outline:2px solid var(--ruta);outline-offset:-2px}
+.p-nombre{font-weight:600;font-size:15px}
+.p-tel{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.p-rec{font-size:11.5px;font-weight:600;color:#fff;border-radius:99px;padding:2px 9px}
+.p-donde{display:flex;gap:4px;margin-left:auto}
+.dot{width:10px;height:10px;border-radius:50%;background:#D9DFE7;border:1px solid #C3CBD6}
+.dot.si{background:#35B273;border-color:#2A9160}
+.dot.rojo{background:#E06055;border-color:#C24E44}
+.aviso-dup{font-size:11px;color:var(--pend);background:var(--pend-bg);border:1px solid #f0dca6;border-radius:5px;padding:1px 7px}
+.ficha{border-top:1px solid var(--line);padding:6px 16px 14px;background:#FBFCFE}
+.paso{display:grid;grid-template-columns:26px 130px 1fr auto;gap:8px;align-items:start;
+  padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.paso:last-of-type{border-bottom:none}
+.paso .led{width:11px;height:11px;border-radius:50%;margin-top:4px;background:#D9DFE7}
+.paso.si .led{background:#35B273}
+.paso.rojo .led{background:#E06055}
+.paso .cual{font-family:var(--disp);font-weight:700;font-size:14.5px;text-transform:uppercase;letter-spacing:.4px;padding-top:1px}
+.paso.no .cual,.paso.no .que{color:#98A2B0}
+.paso .que div{margin-bottom:2px}
+.paso .que b{font-weight:600}
+.paso .que .f{font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+.paso a{font-size:12px;font-weight:600;color:var(--ruta);text-decoration:none;white-space:nowrap}
+.paso a:hover{text-decoration:underline}
+.parecidos{margin-top:10px;font-size:12px;color:var(--ink-2)}
+.parecidos button{all:unset;cursor:pointer;font:600 12px Inter,sans-serif;color:var(--ruta);
+  background:#EEF3FC;border:1px solid #CBD9F4;border-radius:99px;padding:2px 10px;margin:2px 3px}
+.vacio{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center;
+  color:var(--ink-2);font-size:13.5px}
+.nota{margin-top:30px;background:#FFF;border:1px solid var(--line);border-left:3px solid var(--ruta);
+  border-radius:8px;padding:14px 16px;font-size:13.5px;color:var(--ink-2)}
+.nota b{color:var(--ink)}
+#error{display:none;margin-top:18px;background:var(--mal-bg);border:1px solid #f0c4c0;color:var(--mal);
+  border-radius:8px;padding:12px 15px;font-size:13.5px}
+@media(max-width:560px){.paso{grid-template-columns:20px 1fr;grid-auto-rows:auto}
+  .paso .que{grid-column:2}.paso a{grid-column:2;justify-self:start}}
+</style>
+<link rel="stylesheet" href="/movil.css">
+</head>
+<body>
+<header><div class="wrap">
+  <h1>🧭 Central de candidatos</h1>
+  <div class="sub">
+    <span id="estado">Cargando lo del equipo…</span>
+    <button id="btnRefrescar" type="button">↻ Actualizar</button>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div id="error"></div>
+
+  <div class="tiles">
+    <div class="tile"><div class="n" id="tPersonas">–</div><div class="t">personas en las pantallas</div></div>
+    <div class="tile"><div class="n" id="tChoferes">–</div><div class="t">choferes en seguimiento</div></div>
+    <div class="tile"><div class="n" id="tCarga">–</div><div class="t">con alta y carga ✓</div></div>
+    <div class="tile"><div class="n" id="tExamen">–</div><div class="t">en examen sin pasar</div></div>
+  </div>
+
+  <div class="buscador">
+    <label for="q">Buscar a una persona</label>
+    <input id="q" type="search" autocomplete="off"
+           placeholder="Nombre o teléfono — como lo escriban en cualquier pantalla">
+    <div class="hint">Busca en el Clasificador, Examinados, Expedientes, Seguimiento y la Carrera al mismo tiempo.
+      Toca a la persona para ver en qué paso va en cada pantalla.</div>
+  </div>
+
+  <div class="seccion" id="tituloLista">Últimos movimientos <small>las personas con actividad más reciente</small></div>
+  <div class="lista" id="lista"><div class="vacio">Cargando…</div></div>
+
+  <p class="nota"><b>Solo consulta:</b> esta pantalla lee lo que el equipo ya capturó en las demás — aquí no se
+    agrega, no se edita y no se borra nada. El registro y la actualización desde aquí llegan en la fase&nbsp;2.
+    Por dentro, dos apariciones se tratan como la misma persona cuando comparten <b>teléfono</b> (o, si no hay,
+    el nombre escrito igual).</p>
+</div>
+
+<script src="/persona.js"></script>
+<script>
+(function(){
+  'use strict';
+  var CFG = { url: 'https://yilqentsmibgnzphztxc.supabase.co', key: 'sb_publishable_wor2_sfD-Lmw3b6WUNXGSw_oT2SAoXe' };
+  var REST = CFG.url + '/rest/v1/despacho_estado';
+  var H = { apikey: CFG.key, Authorization: 'Bearer ' + CFG.key };
+  var CLAVES = ['clasificador:estado','seguimiento:estado','examinados:estado',
+                'carrera:registros','expedientes:estado','catalogo:reclutadores'];
+
+  /* El orden del viaje real de un candidato — así se pinta la ficha. */
+  var PANTALLAS = [
+    { id:'clasificador', nombre:'Clasificador', url:'/clasificador/' },
+    { id:'examinados',   nombre:'Examinados',   url:'/examinados/' },
+    { id:'expedientes',  nombre:'Expedientes',  url:'/expedientes/' },
+    { id:'seguimiento',  nombre:'Seguimiento',  url:'/seguimiento/' },
+    { id:'carrera',      nombre:'Carrera',      url:'/carrera/' },
+  ];
+
+  var P = window.Persona;
+  var catalogo = P.CATALOGO_LOCAL;
+  var personas = [];            // [{key, nombre, nombreNorm, tel, recs{}, aps[], fechaMax, dup}]
+  var porLlave = {};
+  var abiertas = {};            // fichas abiertas, para no cerrarlas al refrescar
+
+  function $(id){ return document.getElementById(id); }
+
+  /* ── Fechas: cada pantalla guarda la suya como quiere ───────────
+     Solo se interpretan las confiables (ISO y timestamps). El texto
+     libre del Clasificador ("12/8") se muestra tal cual: adivinarle
+     el formato lo volteaba al estilo gringo (12/8 → 8 de diciembre). */
+  function tsDe(f){
+    if (f == null || f === '') return 0;
+    if (typeof f === 'number') return f > 1e12 ? f : 0;
+    if (typeof f === 'string' && /^\d{4}-\d{2}-\d{2}/.test(f)) {
+      var t = Date.parse(f);
+      return isNaN(t) ? 0 : t;
+    }
+    return 0;
+  }
+  function fmtF(f){
+    var t = tsDe(f);
+    if (!t) return typeof f === 'string' && f ? f : '';
+    return new Date(t).toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'2-digit' });
+  }
+
+  /* ── Una "aparición": la persona vista desde una pantalla ─────── */
+  function ap(pantalla, tipo, nombre, telefono, reclutador, detalle, fecha, rojo){
+    var nn = P.normalizarNombre(nombre);
+    if (!nn) return null;
+    return { pantalla: pantalla, tipo: tipo, nombre: String(nombre).trim(), nombreNorm: nn,
+             tel: P.llaveTelefono(telefono), rec: reclutador || '', detalle: detalle || '',
+             fecha: fecha, ts: tsDe(fecha), rojo: !!rojo };
+  }
+
+  var ESTATUS_SEG = { '':'Sin estatus', 'Jaky':'Validación de documentos (Jaky)',
+                      'Dani':'Onboarding (Dani)', 'Alta':'Pre alta (coordinadores)' };
+
+  function extraer(filas){
+    var aps = [], stats = { choferes:0, carga:0, examen:0 };
+    var por = {};
+    filas.forEach(function(f){ por[f.clave] = f.valor; });
+    var v;
+
+    if ((v = por['catalogo:reclutadores']) && v.reclutadores) catalogo = v.reclutadores;
+
+    if ((v = por['clasificador:estado'])) {
+      ['rendimiento','asignacion'].forEach(function(pool){
+        ((v.pools && v.pools[pool]) || []).forEach(function(c){
+          aps.push(ap('clasificador','Lead', c.candidate, c.phone, c.recruiter,
+            [c.client, c.stage, c.status].filter(Boolean).join(' · '), c.regTs || c.fechaReg));
+        });
+      });
+      (v.altas || []).forEach(function(a){
+        aps.push(ap('clasificador','Alta validada', a.chofer || a.name, null, a.rec,
+          ['Alta: ' + (a.name || ''), a.client, a.urg].filter(Boolean).join(' · '), a.date));
+      });
+      (v.estatus || []).forEach(function(e){
+        aps.push(ap('clasificador','Estatus', e.cand, e.tel, e.rec,
+          [e.estatus, e.fase, e.proy].filter(Boolean).join(' · '), e.fecha || e.fpost));
+      });
+      (v.baseEmpleados || []).forEach(function(b){
+        aps.push(ap('clasificador','Base de empleados', b.chofer, null, null,
+          [b.proyecto, b.tienda, b.zona].filter(Boolean).join(' · '), null));
+      });
+      Object.keys(v.bajas || {}).forEach(function(k){
+        var partes = k.split('|');
+        aps.push(ap('clasificador','Marcado como baja', partes[0], null, null, partes[1] || '', null, true));
+      });
+    }
+
+    if ((v = por['seguimiento:estado'])) {
+      (v.driverTrackerData_v1 || []).forEach(function(d){
+        stats.choferes++; if (d.cargaRealizada) stats.carga++;
+        var est = d.cargaRealizada ? 'Alta con carga ✓' : (ESTATUS_SEG[d.estatus] || d.estatus || 'Sin estatus');
+        aps.push(ap('seguimiento','Chofer', d.nombre, d.telefono, d.reclutador,
+          [d.proyecto, d.sucursal, est].filter(Boolean).join(' · '), d.fechaAlta || d.fechaRegistro));
+      });
+      (v.driverTrackerDiscarded_v1 || []).forEach(function(d){
+        aps.push(ap('seguimiento','Descartado', d.nombre, d.telefono, d.reclutador,
+          d.motivoDescarte || '', d.discardedAt, true));
+      });
+      (v.driverTrackerBaja_v1 || []).forEach(function(d){
+        aps.push(ap('seguimiento','Baja', d.nombre, d.telefono, d.reclutador,
+          d.motivoBaja || '', d.bajaAt, true));
+      });
+    }
+
+    if ((v = por['examinados:estado'])) {
+      (v.control_examinados_rows_v2 || []).forEach(function(r){
+        if (!String(r.nombre || '').trim()) return;
+        if (!r.paso) stats.examen++;
+        aps.push(ap('examinados','Examen Midot', r.nombre, null, r.reclutador,
+          (r.paso ? 'Pasó la prueba ✓' : 'Aún no pasa') + (r.correo ? ' · ' + r.correo : ''),
+          r.fechaCompletada || r.fechaAsignada));
+      });
+    }
+
+    if ((v = por['carrera:registros']) && v.length) {
+      v.forEach(function(r){
+        aps.push(ap('carrera','Alta en la carrera', r.driverName || r.altaName, null, r.recruiter,
+          [r.clientStore, (r.points || 0) + ' pts', r.priority].filter(Boolean).join(' · '),
+          r.date || r.timestamp));
+      });
+    }
+
+    if ((v = por['expedientes:estado'])) {
+      (v.candidates || []).forEach(function(c){
+        var docs = c.documentos || {}, n = 0;
+        Object.keys(docs).forEach(function(k){ if (docs[k] && docs[k].fileName) n++; });
+        aps.push(ap('expedientes','Expediente', c.nombre, c.numero, null,
+          [c.proyecto, n + ' de 14 documentos'].filter(Boolean).join(' · '), null));
+      });
+    }
+
+    return { aps: aps.filter(Boolean), stats: stats };
+  }
+
+  /* ── Agrupar apariciones en personas ──────────────────────────── */
+  function agrupar(aps){
+    /* Si un nombre aparece con teléfono en una pantalla y sin él en
+       otra, la que no lo trae lo adopta — siempre que ese nombre no
+       tenga DOS teléfonos distintos (ahí ya no se adivina). */
+    var tels = {};
+    aps.forEach(function(a){ if (a.tel){ (tels[a.nombreNorm] = tels[a.nombreNorm] || {})[a.tel] = 1; } });
+    aps.forEach(function(a){
+      if (!a.tel && tels[a.nombreNorm]) {
+        var t = Object.keys(tels[a.nombreNorm]);
+        if (t.length === 1) a.tel = t[0];
+      }
+    });
+
+    var mapa = {};
+    aps.forEach(function(a){
+      var k = a.tel ? 't:' + a.tel : 'n:' + a.nombreNorm;
+      var p = mapa[k] || (mapa[k] = { key:k, tel:a.tel, aps:[], nombres:{}, recs:{}, fechaMax:0 });
+      p.aps.push(a);
+      p.nombres[a.nombre] = (p.nombres[a.nombre] || 0) + 1;
+      if (a.ts > p.fechaMax) p.fechaMax = a.ts;
+      var r = P.resolverReclutador(catalogo, a.rec);
+      if (r && r.id !== 'free') p.recs[r.id] = (p.recs[r.id] || 0) + 1;
+    });
+
+    var lista = Object.keys(mapa).map(function(k){
+      var p = mapa[k];
+      /* El nombre que se muestra: la variante más completa. */
+      p.nombre = Object.keys(p.nombres).sort(function(a,b){ return b.length - a.length; })[0];
+      p.nombreNorm = P.normalizarNombre(p.nombre);
+      var mejor = null;
+      Object.keys(p.recs).forEach(function(id){ if (!mejor || p.recs[id] > p.recs[mejor]) mejor = id; });
+      p.reclutador = mejor ? catalogo.filter(function(r){ return r.id === mejor; })[0] : null;
+      return p;
+    });
+
+    /* Homónimos: mismo nombre, distinta llave. */
+    var vistos = {};
+    lista.forEach(function(p){ vistos[p.nombreNorm] = (vistos[p.nombreNorm] || 0) + 1; });
+    lista.forEach(function(p){ p.dup = vistos[p.nombreNorm] > 1; });
+    return lista;
+  }
+
+  /* ── Pintar ───────────────────────────────────────────────────── */
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+
+  function tarjeta(p){
+    var donde = PANTALLAS.map(function(t){
+      var suyas = p.aps.filter(function(a){ return a.pantalla === t.id; });
+      var cls = !suyas.length ? '' : (suyas.some(function(a){ return a.rojo; }) && !suyas.some(function(a){ return !a.rojo; }) ? 'rojo' : 'si');
+      return '<span class="dot ' + cls + '" title="' + esc(t.nombre) + (suyas.length ? '' : ': no aparece') + '"></span>';
+    }).join('');
+    var rec = p.reclutador
+      ? '<span class="p-rec" style="background:' + esc(p.reclutador.color || '#5B6B63') + '">' + esc(p.reclutador.nombre) + '</span>' : '';
+    return '<div class="persona" data-key="' + esc(p.key) + '">' +
+      '<button type="button">' +
+        '<span class="p-nombre">' + esc(p.nombre) + '</span>' +
+        (p.tel ? '<span class="p-tel">📱 ' + esc(p.tel) + '</span>' : '') + rec +
+        (p.dup ? '<span class="aviso-dup">⚠ hay otra persona con este nombre</span>' : '') +
+        '<span class="p-donde">' + donde + '</span>' +
+      '</button>' +
+      '<div class="ficha" hidden></div></div>';
+  }
+
+  function ficha(p){
+    var html = PANTALLAS.map(function(t){
+      var suyas = p.aps.filter(function(a){ return a.pantalla === t.id; });
+      if (!suyas.length) {
+        return '<div class="paso no"><span class="led"></span><span class="cual">' + esc(t.nombre) + '</span>' +
+               '<span class="que">No aparece</span><a href="' + t.url + '">Abrir →</a></div>';
+      }
+      var rojo = suyas.some(function(a){ return a.rojo; }) && !suyas.some(function(a){ return !a.rojo; });
+      var que = suyas.map(function(a){
+        var f = fmtF(a.fecha);
+        return '<div><b>' + esc(a.tipo) + (a.rojo ? ' ✖' : '') + '</b>' +
+               (a.detalle ? ' — ' + esc(a.detalle) : '') +
+               (f ? ' <span class="f">' + esc(f) + '</span>' : '') + '</div>';
+      }).join('');
+      return '<div class="paso ' + (rojo ? 'rojo' : 'si') + '"><span class="led"></span>' +
+             '<span class="cual">' + esc(t.nombre) + '</span><span class="que">' + que + '</span>' +
+             '<a href="' + t.url + '">Abrir →</a></div>';
+    }).join('');
+
+    /* Nombres que se le parecen (posibles registros de la misma
+       persona escritos distinto): comparten 2+ palabras del nombre. */
+    var mios = p.nombreNorm.split(' ').filter(function(w){ return w.length >= 4; });
+    var cerca = personas.filter(function(o){
+      if (o.key === p.key) return false;
+      var suyos = o.nombreNorm.split(' ');
+      return mios.filter(function(w){ return suyos.indexOf(w) >= 0; }).length >= 2;
+    }).slice(0, 6);
+    if (cerca.length) {
+      html += '<div class="parecidos">¿Será la misma persona escrita distinto? ' +
+        cerca.map(function(o){ return '<button type="button" data-ir="' + esc(o.key) + '">' + esc(o.nombre) + '</button>'; }).join('') +
+        '</div>';
+    }
+    return html;
+  }
+
+  function pintar(lista, titulo, sub){
+    $('tituloLista').innerHTML = esc(titulo) + ' <small>' + esc(sub) + '</small>';
+    if (!lista.length) {
+      $('lista').innerHTML = '<div class="vacio">No encontré a nadie con eso. Prueba con menos letras, ' +
+        'o con el teléfono — puede estar escrito distinto en cada pantalla.</div>';
+      return;
+    }
+    $('lista').innerHTML = lista.map(tarjeta).join('');
+    lista.forEach(function(p){
+      if (abiertas[p.key]) {
+        var el = $('lista').querySelector('[data-key="' + CSS.escape(p.key) + '"] .ficha');
+        if (el) { el.innerHTML = ficha(p); el.hidden = false; }
+      }
+    });
+  }
+
+  function recientes(){
+    return personas.slice().sort(function(a,b){ return b.fechaMax - a.fechaMax; }).slice(0, 10);
+  }
+
+  function buscar(q){
+    var digitos = q.replace(/\D/g, '');
+    if (digitos.length >= 4 && digitos.length >= q.replace(/\s/g,'').length - 2) {
+      return personas.filter(function(p){
+        return (p.tel && p.tel.indexOf(digitos) >= 0) ||
+               p.aps.some(function(a){ return a.tel && a.tel.indexOf(digitos) >= 0; });
+      });
+    }
+    var n = P.normalizarNombre(q);
+    if (!n) return [];
+    return personas.filter(function(p){
+      return p.nombreNorm.indexOf(n) >= 0 ||
+             Object.keys(p.nombres).some(function(x){ return P.normalizarNombre(x).indexOf(n) >= 0; });
+    }).slice(0, 30);
+  }
+
+  function refrescarVista(){
+    var q = $('q').value.trim();
+    if (q.length >= 2) {
+      var r = buscar(q);
+      pintar(r, 'Resultados', r.length + (r.length === 1 ? ' persona' : ' personas'));
+    } else {
+      pintar(recientes(), 'Últimos movimientos', 'las personas con actividad más reciente');
+    }
+  }
+
+  /* ── Cargar ───────────────────────────────────────────────────── */
+  function cargar(){
+    $('estado').textContent = 'Cargando lo del equipo…';
+    var sel = REST + '?select=clave,valor,actualizado&clave=in.(' +
+      encodeURIComponent(CLAVES.map(function(c){ return '"' + c + '"'; }).join(',')) + ')';
+    return fetch(sel, { headers: H })
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(filas){
+        var x = extraer(filas);
+        personas = agrupar(x.aps);
+        porLlave = {};
+        personas.forEach(function(p){ porLlave[p.key] = p; });
+        $('tPersonas').textContent = personas.length;
+        $('tChoferes').textContent = x.stats.choferes;
+        $('tCarga').textContent = x.stats.carga;
+        $('tExamen').textContent = x.stats.examen;
+        var ult = 0;
+        filas.forEach(function(f){ var t = Date.parse(f.actualizado); if (t > ult) ult = t; });
+        $('estado').textContent = 'Al corte de ' + new Date(ult || Date.now()).toLocaleString('es-MX',
+          { day:'numeric', month:'short', hour:'numeric', minute:'2-digit', timeZone:'America/Mexico_City' });
+        $('error').style.display = 'none';
+        refrescarVista();
+      })
+      .catch(function(e){
+        $('estado').textContent = 'Sin conexión';
+        $('error').textContent = 'No se pudo leer la información del equipo (' + e.message +
+          '). Revisa tu conexión y vuelve a intentar con «Actualizar».';
+        $('error').style.display = 'block';
+      });
+  }
+
+  /* ── Eventos ──────────────────────────────────────────────────── */
+  $('q').addEventListener('input', refrescarVista);
+  $('btnRefrescar').addEventListener('click', cargar);
+  $('lista').addEventListener('click', function(ev){
+    var ir = ev.target.closest ? ev.target.closest('[data-ir]') : null;
+    if (ir) {
+      var o = porLlave[ir.dataset.ir];
+      if (o) { abiertas[o.key] = true; $('q').value = o.nombre; refrescarVista(); }
+      return;
+    }
+    var btn = ev.target.closest ? ev.target.closest('.persona>button') : null;
+    if (!btn) return;
+    var caja = btn.parentElement, key = caja.dataset.key, f = caja.querySelector('.ficha');
+    if (f.hidden) { f.innerHTML = ficha(porLlave[key]); f.hidden = false; abiertas[key] = true; }
+    else { f.hidden = true; delete abiertas[key]; }
+  });
+
+  cargar();
+  setInterval(cargar, 90000);   // se refresca solo cada minuto y medio
+})();
+</script>
+<script src="/nav.js"></script>
+</body>
+</html>

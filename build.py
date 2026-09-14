@@ -503,10 +503,20 @@ html = html[:i] + (
     con_barra((SRC / "inicio.html").read_text(encoding="utf-8"), "inicio"), encoding="utf-8")
 shutil.copy(SRC / "nav.js", WEB / "nav.js")
 shutil.copy(SRC / "movil.css", WEB / "movil.css")
+
+# Central de candidatos (fase 1): página nuestra, de solo consulta.
+# persona.js son los cimientos de la fase 0 — la llave de persona y el
+# catálogo de reclutadores — que también usarán los puentes de la fase 2.
+shutil.copy(SRC / "persona.js", WEB / "persona.js")
+(WEB / "central").mkdir(parents=True, exist_ok=True)
+(WEB / "central" / "index.html").write_text(
+    con_barra(con_supabase((SRC / "central.html").read_text(encoding="utf-8")), "central"),
+    encoding="utf-8")
 for js in ("sync-clasificador.js", "sync-carrera.js", "sync-seguimiento.js", "sync-expedientes.js", "sync-examinados.js"):
     (WEB / js).write_text(con_supabase((SRC / js).read_text(encoding="utf-8")), encoding="utf-8")
 
 print(f"✔ web/index.html                      portada")
+print(f"✔ web/central/index.html              Central de candidatos")
 print(f"✔ web/despacho/index.html             {len(html)/1024:.0f} KB")
 print(f"✔ web/despacho/despacho-datos.js      {len(datos_js)/1024:.1f} KB")
 print("✔ web/despacho/conexion.js")

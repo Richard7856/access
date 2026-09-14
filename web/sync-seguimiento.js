@@ -147,6 +147,79 @@
     if (!alerta) caja._t = setTimeout(function () { caja.style.opacity = '0'; }, 2500);
   }
 
+  /* ── Vacantes: espejo de la lista del Despacho (fase 1) ────────
+     El Excel de vacantes se sube UNA sola vez, al Despacho (en
+     /actualizar). De ahí, esto lo convierte a la plantilla que el
+     panel ya entiende (driverTrackerVacantes_v1), con los mismos
+     campos que produce su propio importador.
+
+     Regla para no pisar a nadie: gana lo más nuevo. Si alguien
+     todavía sube el Excel aquí a mano, su archivo se respeta hasta
+     que el Despacho publique una lista más reciente. */
+  var CLAVE_TIENDAS = 'despacho:tiendas';
+  var CAJA_VACANTES = 'driverTrackerVacantes_v1';
+  var CADENAS = ['LA COMER', 'CITY MARKET', 'FRESKO', 'SUMESA', 'CEDIS',
+                 'AMAZON', 'LIVERPOOL', 'MEGA', 'SORIANA', 'WALMART', 'CHEDRAUI'];
+
+  /* Misma normalización que usa el panel (normalizeSucursalKey):
+     así sus cruces texto-libre → sucursal siguen encontrando igual. */
+  function normSucursal(s) {
+    return String(s || '')
+      .toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/^\d+\s*-\s*/, '')
+      .replace(/^L\.\s*/, '')
+      .replace(/[^A-Z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function espejoVacantes() {
+    return fetch(REST + '?select=valor,actualizado&clave=eq.' + encodeURIComponent(CLAVE_TIENDAS), { headers: H })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (f) {
+        if (!f || !f.length || !Array.isArray(f[0].valor) || !f[0].valor.length) return false;
+        var marca = f[0].actualizado;
+        var actual = null;
+        try { actual = JSON.parse(localStorage.getItem(CAJA_VACANTES) || 'null'); } catch (e) {}
+        if (actual) {
+          if (actual.origen === 'despacho' && actual.origenMarca === marca) return false;  // ya al día
+          if (actual.origen !== 'despacho') {
+            // Subida manual: solo se reemplaza si la lista del Despacho es más nueva.
+            var suyo = Date.parse(actual.importedAt || '') || 0;
+            if (suyo >= (Date.parse(marca) || 0)) return false;
+          }
+        }
+        var items = f[0].valor.filter(function (t) { return t && t.nombre; }).map(function (t) {
+          var nombre = String(t.nombre).trim();
+          var arriba = normSucursal(nombre);
+          var cadena = '';
+          for (var i = 0; i < CADENAS.length; i++) {
+            if (arriba.indexOf(CADENAS[i]) === 0) { cadena = CADENAS[i]; break; }
+          }
+          return {
+            sucursal: nombre,
+            sucursalNorm: arriba,
+            cliente: cadena,
+            estatusTienda: '',
+            ubicacion: String(t.direccion || '').trim(),
+            prioridad: String(t.urgencia || '').trim(),
+            vacantes: parseInt(t.vacantes, 10) || 0,
+          };
+        });
+        if (!items.length) return false;
+        ponerOriginal(CAJA_VACANTES, JSON.stringify({
+          items: items,
+          importedAt: marca,
+          fileName: 'Lista del Despacho (automático)',
+          origen: 'despacho',
+          origenMarca: marca,
+        }));
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+
   /* ── Retener el arranque hasta tener lo del equipo ───────────── */
   var arranque = null;
   var registrar = document.addEventListener.bind(document);
@@ -169,16 +242,22 @@
   }
 
   traer().then(function (fila) {
-    if (fila && fila.valor) {
+    var conEquipo = !!(fila && fila.valor);
+    if (conEquipo) {
       marcaRemota = fila.actualizado;
       aplicar(fila.valor);
-      arrancarApp();
-      señal('✓ Cargado lo del equipo');
-    } else {
-      // Nadie ha publicado: arranca con lo que haya aquí y lo sube.
-      arrancarApp();
-      if (CAJAS.some(function (k) { return localStorage.getItem(k); })) publicar();
     }
+    // Las vacantes del Despacho entran ANTES de arrancar: la app las
+    // carga creyendo que son su plantilla importada.
+    return espejoVacantes().then(function () {
+      arrancarApp();
+      if (conEquipo) {
+        señal('✓ Cargado lo del equipo');
+      } else if (CAJAS.some(function (k) { return localStorage.getItem(k); })) {
+        // Nadie ha publicado: arranca con lo que haya aquí y lo sube.
+        publicar();
+      }
+    });
   }).catch(function () {
     arrancarApp();
     señal('Sin conexión: trabajando solo en este navegador', true);
@@ -203,6 +282,7 @@
   };
 
   /* ── Cambios de otros mientras la página está abierta ────────── */
+  var vueltas = 0;
   setInterval(function () {
     if (publicando || !listo) return;
     traer().then(function (fila) {
@@ -211,6 +291,14 @@
       aplicar(fila.valor);
       // No se repinta solo: la app no expone su render desde fuera.
       señal('Hay cambios del equipo — recarga la página para verlos.', true);
+    }).then(function () {
+      // Y de vez en cuando, ver si el Despacho publicó lista nueva.
+      // (Después de aplicar lo del equipo, para que el espejo decida
+      //  sobre la plantilla más reciente y no sobre una vieja.)
+      if (++vueltas % 4 !== 0) return;
+      return espejoVacantes().then(function (cambio) {
+        if (cambio) señal('El Despacho publicó vacantes nuevas — recarga la página para verlas.', true);
+      });
     }).catch(function () {});
   }, SONDEO);
 })();
