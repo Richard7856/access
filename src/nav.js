@@ -6,6 +6,7 @@
 (function () {
   var SITIOS = [
     { url: '/',              nombre: 'Inicio',       icono: '⌂' },
+    { url: '/central/',      nombre: 'Central',      icono: '🧭' },
     { url: '/despacho/',     nombre: 'Despacho',     icono: '🚚' },
     { url: '/torre/',        nombre: 'Torre',        icono: '📊' },
     { url: '/clasificador/', nombre: 'Clasificador', icono: '🗂' },

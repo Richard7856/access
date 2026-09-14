@@ -118,6 +118,41 @@ recargar.
 >
 > Luego se recarga la página. Es **una sola copia**, la inmediatamente anterior.
 
+### Vacantes: espejo de la lista del Despacho (fase 1)
+
+El Excel de vacantes se subía dos veces: al Despacho (en `/actualizar`) y otra
+vez al panel de Seguimiento. Ahora se sube **solo al Despacho** y
+`sync-seguimiento.js` convierte `despacho:tiendas` a la plantilla que el panel
+ya entiende (`driverTrackerVacantes_v1`), con la misma normalización de
+sucursal que usa el panel (`normalizeSucursalKey`).
+
+Regla para no pisar a nadie: **gana lo más nuevo**. Si alguien sube el Excel a
+mano en el panel, su archivo se respeta hasta que el Despacho publique una
+lista más reciente. La plantilla espejada se distingue porque su `fileName` es
+`Lista del Despacho (automático)` y trae `origen: 'despacho'`.
+
+## La Central de candidatos y la llave de persona (fases 0 y 1)
+
+`/central/` (`src/central.html`) es una página **nuestra, de solo consulta**:
+lee de un jalón las filas `clasificador:estado`, `seguimiento:estado`,
+`examinados:estado`, `carrera:registros` y `expedientes:estado`, junta las
+apariciones de cada persona y muestra su ficha —en qué pantalla está, en qué
+paso va y la liga para abrirla. No escribe nada en la base (el registrar y
+actualizar desde ahí es la fase 2 del plan).
+
+Los cimientos viven en `src/persona.js` (`window.Persona`):
+
+- **`llavePersona(nombre, telefono)`** — la llave con la que se agrupa: el
+  teléfono a 10 dígitos si hay (`t:5512345678`), el nombre normalizado si no
+  (`n:JUAN PEREZ`). El teléfono es la llave *por dentro*; el equipo sigue
+  viendo y buscando por nombre. Si un nombre aparece con teléfono en una
+  pantalla y sin él en otra, la segunda lo adopta — salvo que ese nombre tenga
+  dos teléfonos distintos (ahí no se adivina).
+- **`resolverReclutador(catalogo, texto)`** — traduce lo que cada pantalla
+  escriba ("Jose", "JOSE EDUARDO"…) a la entrada del **catálogo único** de la
+  fila `catalogo:reclutadores`. Cada pantalla sigue con su lista interna, pero
+  todos los cruces pasan por el catálogo, así los reportes ya no se desalinean.
+
 ## Cómo se comparte el Clasificador
 
 La app guardaba todo en `localStorage` con `persist()` y lo reconstruía con
