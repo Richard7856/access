@@ -179,6 +179,7 @@
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (f) {
         if (!f || !f.length || !Array.isArray(f[0].valor) || !f[0].valor.length) return false;
+        ultimasTiendas = f[0].valor;   // el puente de cargas la usa para la prioridad
         var marca = f[0].actualizado;
         var actual = null;
         try { actual = JSON.parse(localStorage.getItem(CAJA_VACANTES) || 'null'); } catch (e) {}
@@ -220,6 +221,220 @@
       .catch(function () { return false; });
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     FASE 3 · Estatus que viajan solos
+       1) una BAJA libera la vacante de su tienda y marca al
+          candidato en el Clasificador;
+       2) un "PASÓ la prueba" de Examinados se ve como nota en la
+          ficha del chofer;
+       3) una CARGA REALIZADA suma sus puntos en la Carrera si nadie
+          los había registrado.
+     Nada retroactivo: solo eventos desde EPOCA_PUENTES. Nada se
+     borra nunca. El libro `puentes:bajas` evita que dos navegadores
+     liberen la misma vacante dos veces.
+     ═══════════════════════════════════════════════════════════════ */
+  var EPOCA_PUENTES = '2026-09-15';
+  var FILA_PUENTES = 'puentes:bajas';
+  var MARCA_MIDOT = '✔ Midot';
+  var HJSON = Object.assign({ 'Content-Type': 'application/json' }, H);
+  var RECS_CARRERA = { Valentina: 1, Sharon: 1, Arely: 1, David: 1, Jose: 1, Sandra: 1 };
+  var ultimasTiendas = [];   // lo llena espejoVacantes; lo usa el puente de cargas
+
+  /* Como la llave de persona de la Central: MAYÚSCULAS sin acentos. */
+  function normPersona(s) {
+    return String(s || '').toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  /* Escritura con candado optimista: si alguien más guardó entre la
+     lectura y la escritura, el ciclo completo se reintenta. */
+  function conCandado(clave, transformar) {
+    function ciclo(n) {
+      return fetch(REST + '?select=valor,actualizado&clave=eq.' + encodeURIComponent(clave), { headers: H })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (f) {
+          var fila = f && f.length ? f[0] : null;
+          var res = transformar(fila ? fila.valor : null);
+          if (!res || !res.valor) return res;
+          var pet = fila
+            ? fetch(REST + '?clave=eq.' + encodeURIComponent(clave) +
+                    '&actualizado=eq.' + encodeURIComponent(fila.actualizado), {
+                method: 'PATCH',
+                headers: Object.assign({ Prefer: 'return=representation' }, HJSON),
+                body: JSON.stringify({ valor: res.valor }),
+              })
+            : fetch(REST + '?on_conflict=clave', {
+                method: 'POST',
+                headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, HJSON),
+                body: JSON.stringify({ clave: clave, valor: res.valor }),
+              });
+          return pet.then(function (r) {
+            if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+            return r.json();
+          }).then(function (filas) {
+            if (fila && (!filas || !filas.length)) {
+              if (n >= 5) throw new Error('fila muy disputada');
+              return new Promise(function (s) { setTimeout(s, 250 + Math.random() * 750); })
+                .then(function () { return ciclo(n + 1); });
+            }
+            return res;
+          });
+        });
+    }
+    return ciclo(1);
+  }
+
+  /* La llave con la que el Clasificador marca una baja: avNorm(nombre)
+     + '|' + zona. La zona sale de su propia base de empleados (por
+     nombre, o por la tienda del chofer); si no se halla, 'Sin zona'. */
+  function claveBajaClasif(valor, nombre, sucursal) {
+    var avNorm = function (s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); };
+    var n = avNorm(nombre);
+    var base = (valor && valor.baseEmpleados) || [];
+    for (var i = 0; i < base.length; i++) {
+      if (avNorm(base[i].chofer) === n) return n + '|' + (base[i].zona || 'Sin zona');
+    }
+    var z = '';
+    var meta = avNorm(sucursal);
+    if (meta) {
+      for (var j = 0; j < base.length; j++) {
+        if (base[j].tienda && avNorm(base[j].tienda) === meta) { z = base[j].zona || ''; break; }
+      }
+    }
+    return n + '|' + (z || 'Sin zona');
+  }
+
+  function puenteBajas() {
+    var bajas;
+    try { bajas = JSON.parse(localStorage.getItem('driverTrackerBaja_v1') || '[]'); } catch (e) { bajas = []; }
+    var nuevas = (bajas || []).filter(function (b) {
+      return b && b.id && b.nombre && String(b.bajaAt || '') >= EPOCA_PUENTES;
+    });
+    if (!nuevas.length) return Promise.resolve();
+    return fetch(REST + '?select=valor&clave=eq.' + encodeURIComponent(FILA_PUENTES), { headers: H })
+      .then(function (r) { return r.json(); })
+      .then(function (f) {
+        var libro = (f && f.length && f[0].valor) || {};
+        var pend = nuevas.filter(function (b) { return !libro[b.id]; });
+        return pend.reduce(function (cad, b) {
+          return cad.then(function () { return procesarBaja(b); });
+        }, Promise.resolve());
+      })
+      .catch(function () {});
+  }
+
+  function procesarBaja(b) {
+    var gane = false;
+    return conCandado(FILA_PUENTES, function (v) {
+      v = v || {};
+      if (v[b.id]) return null;   // otro navegador ya la procesó
+      gane = true;
+      v[b.id] = { chofer: b.nombre || '', sucursal: b.sucursal || '', fecha: b.bajaAt || '' };
+      return { valor: v };
+    }).then(function () {
+      if (!gane) return;
+      // 1) marcarlo como baja en el Clasificador (idempotente)
+      return conCandado('clasificador:estado', function (v) {
+        if (!v) return null;
+        var k = claveBajaClasif(v, b.nombre, b.sucursal);
+        if (v.bajas && v.bajas[k]) return null;
+        if (!v.bajas) v.bajas = {};
+        v.bajas[k] = true;
+        return { valor: v };
+      }).catch(function () {})
+      .then(function () {
+        // 2) devolverle su vacante a la tienda en la lista del Despacho
+        if (!String(b.sucursal || '').trim()) return null;
+        return conCandado(CLAVE_TIENDAS, function (v) {
+          if (!Array.isArray(v)) return null;
+          var meta = normSucursal(b.sucursal);
+          var i = -1;
+          for (var j = 0; j < v.length; j++) { if (normSucursal(v[j].nombre) === meta) { i = j; break; } }
+          if (i < 0) {
+            for (var l = 0; l < v.length; l++) {
+              var nx = normSucursal(v[l].nombre);
+              if (nx && meta && (nx.indexOf(meta) >= 0 || meta.indexOf(nx) >= 0)) { i = l; break; }
+            }
+          }
+          if (i < 0) return null;
+          v[i].vacantes = (parseInt(v[i].vacantes, 10) || 0) + 1;
+          return { valor: v, tienda: v[i].nombre };
+        }).catch(function () { return null; });
+      })
+      .then(function (r) {
+        señal('Baja de ' + (b.nombre || 'chofer') + ': marcada en el Clasificador' +
+              (r && r.tienda ? ' y vacante devuelta a ' + r.tienda : '') + '.');
+      });
+    }).catch(function () {});
+  }
+
+  function puenteCargas() {
+    var lista;
+    try { lista = JSON.parse(localStorage.getItem('driverTrackerData_v1') || '[]'); } catch (e) { lista = []; }
+    var cand = (lista || []).filter(function (d) {
+      return d && d.cargaRealizada && d.nombre && RECS_CARRERA[d.reclutador] &&
+             String(d.fechaAlta || '') >= EPOCA_PUENTES;
+    });
+    if (!cand.length) return Promise.resolve();
+    return conCandado('carrera:registros', function (v) {
+      var regs = Array.isArray(v) ? v : [];
+      var avisos = [];
+      cand.forEach(function (d) {
+        var n = normPersona(d.nombre);
+        var mes = String(d.fechaAlta).slice(0, 7);
+        var ya = regs.some(function (r) {
+          return normPersona(r.driverName || r.altaName) === n && String(r.date || '').slice(0, 7) === mes;
+        });
+        if (ya) return;
+        var meta = normSucursal(d.sucursal || '');
+        var urgente = ultimasTiendas.some(function (t) {
+          return normSucursal(t.nombre) === meta && String(t.urgencia || '').toLowerCase() === 'alta';
+        });
+        regs.push({
+          id: 'alta-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          recruiter: d.reclutador, altaName: d.nombre, clientStore: d.sucursal || '—',
+          driverName: d.nombre, priority: urgente ? 'urgente' : 'normal',
+          points: urgente ? 2 : 1,
+          date: String(d.fechaAlta).slice(0, 10), timestamp: Date.now(),
+        });
+        avisos.push(d.nombre + ' (+' + (urgente ? 2 : 1) + ' a ' + d.reclutador + ')');
+      });
+      if (!avisos.length) return null;
+      return { valor: regs, avisos: avisos };
+    }).then(function (r) {
+      if (r && r.avisos) señal('Puntos sumados en la Carrera: ' + r.avisos.join(' · '));
+    }).catch(function () {});
+  }
+
+  function puenteMidot() {
+    return fetch(REST + '?select=valor&clave=eq.' + encodeURIComponent('examinados:estado'), { headers: H })
+      .then(function (r) { return r.json(); })
+      .then(function (f) {
+        var filas = (f && f.length && f[0].valor && f[0].valor.control_examinados_rows_v2) || [];
+        var pasados = {};
+        filas.forEach(function (x) { if (x && x.paso && x.nombre) pasados[normPersona(x.nombre)] = true; });
+        if (!Object.keys(pasados).length) return;
+        var lista;
+        try { lista = JSON.parse(localStorage.getItem('driverTrackerData_v1') || 'null'); } catch (e) { lista = null; }
+        if (!Array.isArray(lista)) return;
+        var cambios = 0;
+        lista.forEach(function (d) {
+          if (!d || !d.nombre || !pasados[normPersona(d.nombre)]) return;
+          var nota = String(d.nota || '');
+          if (nota.indexOf(MARCA_MIDOT) >= 0) return;
+          d.nota = nota ? nota + ' · ' + MARCA_MIDOT : MARCA_MIDOT;
+          cambios++;
+        });
+        if (cambios) ponerOriginal('driverTrackerData_v1', JSON.stringify(lista));
+      })
+      .catch(function () {});
+  }
+
+  function puentes() {
+    return puenteBajas().then(puenteCargas);
+  }
+
   /* ── Retener el arranque hasta tener lo del equipo ───────────── */
   var arranque = null;
   var registrar = document.addEventListener.bind(document);
@@ -247,9 +462,9 @@
       marcaRemota = fila.actualizado;
       aplicar(fila.valor);
     }
-    // Las vacantes del Despacho entran ANTES de arrancar: la app las
-    // carga creyendo que son su plantilla importada.
-    return espejoVacantes().then(function () {
+    // Las vacantes del Despacho y las palomitas de Midot entran ANTES
+    // de arrancar: la app las carga creyendo que son suyas.
+    return espejoVacantes().then(puenteMidot).then(function () {
       arrancarApp();
       if (conEquipo) {
         señal('✓ Cargado lo del equipo');
@@ -257,6 +472,8 @@
         // Nadie ha publicado: arranca con lo que haya aquí y lo sube.
         publicar();
       }
+      // Los puentes corren aparte: no detienen el arranque.
+      setTimeout(function () { puentes(); }, 4000);
     });
   }).catch(function () {
     arrancarApp();
@@ -292,13 +509,17 @@
       // No se repinta solo: la app no expone su render desde fuera.
       señal('Hay cambios del equipo — recarga la página para verlos.', true);
     }).then(function () {
-      // Y de vez en cuando, ver si el Despacho publicó lista nueva.
-      // (Después de aplicar lo del equipo, para que el espejo decida
-      //  sobre la plantilla más reciente y no sobre una vieja.)
-      if (++vueltas % 4 !== 0) return;
-      return espejoVacantes().then(function (cambio) {
-        if (cambio) señal('El Despacho publicó vacantes nuevas — recarga la página para verlas.', true);
-      });
+      // Y de vez en cuando: ¿el Despacho publicó lista nueva?, ¿hay
+      // bajas/cargas/exámenes que los puentes deban repartir?
+      // (Después de aplicar lo del equipo, para decidir sobre lo
+      //  más reciente y no sobre algo viejo.)
+      vueltas++;
+      if (vueltas % 4 === 0) {
+        return espejoVacantes().then(function (cambio) {
+          if (cambio) señal('El Despacho publicó vacantes nuevas — recarga la página para verlas.', true);
+        });
+      }
+      if (vueltas % 4 === 2) return puenteMidot().then(puentes);
     }).catch(function () {});
   }, SONDEO);
 })();
