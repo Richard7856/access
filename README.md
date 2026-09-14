@@ -133,12 +133,29 @@ lista más reciente. La plantilla espejada se distingue porque su `fileName` es
 
 ## La Central de candidatos y la llave de persona (fases 0 y 1)
 
-`/central/` (`src/central.html`) es una página **nuestra, de solo consulta**:
-lee de un jalón las filas `clasificador:estado`, `seguimiento:estado`,
-`examinados:estado`, `carrera:registros` y `expedientes:estado`, junta las
-apariciones de cada persona y muestra su ficha —en qué pantalla está, en qué
-paso va y la liga para abrirla. No escribe nada en la base (el registrar y
-actualizar desde ahí es la fase 2 del plan).
+`/central/` (`src/central.html`) es una página **nuestra**: lee de un jalón
+las filas `clasificador:estado`, `seguimiento:estado`, `examinados:estado`,
+`carrera:registros` y `expedientes:estado`, junta las apariciones de cada
+persona y muestra su ficha —en qué pantalla está, en qué paso va y la liga
+para abrirla.
+
+Desde la fase 2 también **escribe**, con dos reglas fijas: *nunca borra*, y
+*nunca pisa* (cada fila se escribe con el mismo candado optimista del
+Clasificador —`PATCH …&actualizado=eq.<marca>`— y si alguien más guardó en
+medio, se reintenta el ciclo completo).
+
+- **Registrar alta**: una captura crea al chofer en Seguimiento, el alta en
+  el Clasificador, el registro con puntos en la Carrera (la prioridad se
+  precarga de la urgencia de la tienda en `despacho:tiendas`), la fila Midot
+  en Examinados (opcional) y el candidato en Expedientes con sus 14 casillas.
+  Cada registro se fabrica **byte a byte como lo haría la propia pantalla**
+  (mismos `uid`, mismos campos, `statusHistory` incluido). Si la persona ya
+  está en una pantalla, esa se respeta y solo se completan las que faltan.
+- **Corregir datos** (en la ficha): nombre, teléfono, proyecto, sucursal,
+  reclutador y estatus se actualizan en todas las pantallas donde la persona
+  aparezca. En Seguimiento el cambio de estatus alimenta `statusHistory`; en
+  el Clasificador solo se tocan `estatus[]`, `altas[]` y `baseEmpleados[]`
+  (los `pools` NO, porque los reconstruye el reporte que sube el equipo).
 
 Los cimientos viven en `src/persona.js` (`window.Persona`):
 

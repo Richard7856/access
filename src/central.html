@@ -70,6 +70,39 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
 .nota b{color:var(--ink)}
 #error{display:none;margin-top:18px;background:var(--mal-bg);border:1px solid #f0c4c0;color:var(--mal);
   border-radius:8px;padding:12px 15px;font-size:13.5px}
+.acciones{margin-top:16px}
+#btnAlta{font:600 14.5px Inter,sans-serif;background:var(--ok);color:#fff;border:none;border-radius:8px;
+  padding:11px 20px;cursor:pointer;box-shadow:0 2px 8px rgba(31,122,77,.25)}
+#btnAlta:hover{background:#186339}
+.forma{display:none;margin-top:14px;background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--ok);border-radius:10px;padding:18px}
+.forma.abierta{display:block}
+.forma h3{font-family:var(--disp);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.5px}
+.forma .quehace{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.campo label{font-size:11px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:3px;
+  text-transform:uppercase;letter-spacing:.4px}
+.campo input,.campo select{width:100%;font:14px Inter,sans-serif;padding:8px 10px;border:1.5px solid var(--line);
+  border-radius:7px;background:#F7F9FB}
+.campo input:focus,.campo select:focus{outline:none;border-color:var(--ruta);background:#fff}
+.destinos{margin-top:14px;font-size:13px}
+.destinos b{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-2)}
+.destinos .op{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px}
+.destinos label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.dupa{display:none;margin-top:12px;background:var(--pend-bg);border:1px solid #f0dca6;border-radius:8px;
+  padding:10px 13px;font-size:13px;color:#6b4e00}
+.dupa button{all:unset;cursor:pointer;font:600 12.5px Inter,sans-serif;color:var(--ruta);text-decoration:underline;margin-left:6px}
+.f-botones{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn-g{font:600 14px Inter,sans-serif;background:var(--ok);color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer}
+.btn-g:hover{background:#186339}
+.btn-g:disabled{background:#9DB8A9;cursor:wait}
+.btn-c{font:600 14px Inter,sans-serif;background:#fff;color:var(--ink-2);border:1.5px solid var(--line);border-radius:8px;padding:10px 18px;cursor:pointer}
+.resultado{display:none;margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;font-size:13.5px}
+.resultado .r-ok{color:var(--ok)} .resultado .r-ya{color:var(--ink-2)} .resultado .r-mal{color:var(--mal)}
+.resultado div{padding:2.5px 0}
+.btn-editar{all:unset;cursor:pointer;font:600 12.5px Inter,sans-serif;color:var(--ruta);
+  background:#EEF3FC;border:1px solid #CBD9F4;border-radius:7px;padding:6px 14px;margin-top:10px}
+.btn-editar:hover{background:#E2EBFA}
 @media(max-width:560px){.paso{grid-template-columns:20px 1fr;grid-auto-rows:auto}
   .paso .que{grid-column:2}.paso a{grid-column:2;justify-self:start}}
 </style>
@@ -102,13 +135,73 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
       Toca a la persona para ver en qué paso va en cada pantalla.</div>
   </div>
 
+  <div class="acciones">
+    <button id="btnAlta" type="button">➕ Registrar alta — una captura, todas las pantallas</button>
+  </div>
+
+  <div class="forma" id="forma">
+    <h3 id="fTitulo">Registrar alta</h3>
+    <div class="quehace" id="fQuehace"></div>
+    <div class="campos">
+      <div class="campo"><label for="fNombre">Nombre *</label>
+        <input id="fNombre" autocomplete="off" placeholder="Nombre completo del chofer"></div>
+      <div class="campo"><label for="fTel">Teléfono (10 dígitos)</label>
+        <input id="fTel" inputmode="numeric" autocomplete="off" placeholder="Es la llave que une las pantallas"></div>
+      <div class="campo"><label for="fCorreo">Correo</label>
+        <input id="fCorreo" type="email" autocomplete="off" placeholder="Para el examen Midot"></div>
+      <div class="campo"><label for="fProyecto">Proyecto</label>
+        <input id="fProyecto" list="dlProyectos" autocomplete="off" placeholder="Amazon, Liverpool, La Comer…">
+        <datalist id="dlProyectos"></datalist></div>
+      <div class="campo"><label for="fSucursal">Sucursal / tienda</label>
+        <input id="fSucursal" list="dlSucursales" autocomplete="off" placeholder="De la lista del Despacho">
+        <datalist id="dlSucursales"></datalist></div>
+      <div class="campo"><label for="fRec">Reclutador</label>
+        <select id="fRec"></select></div>
+      <div class="campo" id="cEstatus"><label for="fEstatus">Estatus en seguimiento</label>
+        <select id="fEstatus">
+          <option value="">Sin estatus</option>
+          <option value="Jaky">Jaky · Validación de documentos</option>
+          <option value="Dani">Dani · Onboarding</option>
+          <option value="Alta" selected>Pre alta · Coordinadores</option>
+        </select></div>
+      <div class="campo" id="cPrioridad"><label for="fPrioridad">Prioridad (puntos de la carrera)</label>
+        <select id="fPrioridad">
+          <option value="normal">Normal · 1 punto</option>
+          <option value="urgente">Urgente · 2 puntos</option>
+          <option value="critico">Crítico · 3 puntos</option>
+        </select></div>
+      <div class="campo" id="cFecha"><label for="fFecha">Fecha del alta</label>
+        <input id="fFecha" type="date"></div>
+      <div class="campo" id="cNota"><label for="fNota">Nota</label>
+        <input id="fNota" autocomplete="off" placeholder="Opcional"></div>
+    </div>
+    <div class="destinos" id="fDestinos">
+      <b>Escribir en:</b>
+      <div class="op">
+        <label><input type="checkbox" id="dSeguimiento" checked> Seguimiento (chofer)</label>
+        <label><input type="checkbox" id="dClasificador" checked> Clasificador (alta)</label>
+        <label><input type="checkbox" id="dCarrera" checked> Carrera (puntos)</label>
+        <label><input type="checkbox" id="dExpedientes" checked> Expedientes (candidato)</label>
+        <label><input type="checkbox" id="dExaminados"> Examinados (fila Midot)</label>
+      </div>
+    </div>
+    <div class="dupa" id="fDupa"></div>
+    <div class="f-botones">
+      <button class="btn-g" id="fGuardar" type="button">Guardar</button>
+      <button class="btn-c" id="fCancelar" type="button">Cancelar</button>
+    </div>
+    <div class="resultado" id="fResultado"></div>
+  </div>
+
   <div class="seccion" id="tituloLista">Últimos movimientos <small>las personas con actividad más reciente</small></div>
   <div class="lista" id="lista"><div class="vacio">Cargando…</div></div>
 
-  <p class="nota"><b>Solo consulta:</b> esta pantalla lee lo que el equipo ya capturó en las demás — aquí no se
-    agrega, no se edita y no se borra nada. El registro y la actualización desde aquí llegan en la fase&nbsp;2.
-    Por dentro, dos apariciones se tratan como la misma persona cuando comparten <b>teléfono</b> (o, si no hay,
-    el nombre escrito igual).</p>
+  <p class="nota"><b>Cómo funciona:</b> <b>Registrar alta</b> escribe la misma captura en las pantallas que
+    marques — y si la persona ya está en alguna, esa se respeta y solo se completan las que faltan.
+    <b>Corregir datos</b> (dentro de la ficha) arregla nombre, teléfono, proyecto, sucursal, reclutador o
+    estatus en todas las pantallas donde la persona aparezca. La Central <b>nunca borra nada</b>: los borrados
+    se siguen haciendo en cada pantalla, como siempre. Por dentro, dos apariciones son la misma persona cuando
+    comparten <b>teléfono</b> (o el nombre escrito igual).</p>
 </div>
 
 <script src="/persona.js"></script>
@@ -119,7 +212,9 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
   var REST = CFG.url + '/rest/v1/despacho_estado';
   var H = { apikey: CFG.key, Authorization: 'Bearer ' + CFG.key };
   var CLAVES = ['clasificador:estado','seguimiento:estado','examinados:estado',
-                'carrera:registros','expedientes:estado','catalogo:reclutadores'];
+                'carrera:registros','expedientes:estado','catalogo:reclutadores',
+                'despacho:tiendas'];
+  var HJSON = Object.assign({ 'Content-Type': 'application/json' }, H);
 
   /* El orden del viaje real de un candidato — así se pinta la ficha. */
   var PANTALLAS = [
@@ -135,6 +230,8 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
   var personas = [];            // [{key, nombre, nombreNorm, tel, recs{}, aps[], fechaMax, dup}]
   var porLlave = {};
   var abiertas = {};            // fichas abiertas, para no cerrarlas al refrescar
+  var tiendas = [];             // la lista del Despacho, para la forma
+  var proyectos = {};           // proyectos vistos en seguimiento/expedientes
 
   function $(id){ return document.getElementById(id); }
 
@@ -158,12 +255,14 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
   }
 
   /* ── Una "aparición": la persona vista desde una pantalla ─────── */
-  function ap(pantalla, tipo, nombre, telefono, reclutador, detalle, fecha, rojo){
+  function ap(pantalla, tipo, nombre, telefono, reclutador, detalle, fecha, rojo, extra){
     var nn = P.normalizarNombre(nombre);
     if (!nn) return null;
-    return { pantalla: pantalla, tipo: tipo, nombre: String(nombre).trim(), nombreNorm: nn,
-             tel: P.llaveTelefono(telefono), rec: reclutador || '', detalle: detalle || '',
-             fecha: fecha, ts: tsDe(fecha), rojo: !!rojo };
+    var a = { pantalla: pantalla, tipo: tipo, nombre: String(nombre).trim(), nombreNorm: nn,
+              tel: P.llaveTelefono(telefono), rec: reclutador || '', detalle: detalle || '',
+              fecha: fecha, ts: tsDe(fecha), rojo: !!rojo };
+    if (extra) Object.assign(a, extra);
+    return a;
   }
 
   var ESTATUS_SEG = { '':'Sin estatus', 'Jaky':'Validación de documentos (Jaky)',
@@ -176,6 +275,8 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
     var v;
 
     if ((v = por['catalogo:reclutadores']) && v.reclutadores) catalogo = v.reclutadores;
+    if ((v = por['despacho:tiendas']) && v.length) tiendas = v;
+    proyectos = {};
 
     if ((v = por['clasificador:estado'])) {
       ['rendimiento','asignacion'].forEach(function(pool){
@@ -205,9 +306,11 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
     if ((v = por['seguimiento:estado'])) {
       (v.driverTrackerData_v1 || []).forEach(function(d){
         stats.choferes++; if (d.cargaRealizada) stats.carga++;
+        if (d.proyecto) proyectos[String(d.proyecto).trim()] = 1;
         var est = d.cargaRealizada ? 'Alta con carga ✓' : (ESTATUS_SEG[d.estatus] || d.estatus || 'Sin estatus');
         aps.push(ap('seguimiento','Chofer', d.nombre, d.telefono, d.reclutador,
-          [d.proyecto, d.sucursal, est].filter(Boolean).join(' · '), d.fechaAlta || d.fechaRegistro));
+          [d.proyecto, d.sucursal, est].filter(Boolean).join(' · '), d.fechaAlta || d.fechaRegistro, false,
+          { proyecto: d.proyecto || '', sucursal: d.sucursal || '', estatusCod: d.estatus || '', carga: !!d.cargaRealizada }));
       });
       (v.driverTrackerDiscarded_v1 || []).forEach(function(d){
         aps.push(ap('seguimiento','Descartado', d.nombre, d.telefono, d.reclutador,
@@ -225,7 +328,7 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
         if (!r.paso) stats.examen++;
         aps.push(ap('examinados','Examen Midot', r.nombre, null, r.reclutador,
           (r.paso ? 'Pasó la prueba ✓' : 'Aún no pasa') + (r.correo ? ' · ' + r.correo : ''),
-          r.fechaCompletada || r.fechaAsignada));
+          r.fechaCompletada || r.fechaAsignada, false, { correo: r.correo || '' }));
       });
     }
 
@@ -241,8 +344,10 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
       (v.candidates || []).forEach(function(c){
         var docs = c.documentos || {}, n = 0;
         Object.keys(docs).forEach(function(k){ if (docs[k] && docs[k].fileName) n++; });
+        if (c.proyecto) proyectos[String(c.proyecto).trim()] = 1;
         aps.push(ap('expedientes','Expediente', c.nombre, c.numero, null,
-          [c.proyecto, n + ' de 14 documentos'].filter(Boolean).join(' · '), null));
+          [c.proyecto, n + ' de 14 documentos'].filter(Boolean).join(' · '), null, false,
+          { proyecto: c.proyecto || '', correo: c.correo || '' }));
       });
     }
 
@@ -346,6 +451,8 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
         cerca.map(function(o){ return '<button type="button" data-ir="' + esc(o.key) + '">' + esc(o.nombre) + '</button>'; }).join('') +
         '</div>';
     }
+    html += '<button class="btn-editar" type="button" data-editar="' + esc(p.key) +
+            '">✎ Corregir datos — se arregla en todas las pantallas donde aparece</button>';
     return html;
   }
 
@@ -395,6 +502,267 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
     }
   }
 
+  /* ═══════════════════ FASE 2: escribir desde la Central ═════════
+     Regla de la casa: la Central AGREGA y CORRIGE, nunca borra.
+     Cada fila se escribe con candado optimista (igual que el
+     Clasificador y Examinados): si alguien más guardó entre que
+     leímos y escribimos, se reintenta el ciclo completo, sin pisar. */
+  function escribirFila(clave, transformar){
+    var REINTENTOS = 6;
+    function ciclo(n){
+      return fetch(REST + '?select=valor,actualizado&clave=eq.' + encodeURIComponent(clave), { headers: H })
+        .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(f){
+          var fila = f && f.length ? f[0] : null;
+          var res = transformar(fila ? fila.valor : null);
+          if (!res || !res.valor) return res || { estado: 'ya', que: 'sin cambios' };
+          var pet = fila
+            ? fetch(REST + '?clave=eq.' + encodeURIComponent(clave) +
+                    '&actualizado=eq.' + encodeURIComponent(fila.actualizado), {
+                method: 'PATCH',
+                headers: Object.assign({ Prefer: 'return=representation' }, HJSON),
+                body: JSON.stringify({ valor: res.valor }),
+              })
+            : fetch(REST + '?on_conflict=clave', {
+                method: 'POST',
+                headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, HJSON),
+                body: JSON.stringify({ clave: clave, valor: res.valor }),
+              });
+          return pet.then(function(r){
+            if (!r.ok) return r.text().then(function(t){ throw new Error(t || ('HTTP ' + r.status)); });
+            return r.json();
+          }).then(function(filas){
+            if (fila && (!filas || !filas.length)) {
+              // Alguien más guardó justo ahora: ciclo completo otra vez.
+              if (n >= REINTENTOS) throw new Error('mucha gente guardando al mismo tiempo — reintenta');
+              return new Promise(function(s){ setTimeout(s, 250 + Math.random() * 750); })
+                .then(function(){ return ciclo(n + 1); });
+            }
+            return res;
+          });
+        });
+    }
+    return ciclo(1);
+  }
+
+  function uidCorta(pre){ return pre + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function hoyISO(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function clonar(o){ return JSON.parse(JSON.stringify(o == null ? null : o)); }
+
+  /* ¿Este registro es de la persona? (por teléfono, o por cualquiera
+     de las formas en que su nombre está escrito) */
+  function esDeLaPersona(nombre, tel, variantes, tels){
+    var t = P.llaveTelefono(tel);
+    if (t && tels[t]) return true;
+    var n = P.normalizarNombre(nombre);
+    return !!(n && variantes[n]);
+  }
+  function llavesDe(persona, nombreExtra, telExtra){
+    var variantes = {}, tels = {};
+    if (persona) {
+      Object.keys(persona.nombres).forEach(function(x){ variantes[P.normalizarNombre(x)] = 1; });
+      if (persona.tel) tels[persona.tel] = 1;
+      persona.aps.forEach(function(a){ if (a.tel) tels[a.tel] = 1; });
+    }
+    if (nombreExtra) variantes[P.normalizarNombre(nombreExtra)] = 1;
+    var t = P.llaveTelefono(telExtra);
+    if (t) tels[t] = 1;
+    return { variantes: variantes, tels: tels };
+  }
+
+  /* Las 14 casillas de documentos como las publica el Gestor de
+     Expedientes para un candidato nuevo, sin nada cargado aún. */
+  var DOCS_EXPEDIENTE = ['selfie','ine_frente','ine_reverso','licencia_frente','licencia_reverso',
+    'tarjeta_circulacion_frente','tarjeta_circulacion_reverso','poliza_seguro','comprobante_domicilio',
+    'acta_nacimiento','nss_doc','curp_doc','constancia_fiscal','estado_cuenta'];
+  function docsVacios(){
+    var d = {};
+    DOCS_EXPEDIENTE.forEach(function(k){
+      d[k] = { status: 'pendiente', fileName: null, sourceType: null,
+               settings: { brightness: 0, contrast: 0, sharpness: 25 }, archivo: null };
+    });
+    return d;
+  }
+
+  /* ── Registrar alta: qué se escribe en cada pantalla ──────────── */
+  function transformesDeAlta(datos, ll){
+    var PUNTOS = { normal: 1, urgente: 2, critico: 3 };
+    var ahora = new Date().toISOString();
+    var fechaMX = datos.fecha ? datos.fecha.split('-').reverse().join('/') : '';
+    var t = {};
+
+    t.seguimiento = function(valor){
+      valor = clonar(valor) || {};
+      var lista = valor.driverTrackerData_v1 || [];
+      if (lista.some(function(d){ return esDeLaPersona(d.nombre, d.telefono, ll.variantes, ll.tels); }))
+        return { estado: 'ya', que: 'ya está como chofer' };
+      lista = lista.concat([{
+        id: uidCorta('d'), reclutador: datos.recPanel, nombre: datos.nombre, telefono: datos.telefono,
+        proyecto: datos.proyecto, sucursal: datos.sucursal, fechaRegistro: ahora, nota: datos.nota,
+        estatus: datos.estatus, cargaRealizada: false, fechaAlta: datos.fecha ? datos.fecha + 'T12:00:00.000Z' : null,
+        pausaDesde: null, pausaMs: 0, pausaMotivo: '',
+        statusHistory: datos.estatus ? [{ estatus: datos.estatus, at: ahora }] : [],
+      }]);
+      valor.driverTrackerData_v1 = lista;
+      return { valor: valor, estado: 'creado', que: 'chofer creado' };
+    };
+
+    t.clasificador = function(valor){
+      valor = clonar(valor) || {};
+      var altas = valor.altas || [];
+      if (altas.some(function(a){ return esDeLaPersona(a.chofer || a.name, null, ll.variantes, ll.tels); }))
+        return { estado: 'ya', que: 'el alta ya estaba' };
+      altas = altas.concat([{ rec: datos.recNombre, name: datos.nombre, client: datos.sucursal || datos.proyecto,
+                              chofer: datos.nombre, urg: datos.prioridad === 'normal' ? '' : datos.prioridad,
+                              date: fechaMX, dupOk: true }]);
+      valor.altas = altas;
+      return { valor: valor, estado: 'creado', que: 'alta agregada' };
+    };
+
+    t.carrera = function(valor){
+      if (!datos.recCarrera) return { estado: 'ya', que: 'sin reclutador asignado — no suma puntos' };
+      var lista = Array.isArray(valor) ? clonar(valor) : [];
+      var mes = (datos.fecha || hoyISO()).slice(0, 7);
+      if (lista.some(function(r){
+        return esDeLaPersona(r.driverName || r.altaName, null, ll.variantes, ll.tels) &&
+               String(r.date || '').slice(0, 7) === mes;
+      })) return { estado: 'ya', que: 'ya tiene registro este mes' };
+      lista.push({
+        id: 'alta-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+        recruiter: datos.recCarrera, altaName: datos.nombre, clientStore: datos.sucursal || '—',
+        driverName: datos.nombre, priority: datos.prioridad, points: PUNTOS[datos.prioridad] || 1,
+        date: datos.fecha || hoyISO(), timestamp: Date.now(),
+      });
+      return { valor: lista, estado: 'creado', que: (PUNTOS[datos.prioridad] || 1) + ' punto(s) para ' + datos.recCarrera };
+    };
+
+    t.examinados = function(valor){
+      valor = clonar(valor) || {};
+      var filas = valor.control_examinados_rows_v2 || [];
+      if (filas.some(function(r){ return esDeLaPersona(r.nombre, null, ll.variantes, ll.tels); }))
+        return { estado: 'ya', que: 'ya tiene fila de examen' };
+      filas = filas.concat([{ id: uidCorta('r'), password: '', nombre: datos.nombre, correo: datos.correo,
+                              reclutador: datos.recNombre, paso: false, fechaCompletada: null,
+                              fechaAsignada: hoyISO() }]);
+      valor.control_examinados_rows_v2 = filas;
+      return { valor: valor, estado: 'creado', que: 'fila Midot creada' };
+    };
+
+    t.expedientes = function(valor){
+      valor = clonar(valor) || { candidates: [] };
+      var lista = valor.candidates || [];
+      if (lista.some(function(c){ return esDeLaPersona(c.nombre, c.numero, ll.variantes, ll.tels); }))
+        return { estado: 'ya', que: 'ya tiene expediente' };
+      lista = lista.concat([{
+        id: 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        nombre: datos.nombre, proyecto: datos.proyecto, curp: '', nss: '', numero: datos.telefono,
+        correo: datos.correo, vehiculo: '', placas: '', direccion: '', documentos: docsVacios(),
+      }]);
+      valor.candidates = lista;
+      return { valor: valor, estado: 'creado', que: 'expediente abierto (sin documentos aún)' };
+    };
+
+    return t;
+  }
+
+  /* ── Corregir datos: se actualiza donde la persona aparezca ───── */
+  function transformesDeEdicion(datos, ll){
+    var ahora = new Date().toISOString();
+    var t = {};
+
+    function pon(obj, campo, v){
+      if (v == null || v === '') return 0;
+      if (obj[campo] === v) return 0;
+      obj[campo] = v; return 1;
+    }
+
+    t.seguimiento = function(valor){
+      valor = clonar(valor);
+      if (!valor) return { estado: 'ya', que: 'no aparece' };
+      var n = 0;
+      (valor.driverTrackerData_v1 || []).forEach(function(d){
+        if (!esDeLaPersona(d.nombre, d.telefono, ll.variantes, ll.tels)) return;
+        n += pon(d, 'nombre', datos.nombre) + pon(d, 'telefono', datos.telefono) +
+             pon(d, 'proyecto', datos.proyecto) + pon(d, 'sucursal', datos.sucursal) +
+             pon(d, 'reclutador', datos.recPanel);
+        if (datos.estatus !== null && d.estatus !== datos.estatus) {
+          d.estatus = datos.estatus;
+          (d.statusHistory = d.statusHistory || []).push({ estatus: datos.estatus, at: ahora });
+          n++;
+        }
+      });
+      // En descartados y bajas solo se corrige la identidad, no el estatus.
+      ['driverTrackerDiscarded_v1', 'driverTrackerBaja_v1'].forEach(function(caja){
+        (valor[caja] || []).forEach(function(d){
+          if (!esDeLaPersona(d.nombre, d.telefono, ll.variantes, ll.tels)) return;
+          n += pon(d, 'nombre', datos.nombre) + pon(d, 'telefono', datos.telefono) +
+               pon(d, 'proyecto', datos.proyecto) + pon(d, 'sucursal', datos.sucursal);
+        });
+      });
+      return n ? { valor: valor, estado: 'creado', que: n + ' dato(s) corregidos' } : { estado: 'ya', que: 'sin cambios' };
+    };
+
+    t.clasificador = function(valor){
+      valor = clonar(valor);
+      if (!valor) return { estado: 'ya', que: 'no aparece' };
+      var n = 0;
+      (valor.estatus || []).forEach(function(e){
+        if (!esDeLaPersona(e.cand, e.tel, ll.variantes, ll.tels)) return;
+        n += pon(e, 'cand', datos.nombre) + pon(e, 'tel', datos.telefono);
+      });
+      (valor.altas || []).forEach(function(a){
+        if (!esDeLaPersona(a.chofer || a.name, null, ll.variantes, ll.tels)) return;
+        n += pon(a, 'chofer', datos.nombre) + pon(a, 'name', datos.nombre);
+      });
+      (valor.baseEmpleados || []).forEach(function(b){
+        if (!esDeLaPersona(b.chofer, null, ll.variantes, ll.tels)) return;
+        n += pon(b, 'chofer', datos.nombre);
+      });
+      // Los pools NO se tocan: los reconstruye el reporte que sube el equipo.
+      return n ? { valor: valor, estado: 'creado', que: n + ' dato(s) corregidos' } : { estado: 'ya', que: 'sin cambios' };
+    };
+
+    t.carrera = function(valor){
+      var lista = Array.isArray(valor) ? clonar(valor) : null;
+      if (!lista) return { estado: 'ya', que: 'no aparece' };
+      var n = 0;
+      lista.forEach(function(r){
+        if (!esDeLaPersona(r.driverName || r.altaName, null, ll.variantes, ll.tels)) return;
+        n += pon(r, 'driverName', datos.nombre);
+        if (esDeLaPersona(r.altaName, null, ll.variantes, ll.tels)) n += pon(r, 'altaName', datos.nombre);
+      });
+      return n ? { valor: lista, estado: 'creado', que: 'nombre corregido en ' + n + ' registro(s)' } : { estado: 'ya', que: 'sin cambios' };
+    };
+
+    t.examinados = function(valor){
+      valor = clonar(valor);
+      if (!valor) return { estado: 'ya', que: 'no aparece' };
+      var n = 0;
+      (valor.control_examinados_rows_v2 || []).forEach(function(r){
+        if (!esDeLaPersona(r.nombre, null, ll.variantes, ll.tels)) return;
+        n += pon(r, 'nombre', datos.nombre) + pon(r, 'correo', datos.correo) + pon(r, 'reclutador', datos.recNombre);
+      });
+      return n ? { valor: valor, estado: 'creado', que: n + ' dato(s) corregidos' } : { estado: 'ya', que: 'sin cambios' };
+    };
+
+    t.expedientes = function(valor){
+      valor = clonar(valor);
+      if (!valor) return { estado: 'ya', que: 'no aparece' };
+      var n = 0;
+      (valor.candidates || []).forEach(function(c){
+        if (!esDeLaPersona(c.nombre, c.numero, ll.variantes, ll.tels)) return;
+        n += pon(c, 'nombre', datos.nombre) + pon(c, 'numero', datos.telefono) +
+             pon(c, 'proyecto', datos.proyecto) + pon(c, 'correo', datos.correo);
+      });
+      return n ? { valor: valor, estado: 'creado', que: n + ' dato(s) corregidos' } : { estado: 'ya', que: 'sin cambios' };
+    };
+
+    return t;
+  }
+
   /* ── Cargar ───────────────────────────────────────────────────── */
   function cargar(){
     $('estado').textContent = 'Cargando lo del equipo…';
@@ -426,10 +794,194 @@ h1{font-family:var(--disp);font-weight:800;font-size:clamp(28px,6vw,42px);letter
       });
   }
 
+  /* ── La forma: registrar alta / corregir datos ────────────────── */
+  var FILAS_DESTINO = { seguimiento: 'seguimiento:estado', clasificador: 'clasificador:estado',
+                        carrera: 'carrera:registros', examinados: 'examinados:estado',
+                        expedientes: 'expedientes:estado' };
+  var ORDEN_DESTINOS = ['seguimiento', 'clasificador', 'carrera', 'examinados', 'expedientes'];
+  var NOMBRE_DESTINO = { seguimiento: 'Seguimiento', clasificador: 'Clasificador', carrera: 'Carrera',
+                         examinados: 'Examinados', expedientes: 'Expedientes' };
+  var modoForma = null;      // null | {tipo:'alta'} | {tipo:'editar', key}
+  var dupEncontrada = null;  // la persona que ya existe, si la hay
+
+  function llenarSelectores(){
+    $('fRec').innerHTML = catalogo.map(function(r){
+      return '<option value="' + esc(r.id) + '">' + esc(r.nombre) + '</option>';
+    }).join('');
+    $('dlSucursales').innerHTML = tiendas.map(function(t){
+      return '<option value="' + esc(t.nombre) + '">';
+    }).join('');
+    var props = Object.keys(proyectos).sort();
+    ['La Comer', 'Liverpool', 'Amazon'].forEach(function(p){
+      if (!props.some(function(x){ return x.toUpperCase() === p.toUpperCase(); })) props.unshift(p);
+    });
+    $('dlProyectos').innerHTML = props.map(function(p){ return '<option value="' + esc(p) + '">'; }).join('');
+  }
+
+  function abrirForma(tipo, key){
+    modoForma = { tipo: tipo, key: key || null };
+    dupEncontrada = null;
+    llenarSelectores();
+    $('fResultado').style.display = 'none'; $('fResultado').innerHTML = '';
+    $('fDupa').style.display = 'none';
+    $('fGuardar').disabled = false;
+    var esAlta = tipo === 'alta';
+    ['fDestinos', 'cPrioridad', 'cFecha', 'cNota'].forEach(function(id){
+      $(id).style.display = esAlta ? '' : 'none';
+    });
+    if (esAlta) {
+      $('fTitulo').textContent = 'Registrar alta';
+      $('fQuehace').textContent = 'Una captura y aparece en todas las pantallas marcadas. ' +
+        'Si la persona ya está en alguna, esa se respeta y solo se completan las que faltan.';
+      ['fNombre','fTel','fCorreo','fProyecto','fSucursal','fNota'].forEach(function(id){ $(id).value = ''; });
+      $('fRec').value = 'free';
+      $('fEstatus').value = 'Alta';
+      $('fPrioridad').value = 'normal';
+      $('fFecha').value = hoyISO();
+      $('cEstatus').style.display = '';
+    } else {
+      var p = porLlave[key];
+      if (!p) return;
+      $('fTitulo').textContent = 'Corregir a ' + p.nombre;
+      $('fQuehace').textContent = 'Los cambios se aplican en todas las pantallas donde aparece. Nada se borra.';
+      $('fNombre').value = p.nombre;
+      $('fTel').value = p.tel || '';
+      var conCorreo = p.aps.filter(function(a){ return a.correo; })[0];
+      $('fCorreo').value = conCorreo ? conCorreo.correo : '';
+      var seg = p.aps.filter(function(a){ return a.pantalla === 'seguimiento' && a.tipo === 'Chofer'; })[0];
+      var exp = p.aps.filter(function(a){ return a.pantalla === 'expedientes'; })[0];
+      $('fProyecto').value = (seg && seg.proyecto) || (exp && exp.proyecto) || '';
+      $('fSucursal').value = (seg && seg.sucursal) || '';
+      $('fRec').value = p.reclutador ? p.reclutador.id : 'free';
+      $('fNota').value = '';
+      $('cEstatus').style.display = seg ? '' : 'none';
+      if (seg) $('fEstatus').value = seg.estatusCod || '';
+    }
+    $('forma').classList.add('abierta');
+    $('forma').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('fNombre').focus();
+  }
+
+  function cerrarForma(){
+    modoForma = null;
+    $('forma').classList.remove('abierta');
+  }
+
+  function checarDuplicado(){
+    if (!modoForma) return;
+    var nombre = $('fNombre').value.trim(), tel = P.llaveTelefono($('fTel').value);
+    var nn = P.normalizarNombre(nombre);
+    dupEncontrada = null;
+    var caja = $('fDupa');
+    var otra = personas.filter(function(p){
+      if (modoForma.tipo === 'editar' && p.key === modoForma.key) return false;
+      return (tel && (p.tel === tel || p.aps.some(function(a){ return a.tel === tel; }))) ||
+             (nn && nn.length >= 5 && p.nombreNorm === nn);
+    })[0];
+    if (!otra) { caja.style.display = 'none'; return; }
+    dupEncontrada = otra;
+    var donde = PANTALLAS.filter(function(t){
+      return otra.aps.some(function(a){ return a.pantalla === t.id; });
+    }).map(function(t){ return t.nombre; }).join(', ');
+    caja.innerHTML = (modoForma.tipo === 'alta'
+      ? '⚠ <b>' + esc(otra.nombre) + '</b>' + (otra.tel ? ' (📱 ' + esc(otra.tel) + ')' : '') +
+        ' ya existe — aparece en: ' + esc(donde) + '. Si es la misma persona, al guardar solo se ' +
+        '<b>completan las pantallas donde falta</b>; no se duplica nada.'
+      : '⚠ Ese teléfono ya es de <b>' + esc(otra.nombre) + '</b>. Si guardas, las dos se tratarán ' +
+        'como la misma persona.') +
+      '<button type="button" data-verficha="' + esc(otra.key) + '">Ver su ficha</button>';
+    caja.style.display = 'block';
+  }
+
+  function leerForma(){
+    var recId = $('fRec').value;
+    var rec = catalogo.filter(function(r){ return r.id === recId; })[0];
+    var esFree = !rec || rec.id === 'free';
+    var telCrudo = $('fTel').value.trim();
+    return {
+      nombre: $('fNombre').value.trim(),
+      telefono: P.llaveTelefono(telCrudo) || telCrudo,
+      correo: $('fCorreo').value.trim(),
+      proyecto: $('fProyecto').value.trim(),
+      sucursal: $('fSucursal').value.trim(),
+      recPanel: esFree ? 'free' : rec.nombre,
+      recNombre: esFree ? '' : rec.nombre,
+      recCarrera: esFree ? null : rec.nombre,
+      estatus: $('cEstatus').style.display === 'none' ? null : $('fEstatus').value,
+      prioridad: $('fPrioridad').value,
+      fecha: $('fFecha').value || hoyISO(),
+      nota: $('fNota').value.trim(),
+    };
+  }
+
+  function guardarForma(){
+    if (!modoForma) return;
+    var datos = leerForma();
+    if (!datos.nombre) { $('fNombre').focus(); return; }
+    var esAlta = modoForma.tipo === 'alta';
+    var destinos = esAlta
+      ? ORDEN_DESTINOS.filter(function(d){
+          return $('d' + d.charAt(0).toUpperCase() + d.slice(1)).checked;
+        })
+      : ORDEN_DESTINOS;
+    if (!destinos.length) return;
+
+    var persona = esAlta ? dupEncontrada : porLlave[modoForma.key];
+    var ll = esAlta ? llavesDe(persona, datos.nombre, datos.telefono) : llavesDe(persona);
+    var trans = esAlta ? transformesDeAlta(datos, ll) : transformesDeEdicion(datos, ll);
+
+    $('fGuardar').disabled = true;
+    var res = $('fResultado');
+    res.style.display = 'block';
+    res.innerHTML = '<div>Escribiendo…</div>';
+
+    var hechos = [];
+    destinos.reduce(function(cadena, d){
+      return cadena.then(function(){
+        return escribirFila(FILAS_DESTINO[d], trans[d])
+          .catch(function(e){ return { estado: 'error', que: e.message }; })
+          .then(function(r){ hechos.push([d, r]); });
+      });
+    }, Promise.resolve()).then(function(){
+      res.innerHTML = hechos.map(function(par){
+        var d = par[0], r = par[1] || {};
+        var icono = r.estado === 'creado' ? '✔' : r.estado === 'error' ? '✘' : '•';
+        var clase = r.estado === 'creado' ? 'r-ok' : r.estado === 'error' ? 'r-mal' : 'r-ya';
+        return '<div class="' + clase + '">' + icono + ' ' + NOMBRE_DESTINO[d] + ' — ' + esc(r.que || '') + '</div>';
+      }).join('');
+      $('fGuardar').disabled = false;
+      $('fCancelar').textContent = 'Cerrar';
+      // La búsqueda apunta a la persona guardada YA — y el refresco que
+      // viene en camino respeta lo que haya en la caja en ese momento,
+      // por si el usuario ya está buscando a alguien más.
+      if (datos.nombre) { $('q').value = datos.nombre; refrescarVista(); }
+      return cargar();
+    });
+  }
+
   /* ── Eventos ──────────────────────────────────────────────────── */
   $('q').addEventListener('input', refrescarVista);
   $('btnRefrescar').addEventListener('click', cargar);
+  $('btnAlta').addEventListener('click', function(){ abrirForma('alta'); });
+  $('fCancelar').addEventListener('click', function(){ $('fCancelar').textContent = 'Cancelar'; cerrarForma(); });
+  $('fGuardar').addEventListener('click', guardarForma);
+  $('fNombre').addEventListener('input', checarDuplicado);
+  $('fTel').addEventListener('input', checarDuplicado);
+  $('fSucursal').addEventListener('change', function(){
+    if (!modoForma || modoForma.tipo !== 'alta') return;
+    var nn = P.normalizarNombre($('fSucursal').value);
+    var t = tiendas.filter(function(x){ return P.normalizarNombre(x.nombre) === nn; })[0];
+    if (t) $('fPrioridad').value = String(t.urgencia || '').toLowerCase() === 'alta' ? 'urgente' : 'normal';
+  });
+  $('fDupa').addEventListener('click', function(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-verficha]') : null;
+    if (!b) return;
+    var o = porLlave[b.dataset.verficha];
+    if (o) { abiertas[o.key] = true; $('q').value = o.nombre; refrescarVista(); }
+  });
   $('lista').addEventListener('click', function(ev){
+    var ed = ev.target.closest ? ev.target.closest('[data-editar]') : null;
+    if (ed) { abrirForma('editar', ed.dataset.editar); return; }
     var ir = ev.target.closest ? ev.target.closest('[data-ir]') : null;
     if (ir) {
       var o = porLlave[ir.dataset.ir];
