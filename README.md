@@ -131,6 +131,28 @@ mano en el panel, su archivo se respeta hasta que el Despacho publique una
 lista más reciente. La plantilla espejada se distingue porque su `fileName` es
 `Lista del Despacho (automático)` y trae `origen: 'despacho'`.
 
+### Estatus que viajan solos (fase 3)
+
+Tres puentes automáticos viven en `sync-seguimiento.js` (corren en cualquier
+navegador con el Seguimiento abierto, al cargar y cada ~100 s):
+
+1. **Baja → vacante y Clasificador.** Una baja marcada en el panel devuelve
+   su vacante a la tienda en `despacho:tiendas` y marca al candidato en el
+   mapa `bajas` del Clasificador (llave `avNorm(nombre)|zona`, con la zona
+   deducida de su base de empleados). El libro `puentes:bajas` guarda qué
+   bajas ya se procesaron: el primer navegador que la reclama (con candado
+   optimista) es el único que la aplica — nunca se libera doble.
+2. **Pasó Midot → nota del chofer.** Si su fila de Examinados tiene la
+   palomita, la ficha del chofer gana la nota `✔ Midot` (idempotente, solo
+   en el navegador; viaja con la siguiente publicación normal).
+3. **Carga realizada → puntos en la Carrera.** Si nadie registró el alta en
+   la Carrera ese mes, se agrega sola con el reclutador del chofer y la
+   prioridad según la urgencia de su tienda. Si ya había registro, no se
+   duplica.
+
+Nada es retroactivo: solo eventos con fecha desde `EPOCA_PUENTES`
+(2026-09-15). Los puentes **solo agregan o marcan, nunca borran**.
+
 ## La Central de candidatos y la llave de persona (fases 0 y 1)
 
 `/central/` (`src/central.html`) es una página **nuestra**: lee de un jalón
