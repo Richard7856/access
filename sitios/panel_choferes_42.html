@@ -68,6 +68,17 @@
   .parser-body{margin-top:14px;}
   #parserInput{width:100%; resize:vertical; min-height:120px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:var(--font-mono); font-size:13px; color:var(--ink); background:#FBFCFE;}
   #parserInput:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent;}
+  #recruiterAssignHost{margin-top:14px;}
+  .assign-box{border:2px solid var(--accent); border-radius:14px; background:var(--accent-soft); padding:14px 16px;}
+  .assign-head{display:flex; align-items:center; justify-content:space-between; font-weight:800; color:var(--accent); font-size:14px; margin-bottom:10px;}
+  .assign-close{border:none; background:transparent; color:var(--accent); font-size:16px; cursor:pointer; font-weight:800; line-height:1; padding:2px 6px; border-radius:8px;}
+  .assign-close:hover{background:rgba(14,124,74,.12);}
+  .assign-all{display:flex; align-items:center; gap:10px; padding:8px 0 12px; border-bottom:1px dashed var(--border-strong); margin-bottom:10px; font-weight:700; color:var(--ink);}
+  .assign-list{display:flex; flex-direction:column; gap:8px;}
+  .assign-row{display:flex; align-items:center; justify-content:space-between; gap:12px; background:#fff; border:1px solid var(--border); border-radius:10px; padding:8px 12px;}
+  .assign-name{font-size:13px; font-weight:600; color:var(--ink);}
+  .assign-select, .assign-row select{font-family:var(--font-body); font-size:13px; font-weight:700; padding:7px 12px; border:2px solid var(--border-strong); border-radius:99px; background:#FFFDF7; color:var(--ink); cursor:pointer;}
+  .assign-select:focus, .assign-row select:focus{outline:none; border-color:var(--accent);}
   .parser-actions{display:flex; align-items:center; gap:14px; margin-top:12px; flex-wrap:wrap;}
   .hint{font-size:12px; color:var(--ink-soft);}
 
@@ -309,6 +320,11 @@
   .discarded-table .mono{font-family:var(--font-mono); font-size:12px;}
 
   .log-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+  .log-datebar{display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:2px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);}
+  .log-date-field{display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--ink-soft);}
+  .log-date-field input{font-family:var(--font-body); font-size:13px; padding:8px 10px; border:1px solid var(--border-strong); border-radius:9px; background:#FFFDF7; color:var(--ink);}
+  .log-presets{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .log-preset-btn{font-size:12px; padding:8px 14px;}
   .log-search{font-family:var(--font-body); font-size:13px; padding:8px 12px; border:1px solid var(--border); border-radius:7px; background:#FBFCFE; min-width:240px;}
   .log-search:focus{outline:2px solid var(--accent); outline-offset:1px;}
   .log-action-chip{display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; white-space:nowrap;}
@@ -373,6 +389,16 @@
   }
   .pending-note-input::placeholder{ color:var(--ink-soft); opacity:.75; }
   .pending-note-input:focus{ outline:none; border-style:solid; border-color:var(--accent); background:#fff; box-shadow:0 0 0 2px var(--accent-soft); }
+  .pending-emergency{ margin-top:8px; padding:8px 10px; background:#FFF4E9; border:1px solid #F0C79A; border-radius:10px; }
+  .pending-emergency-title{ font-size:11px; font-weight:800; color:#8A4B12; margin-bottom:6px; }
+  .pending-emergency-row{ display:flex; align-items:flex-start; gap:8px; padding:5px 0; border-top:1px dashed #F0D6B8; cursor:pointer; }
+  .pending-emergency-row:first-of-type{ border-top:none; }
+  .pending-emergency-row input{ margin-top:2px; cursor:pointer; flex-shrink:0; }
+  .pending-emergency-info{ display:flex; flex-direction:column; line-height:1.35; }
+  .pending-emergency-info .pe-nombre{ font-size:11.5px; font-weight:700; color:var(--ink); }
+  .pending-emergency-info .pe-num{ font-size:11px; color:var(--ink-soft); }
+  .pending-emergency-row.done .pe-nombre{ text-decoration:line-through; color:var(--ink-soft); }
+  .pending-emergency-row.done{ opacity:.72; }
 
   .pending-times{ margin-top:7px; padding:6px 9px; background:rgba(0,0,0,.025); border-radius:6px; }
   .pending-time-row{ display:flex; justify-content:space-between; gap:8px; font-size:10.5px; line-height:1.6; }
@@ -597,6 +623,7 @@ En revisión de documentos con Jaky"></textarea>
         <button id="btnProcess" class="btn-primary" type="button">Procesar y agregar</button>
         <span class="hint">Detecta automáticamente el estatus (Jaky · validación de documentos, Dani · Onbording, Pre alta · proceso finalizado) y extrae nombre, teléfono, proyecto y sucursal. Si el nombre ya existe en la tabla, actualiza su estatus en vez de duplicarlo.</span>
       </div>
+      <div id="recruiterAssignHost" style="display:none;"></div>
     </div>
   </details>
 
@@ -1305,6 +1332,7 @@ En revisión de documentos con Jaky"></textarea>
       pausaDesde: null,   // si tiene valor, el tiempo está detenido desde ese momento
       pausaMs: 0,         // tiempo acumulado en pausas (se descuenta del conteo)
       pausaMotivo: '',    // por qué se detuvo
+      emergencyContacts: [], // contactos de emergencia { nombre, numero, parentesco, contactado }
       // Historial de cambios de estatus, usado para calcular tiempo por etapa en Métricas.
       statusHistory: estatus ? [{ estatus, at: fecha }] : []
     };
@@ -1603,9 +1631,94 @@ En revisión de documentos con Jaky"></textarea>
       sucursal = split.sucursal;
     }
 
-    const notaExtra = extractExtraNotes(raw, ['NOMBRE','PROYECTO','SUCURSAL','TELEFONO','NUMERO']);
+    const emergencia = parseEmergencyContacts(raw);
+    // Quita la sección de emergencia del texto antes de sacar las notas generales,
+    // para que los nombres/números de los contactos no se cuelen en la nota.
+    const rawSinEmergencia = raw.replace(/(numeros?\s+de\s+emergencia|contactos?\s+de\s+emergencia|emergencia)[\s\S]*/i, '');
+    const notaExtra = extractExtraNotes(rawSinEmergencia, ['NOMBRE','PROYECTO','SUCURSAL','TELEFONO','NUMERO']);
 
-    return { nombre, telefono, proyecto, sucursal, estatus, notaExtra };
+    return { nombre, telefono, proyecto, sucursal, estatus, notaExtra, emergencia };
+  }
+
+  // Palabras de parentesco reconocidas (sin acentos, minúsculas) para separar nombre vs parentesco.
+  const PARENTESCOS = ['esposo','esposa','conyuge','pareja','hijo','hija','hermano','hermana',
+    'madre','padre','mama','papa','compadre','comadre','tio','tia','primo','prima','amigo','amiga',
+    'cuñado','cuñada','cunado','cunada','abuelo','abuela','novio','novia','sobrino','sobrina',
+    'nieto','nieta','suegro','suegra','yerno','nuera','vecino','vecina','conocido','conocida','jefe','tutor'];
+
+  function normParentesco(w){
+    return (w||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+
+  // Extrae los contactos de emergencia de un mensaje. Detecta la sección por la palabra
+  // clave EMERGENCIA y arma { nombre, numero, parentesco } por cada contacto. Soporta:
+  //  - Nombre y parentesco en una línea, número en la siguiente.
+  //  - Todo en una línea, con el número al inicio, en medio o al final.
+  function parseEmergencyContacts(raw){
+    const lines = raw.split('\n');
+    let idx = lines.findIndex(l => /emergencia/i.test(l));
+    if(idx === -1) return [];
+    // El bloque de emergencia es todo lo que sigue a la línea de la palabra clave.
+    let block = lines.slice(idx + 1);
+    // Corta si aparece otra sección claramente ajena (Usuario/Contraseña) después.
+    const stopIdx = block.findIndex(l => /^\s*(usuari|contrase|password|gracias|saludos)/i.test(l));
+    if(stopIdx !== -1) block = block.slice(0, stopIdx);
+
+    const phoneRe = /(\d[\d\s]{7,}\d)/; // 10 dígitos con espacios opcionales
+    const contacts = [];
+    let pendingWords = [];
+
+    const pushContact = (numero, words)=>{
+      const tokens = words.filter(Boolean);
+      let parentesco = '';
+      // Busca una palabra de parentesco conocida (normalmente la última).
+      for(let i = tokens.length - 1; i >= 0; i--){
+        if(PARENTESCOS.includes(normParentesco(tokens[i]))){ parentesco = tokens[i]; tokens.splice(i,1); break; }
+      }
+      if(!parentesco && tokens.length > 1){ parentesco = tokens[tokens.length-1]; tokens.pop(); }
+      const nombre = tokens.join(' ').trim();
+      if(numero || nombre){
+        contacts.push({ nombre, numero: (numero||'').replace(/\s+/g,''), parentesco: parentesco.trim(), contactado: false });
+      }
+    };
+
+    block.forEach(line=>{
+      const l = line.trim();
+      if(!l) return;
+      const m = l.match(phoneRe);
+      if(m){
+        const numero = m[1];
+        const rest = l.replace(m[1], ' ').replace(/\s+/g,' ').trim();
+        const words = (pendingWords.join(' ') + ' ' + rest).trim().split(/\s+/);
+        pushContact(numero, words);
+        pendingWords = [];
+      } else {
+        // Línea sólo con texto (nombre + parentesco): queda pendiente para el próximo número.
+        pendingWords = pendingWords.concat(l.split(/\s+/));
+      }
+    });
+    // Si quedaron palabras sin número, ignóralas (no es un contacto válido sin teléfono).
+    return contacts;
+  }
+
+  // Fusiona contactos de emergencia sin duplicar por número, conservando el "contactado"
+  // que ya se hubiera marcado en un contacto existente.
+  function mergeEmergencyContacts(existing, incoming){
+    const list = Array.isArray(existing) ? existing.slice() : [];
+    const byNum = new Map(list.map(c => [ (c.numero||'').replace(/\s+/g,''), c ]));
+    (incoming||[]).forEach(c=>{
+      const num = (c.numero||'').replace(/\s+/g,'');
+      if(num && byNum.has(num)){
+        const prev = byNum.get(num);
+        // Completa datos faltantes, pero respeta el estado de contactado ya marcado.
+        if(!prev.nombre && c.nombre) prev.nombre = c.nombre;
+        if(!prev.parentesco && c.parentesco) prev.parentesco = c.parentesco;
+      } else {
+        list.push(c);
+        if(num) byNum.set(num, c);
+      }
+    });
+    return list;
   }
 
   // Une un bloque sin "Nombre:" (saludo + palabra clave) con el siguiente bloque
@@ -1639,6 +1752,7 @@ En revisión de documentos con Jaky"></textarea>
     const blocks = groupMessageBlocks(rawBlocks);
 
     let added = 0, updated = 0;
+    const nuevosIds = []; // candidatos recién creados por este pegado (para asignarles reclutador)
     blocks.forEach(block=>{
       const parsed = parseBlock(block);
       if(!parsed.nombre) return;
@@ -1652,14 +1766,21 @@ En revisión de documentos con Jaky"></textarea>
         if(parsed.sucursal) existing.sucursal = parsed.sucursal;
         if(parsed.estatus) applyStatusChange(existing, parsed.estatus, '', 'texto pegado');
         existing.nota = mergeNotes(existing.nota, parsed.notaExtra);
+        if(parsed.emergencia && parsed.emergencia.length){
+          existing.emergencyContacts = mergeEmergencyContacts(existing.emergencyContacts, parsed.emergencia);
+        }
         // Lo mueve al final: la tabla queda ordenada por lo último que pegaste.
         drivers = drivers.filter(d => d.id !== existing.id);
         drivers.push(existing);
         updated++;
       } else {
         const newDriver = createDriverObject({ ...parsed, reclutador:'free', nota: parsed.notaExtra.join(' · ') });
+        if(parsed.emergencia && parsed.emergencia.length){
+          newDriver.emergencyContacts = parsed.emergencia;
+        }
         drivers.push(newDriver);
         logActivity(newDriver, 'Creado', 'Agregado por texto pegado', '');
+        nuevosIds.push(newDriver.id);
         added++;
       }
     });
@@ -1677,6 +1798,78 @@ En revisión de documentos con Jaky"></textarea>
     if(updated) parts.push(`${updated} actualizado${updated===1?'':'s'}`);
     textarea.value = '';
     toast(parts.join(' · '));
+
+    // Si se crearon candidatos nuevos, ofrece asignarles reclutador de inmediato.
+    if(nuevosIds.length) showRecruiterAssignPanel(nuevosIds);
+    else hideRecruiterAssignPanel();
+  }
+
+  // Panel que aparece justo debajo del botón "Procesar" para ponerle reclutador a los
+  // candidatos recién pegados, sin tener que buscarlos en la tabla.
+  function showRecruiterAssignPanel(ids){
+    const host = document.getElementById('recruiterAssignHost');
+    if(!host) return;
+    host.innerHTML = '';
+    const nuevos = ids.map(id => drivers.find(d=>d.id===id)).filter(Boolean);
+    if(nuevos.length === 0){ host.style.display='none'; return; }
+    host.style.display = 'block';
+
+    const box = document.createElement('div');
+    box.className = 'assign-box';
+
+    const head = document.createElement('div');
+    head.className = 'assign-head';
+    head.innerHTML = `<span>👤 Asignar reclutador a ${nuevos.length} candidato${nuevos.length===1?'':'s'} nuevo${nuevos.length===1?'':'s'}</span>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.type='button'; closeBtn.className='assign-close'; closeBtn.textContent='✕'; closeBtn.title='Cerrar';
+    closeBtn.addEventListener('click', hideRecruiterAssignPanel);
+    head.appendChild(closeBtn);
+    box.appendChild(head);
+
+    // Asignar a TODOS de una vez
+    const allRow = document.createElement('div');
+    allRow.className = 'assign-all';
+    const allLabel = document.createElement('span');
+    allLabel.textContent = 'A todos:';
+    const allSel = document.createElement('select');
+    allSel.className = 'assign-select';
+    const optHint = document.createElement('option'); optHint.value=''; optHint.textContent='Elegir…'; allSel.appendChild(optHint);
+    RECRUITERS.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; allSel.appendChild(o); });
+    allSel.addEventListener('change', ()=>{
+      if(!allSel.value) return;
+      nuevos.forEach(d=>{ d.reclutador = allSel.value; });
+      saveData(); render();
+      // refresca los selects individuales
+      host.querySelectorAll('.assign-row select').forEach(s=>{ s.value = allSel.value; });
+      toast(`${nuevos.length} asignado${nuevos.length===1?'':'s'} a ${allSel.value}`);
+    });
+    allRow.appendChild(allLabel); allRow.appendChild(allSel);
+    box.appendChild(allRow);
+
+    // Lista individual (por si cada uno lleva reclutador distinto)
+    const list = document.createElement('div');
+    list.className = 'assign-list';
+    nuevos.forEach(d=>{
+      const row = document.createElement('div');
+      row.className = 'assign-row';
+      const name = document.createElement('span');
+      name.className = 'assign-name';
+      name.textContent = d.nombre + (d.proyecto ? ` · ${d.proyecto}` : '');
+      const sel = document.createElement('select');
+      RECRUITERS.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; if(r===d.reclutador) o.selected=true; sel.appendChild(o); });
+      sel.addEventListener('change', ()=>{ d.reclutador = sel.value; saveData(); render(); });
+      row.appendChild(name); row.appendChild(sel);
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+
+    host.appendChild(box);
+    host.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  function hideRecruiterAssignPanel(){
+    const host = document.getElementById('recruiterAssignHost');
+    if(host){ host.innerHTML=''; host.style.display='none'; }
   }
 
   /* ---------- filters ---------- */
@@ -2479,6 +2672,42 @@ En revisión de documentos con Jaky"></textarea>
       saveData();
     });
     card.appendChild(noteInput);
+
+    // Contactos de emergencia con casilla "contactado" (si el candidato los tiene).
+    if(Array.isArray(d.emergencyContacts) && d.emergencyContacts.length){
+      const emBox = document.createElement('div');
+      emBox.className = 'pending-emergency';
+      const emTitle = document.createElement('div');
+      emTitle.className = 'pending-emergency-title';
+      emTitle.textContent = '🚨 Contactos de emergencia';
+      emBox.appendChild(emTitle);
+      d.emergencyContacts.forEach((c, i)=>{
+        const row = document.createElement('label');
+        row.className = 'pending-emergency-row' + (c.contactado ? ' done' : '');
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = !!c.contactado;
+        chk.title = 'Marcar si ya se contactó';
+        chk.addEventListener('click', (e)=> e.stopPropagation());
+        chk.addEventListener('change', ()=>{
+          c.contactado = chk.checked;
+          row.classList.toggle('done', chk.checked);
+          saveData();
+        });
+        const info = document.createElement('span');
+        info.className = 'pending-emergency-info';
+        const linea1 = document.createElement('span');
+        linea1.className = 'pe-nombre';
+        linea1.textContent = (c.nombre || '(sin nombre)') + (c.parentesco ? ` · ${c.parentesco}` : '');
+        const linea2 = document.createElement('span');
+        linea2.className = 'pe-num mono';
+        linea2.textContent = c.numero || 'sin número';
+        info.appendChild(linea1); info.appendChild(linea2);
+        row.appendChild(chk); row.appendChild(info);
+        emBox.appendChild(row);
+      });
+      card.appendChild(emBox);
+    }
 
     // Mover de estatus / descartar / carga realizada / baja, directo desde la tarjeta
     // (usa las mismas funciones y avisos de nota que la tabla principal).
@@ -3283,6 +3512,8 @@ En revisión de documentos con Jaky"></textarea>
 
   /* ---------- bitácora de movimientos ---------- */
   let logSearchTerm = '';
+  let logDesde = '';   // ISO local del datetime-local "Desde"
+  let logHasta = '';   // ISO local del datetime-local "Hasta"
 
   function logActionClass(action){
     const map = {
@@ -3295,14 +3526,23 @@ En revisión de documentos con Jaky"></textarea>
 
   function getFilteredLog(){
     const term = (logSearchTerm || '').trim().toLowerCase();
-    if(!term) return activityLog;
-    return activityLog.filter(e=>
-      (e.driverName || '').toLowerCase().includes(term) ||
-      (e.nota || '').toLowerCase().includes(term) ||
-      (e.reclutador || '').toLowerCase().includes(term) ||
-      (e.action || '').toLowerCase().includes(term) ||
-      (e.detail || '').toLowerCase().includes(term)
-    );
+    const desdeMs = logDesde ? new Date(logDesde).getTime() : null;
+    const hastaMs = logHasta ? new Date(logHasta).getTime() : null;
+    return activityLog.filter(e=>{
+      // Rango de fecha/hora
+      if(desdeMs !== null || hastaMs !== null){
+        const t = new Date(e.at).getTime();
+        if(desdeMs !== null && t < desdeMs) return false;
+        if(hastaMs !== null && t > hastaMs) return false;
+      }
+      // Texto de búsqueda
+      if(!term) return true;
+      return (e.driverName || '').toLowerCase().includes(term) ||
+        (e.nota || '').toLowerCase().includes(term) ||
+        (e.reclutador || '').toLowerCase().includes(term) ||
+        (e.action || '').toLowerCase().includes(term) ||
+        (e.detail || '').toLowerCase().includes(term);
+    });
   }
 
   function renderLogTable(){
@@ -3316,7 +3556,12 @@ En revisión de documentos con Jaky"></textarea>
 
     const title = document.createElement('h3');
     title.className = 'metrics-section-title';
-    title.textContent = `${list.length} movimiento${list.length===1?'':'s'} registrado${list.length===1?'':'s'}`;
+    let rangoTxt = '';
+    if(logDesde || logHasta){
+      const fmt = (v)=> v ? formatDateTime(new Date(v).toISOString()) : '…';
+      rangoTxt = ` · ${fmt(logDesde)} → ${fmt(logHasta)}`;
+    }
+    title.textContent = `${list.length} movimiento${list.length===1?'':'s'}${rangoTxt}`;
     card.appendChild(title);
 
     if(list.length === 0){
@@ -3923,11 +4168,62 @@ En revisión de documentos con Jaky"></textarea>
     const btnExport = document.createElement('button');
     btnExport.type = 'button';
     btnExport.className = 'btn-secondary';
-    btnExport.textContent = '⇩ Exportar CSV (bitácora completa)';
+    btnExport.textContent = '⇩ Exportar CSV (rango elegido)';
     btnExport.addEventListener('click', exportLogCSV);
     toolbar.appendChild(search);
     toolbar.appendChild(btnExport);
     wrap.appendChild(toolbar);
+
+    // Fila de filtros por fecha/hora, con atajos rápidos.
+    const dateBar = document.createElement('div');
+    dateBar.className = 'log-datebar';
+
+    const mkField = (labelText, value, onChange)=>{
+      const lab = document.createElement('label');
+      lab.className = 'log-date-field';
+      const span = document.createElement('span'); span.textContent = labelText;
+      const inp = document.createElement('input');
+      inp.type = 'datetime-local';
+      inp.value = value || '';
+      inp.addEventListener('change', ()=> onChange(inp.value));
+      lab.appendChild(span); lab.appendChild(inp);
+      return lab;
+    };
+
+    dateBar.appendChild(mkField('Desde', logDesde, (v)=>{ logDesde = v; renderLogTable(); }));
+    dateBar.appendChild(mkField('Hasta', logHasta, (v)=>{ logHasta = v; renderLogTable(); }));
+
+    // Atajos rápidos
+    const presets = document.createElement('div');
+    presets.className = 'log-presets';
+    const addPreset = (txt, fn)=>{
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn-ghost log-preset-btn'; btn.textContent = txt;
+      btn.addEventListener('click', ()=>{ fn(); renderLog(); });
+      presets.appendChild(btn);
+    };
+    // formatea una fecha a value de datetime-local (hora local)
+    const toLocalInput = (dt)=>{
+      const p = (n)=> String(n).padStart(2,'0');
+      return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
+    };
+    addPreset('Hoy', ()=>{
+      const d = new Date(); d.setHours(0,0,0,0);
+      logDesde = toLocalInput(d); logHasta = '';
+    });
+    addPreset('Ayer', ()=>{
+      const ini = new Date(); ini.setDate(ini.getDate()-1); ini.setHours(0,0,0,0);
+      const fin = new Date(); fin.setDate(fin.getDate()-1); fin.setHours(23,59,0,0);
+      logDesde = toLocalInput(ini); logHasta = toLocalInput(fin);
+    });
+    addPreset('Últimos 7 días', ()=>{
+      const d = new Date(); d.setDate(d.getDate()-7);
+      logDesde = toLocalInput(d); logHasta = '';
+    });
+    addPreset('Todo', ()=>{ logDesde = ''; logHasta = ''; });
+    dateBar.appendChild(presets);
+
+    wrap.appendChild(dateBar);
 
     const holder = document.createElement('div');
     holder.id = 'logTableHolder';
@@ -3938,7 +4234,7 @@ En revisión de documentos con Jaky"></textarea>
 
   function exportLogCSV(){
     const list = getFilteredLog();
-    if(list.length === 0){ toast('No hay movimientos para exportar'); return; }
+    if(list.length === 0){ toast('No hay movimientos en el rango elegido para exportar'); return; }
     const headers = ['Fecha y hora','Chofer','Acción','Detalle','Nota','Reclutador'];
     const csvRows = [headers.join(',')];
     list.forEach(e=>{
